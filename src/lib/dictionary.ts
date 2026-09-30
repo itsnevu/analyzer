@@ -272,9 +272,9 @@ export const DICT: Record<Lang, Record<string, string>> = {
     "report.intro":
       "Help improve the system. Send the text/link you doubt, or correct a detection result you think is wrong.",
     "report.after": "What happens after you report?",
-    "report.step1": "The report enters the verification queue.",
-    "report.step2": "The team checks it against references.",
-    "report.step3": "The system is updated once confirmed.",
+    "report.step1": "You get a report number right away.",
+    "report.step2": "The admin checks it against published fact-checks.",
+    "report.step3": "Confirmed hoaxes are added to the archive, so the detector recognizes them next time.",
     "report.general": "For general questions, use the",
 
     "contact.eyebrow": "Contact Us",

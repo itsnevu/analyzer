@@ -24,7 +24,7 @@ const EMPTY: Draft = {
   slug: "", title: "", lang: "id", category: "Misinformation", verdict: "misleading",
   date: new Date().toISOString().slice(0, 10),
   summaryId: "", summaryEn: "", source: "", narration: "", explanation: "", reference: "",
-  image: IMAGE_OPTIONS[0], originalUrl: "", published: true,
+  image: "", originalUrl: "", published: true,
 };
 
 export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" | "edit" }) {
@@ -35,6 +35,26 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function upload(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const res = await fetch("/api/admin/uploads", { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Upload failed.");
+      set("image", json.url);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function set<K extends keyof Draft>(k: K, v: Draft[K]) {
     setD((prev) => {
@@ -127,17 +147,31 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
           </label>
         </div>
 
-        <label className="block">
+        <div>
           <span className={labelCls}>Cover image</span>
-          <input list="img-opts" value={d.image} onChange={(e) => set("image", e.target.value)} className={clsx(field, "font-mono text-xs")} />
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              list="img-opts"
+              value={d.image}
+              onChange={(e) => set("image", e.target.value)}
+              placeholder="Empty = a plain cover in the verdict's colour"
+              aria-label="Cover image URL"
+              className={clsx(field, "font-mono text-xs")}
+            />
+            <label className={clsx("neu-btn shrink-0 cursor-pointer px-4 py-2.5 text-center text-sm", uploading && "pointer-events-none opacity-50")}>
+              {uploading ? "Uploading…" : "Upload image"}
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="sr-only" onChange={(e) => void upload(e.target.files?.[0])} />
+            </label>
+          </div>
           <datalist id="img-opts">
             {IMAGE_OPTIONS.map((o) => <option key={o} value={o} />)}
           </datalist>
+          {uploadError && <p className="mt-1 text-xs text-verdict-hoax">{uploadError}</p>}
           {d.image && (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img src={d.image} alt="" className="mt-2 aspect-[16/9] w-full max-w-xs rounded-lg border border-hairline object-cover" />
           )}
-        </label>
+        </div>
       </div>
 
       <div className="neu space-y-4 p-6">

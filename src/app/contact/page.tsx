@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ContactForm } from "@/components/forms/ContactForm";
 import { useI18n } from "@/lib/i18n";
@@ -12,7 +13,7 @@ export default function ContactPage() {
       <section className="container-page pb-8">
         <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-[1fr_1.4fr]">
           <div className="space-y-4">
-            <div className="neu overflow-hidden p-0">
+            <div className="neu hidden overflow-hidden p-0 md:block">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/pages/connect.jpg?v=2" alt="" className="aspect-[16/10] w-full object-cover" />
             </div>
@@ -29,8 +30,15 @@ export default function ContactPage() {
               <div className="eyebrow">{t("contact.researchLabel")}</div>
               <p className="mt-3 text-sm text-ink-muted">{t("contact.researchBody")}</p>
             </div>
+            <div className="neu-inset p-6 text-sm text-ink-muted">
+              Want to report a hoax or a wrong result? Use the{" "}
+              <Link href="/report" className="text-brand-to hover:underline">
+                report form
+              </Link>
+              ; it gives you a report number.
+            </div>
           </div>
-          <ContactForm variant="contact" />
+          <ContactForm />
         </div>
       </section>
     </>

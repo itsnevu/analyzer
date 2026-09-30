@@ -1,25 +1,25 @@
 /**
- * Hoax detection, integration seam.
+ * Hoax detection: the seam between the site and the trained model.
  *
- * ┌─────────────────────────────────────────────────────────────────────┐
- * │  WIRING THE REAL RAG FUSION BACKEND                                   │
- * │                                                                       │
- * │  The legacy detector at ?page_id=6432 posted text to an internal      │
- * │  endpoint under /adminpanel. The current research build is the RAG    │
- * │  Fusion app: https://rag-fusion.streamlit.app/                        │
- * │                                                                       │
- * │  NOTE: Streamlit Community Cloud does NOT expose a JSON/REST API, it  │
- * │  talks to its own frontend over a websocket. So you cannot `fetch()`  │
- * │  it as an API. To make "connect to RAG Fusion" real, do ONE of:       │
- * │                                                                       │
- * │   1. Add a FastAPI/Flask endpoint in front of the same RAG pipeline   │
- * │      and set RAG_FUSION_API_URL in .env.local, or                     │
- * │   2. Re-expose the model via any HTTP endpoint that accepts           │
- * │      { text, lang } and returns the RagResult shape below.            │
- * │                                                                       │
- * │  Then replace the body of `runDetection` with a fetch to that URL.    │
- * │  The UI already renders whatever this returns.                        │
- * └─────────────────────────────────────────────────────────────────────┘
+ * Model contract (any HTTP service, e.g. FastAPI in front of the RAG Fusion
+ * pipeline; set RAG_FUSION_API_URL):
+ *
+ *   POST <RAG_FUSION_API_URL>   Content-Type: application/json
+ *   Authorization: Bearer <RAG_FUSION_API_KEY>        (only when that is set)
+ *   body     { "text": string, "lang": "id" | "en" }
+ *   response {
+ *     "verdict": "hoax" | "misleading" | "valid",     required
+ *     "hoaxProbability": 0..1,                        required
+ *     "confidence"?: 0..1, "category"?: string, "explanation"?: string,
+ *     "references"?: [{ "title", "source", "url"?, "snippet"? }],
+ *     "signals"?: [{ "label", "kind": "risk" | "trust" }],
+ *     "model"?: string, "language"?: "id" | "en"
+ *   }
+ *
+ * The response is validated; a model that is down, slow (RAG_FUSION_TIMEOUT_MS,
+ * default 15 s) or answers out of contract never breaks the page: the site
+ * falls back to demo mode and says why. Streamlit apps (rag-fusion.streamlit.app)
+ * do not expose such an API and need a small HTTP wrapper.
  */
 
 import { detectLanguage, type Lang } from "./language";
@@ -56,42 +56,97 @@ export interface DetectionResult {
   model: string;
   /** true when produced by the local stub, false when a real backend answered */
   simulated: boolean;
+  /** set when a model is configured but could not be used, so demo mode answered instead */
+  fallbackReason?: string;
   /** fact-checks from our own archive about the same claim; added by the API, not the model */
   related?: ArticleListItem[];
+  /** the page that was read, when the input was a link */
+  source?: { url: string; title: string };
 }
 
-const RAG_API = process.env.RAG_FUSION_API_URL;
+const VERDICTS: Verdict[] = ["hoax", "misleading", "valid"];
+
+const clamp01 = (n: unknown, fallback: number) => {
+  const x = typeof n === "number" ? n : typeof n === "string" ? Number(n) : NaN;
+  return Number.isFinite(x) ? Math.min(1, Math.max(0, x > 1 && x <= 100 ? x / 100 : x)) : fallback;
+};
+const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+const httpUrl = (v: unknown) => {
+  const u = str(v, 2000);
+  return /^https?:\/\//i.test(u) ? u : undefined;
+};
+
+/** Checks a model response against the contract; returns null when it is unusable. */
+export function parseModelResponse(data: unknown, lang: Lang, langConf: number): DetectionResult | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+  const verdict = String(d.verdict ?? "").toLowerCase() as Verdict;
+  if (!VERDICTS.includes(verdict)) return null;
+  const hoaxProbability = clamp01(d.hoaxProbability, NaN);
+  if (Number.isNaN(hoaxProbability)) return null;
+  const references = (Array.isArray(d.references) ? d.references : [])
+    .filter((r): r is Record<string, unknown> => !!r && typeof r === "object")
+    .map((r) => ({ title: str(r.title, 300), source: str(r.source, 200), url: httpUrl(r.url), snippet: str(r.snippet, 600) || undefined }))
+    .filter((r) => r.title)
+    .slice(0, 10);
+  const signals = (Array.isArray(d.signals) ? d.signals : [])
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
+    .map((x) => ({ label: str(x.label, 120), kind: x.kind === "trust" ? ("trust" as const) : ("risk" as const) }))
+    .filter((x) => x.label)
+    .slice(0, 20);
+  return {
+    verdict,
+    hoaxProbability,
+    confidence: clamp01(d.confidence, 0.6),
+    language: d.language === "en" || d.language === "id" ? d.language : lang,
+    languageConfidence: clamp01(d.languageConfidence, langConf),
+    category: str(d.category, 80) || (verdict === "hoax" ? "Hoax" : verdict === "misleading" ? "Misleading" : "Credible"),
+    explanation: str(d.explanation, 4000),
+    references,
+    signals,
+    model: str(d.model, 80) || "rag-fusion",
+    simulated: false,
+  };
+}
+
+async function askModel(url: string, text: string, lang: Lang, langConf: number): Promise<DetectionResult> {
+  const timeout = Number(process.env.RAG_FUSION_TIMEOUT_MS) || 15_000;
+  const headers: Record<string, string> = { "Content-Type": "application/json", Accept: "application/json" };
+  if (process.env.RAG_FUSION_API_KEY) headers.Authorization = `Bearer ${process.env.RAG_FUSION_API_KEY}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ text, lang }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(timeout),
+  });
+  if (!res.ok) throw new Error(`the model answered HTTP ${res.status}`);
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error("the model did not answer with JSON");
+  }
+  const parsed = parseModelResponse(data, lang, langConf);
+  if (!parsed) throw new Error("the model's answer did not match the expected format");
+  return parsed;
+}
 
 export async function runDetection(rawText: string): Promise<DetectionResult> {
   const text = rawText.trim();
   const { lang, confidence: langConf } = detectLanguage(text);
 
-  // ---- Real backend path (enabled once RAG_FUSION_API_URL is set) --------
-  if (RAG_API) {
-    const res = await fetch(RAG_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, lang }),
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`RAG backend error: ${res.status}`);
-    const data = (await res.json()) as Partial<DetectionResult>;
-    return {
-      verdict: data.verdict ?? "misleading",
-      confidence: data.confidence ?? 0.6,
-      hoaxProbability: data.hoaxProbability ?? 0.5,
-      language: data.language ?? lang,
-      languageConfidence: data.languageConfidence ?? langConf,
-      category: data.category ?? "Uncategorized",
-      explanation: data.explanation ?? "",
-      references: data.references ?? [],
-      signals: data.signals ?? [],
-      model: data.model ?? "rag-fusion",
-      simulated: false,
-    };
+  const url = process.env.RAG_FUSION_API_URL;
+  if (url) {
+    try {
+      return await askModel(url, text, lang, langConf);
+    } catch (err) {
+      const reason = err instanceof Error && err.name === "TimeoutError" ? "the model took too long to answer" : err instanceof Error ? err.message : "the model could not be reached";
+      console.error("[detect] model unavailable, using demo mode:", reason);
+      return { ...simulateDetection(text, lang, langConf), fallbackReason: reason };
+    }
   }
 
-  // ---- Local stub (transparent heuristic, clearly flagged) ---------------
   return simulateDetection(text, lang, langConf);
 }
 

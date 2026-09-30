@@ -10,7 +10,7 @@ import { DatabaseSync } from "node:sqlite";
 const DB_FILE = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "hoax.db");
 
 /** Bump when migrate() changes, so a hot-reloaded dev server re-runs it on the open connection. */
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 // Reuse one connection across dev hot reloads.
 const globalForDb = globalThis as unknown as {
@@ -78,15 +78,29 @@ function migrate(db: DatabaseSync): void {
   `);
 
   // Columns added after the first release.
-  const columns = new Set(db.prepare("PRAGMA table_info(articles)").all().map((c) => String(c.name)));
-  const addColumn = (name: string, ddl: string) => {
-    if (!columns.has(name)) db.exec(`ALTER TABLE articles ADD COLUMN ${name} ${ddl}`);
+  const columnAdder = (table: string) => {
+    const columns = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((c) => String(c.name)));
+    return (name: string, ddl: string) => {
+      if (!columns.has(name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${ddl}`);
+    };
   };
+  const addColumn = columnAdder("articles");
   addColumn("published", "INTEGER NOT NULL DEFAULT 1"); // 0 = hidden from the public site
   addColumn("sourceSite", "TEXT NOT NULL DEFAULT ''"); // publisher of an imported fact-check
   addColumn("label", "TEXT NOT NULL DEFAULT ''"); // class label carried over from the legacy dataset
   addColumn("legacyId", "INTEGER"); // post id on the legacy WordPress site
   addColumn("datasetId", "INTEGER"); // row id in the legacy detector's labeled dataset
+  addColumn("archiveUrl", "TEXT NOT NULL DEFAULT ''"); // Wayback Machine copy the text was recovered from
+
+  const addReportColumn = columnAdder("reports");
+  addReportColumn("kind", "TEXT NOT NULL DEFAULT 'contact'"); // 'contact' message or hoax 'report'
+  addReportColumn("reportType", "TEXT NOT NULL DEFAULT ''"); // 'hoax' | 'wrong-result' | 'correction'
+  addReportColumn("platform", "TEXT NOT NULL DEFAULT ''"); // where the reporter saw it
+  addReportColumn("content", "TEXT NOT NULL DEFAULT ''"); // the reported text or link
+  addReportColumn("detectedVerdict", "TEXT NOT NULL DEFAULT ''"); // detector verdict, for wrong-result reports
+  addReportColumn("attachment", "TEXT NOT NULL DEFAULT ''"); // screenshot file name in data/uploads/reports
+  addReportColumn("status", "TEXT NOT NULL DEFAULT 'new'"); // 'new' | 'in-progress' | 'done'
+  addReportColumn("readAt", "TEXT"); // when an admin opened it
 
   db.exec(`
     DROP INDEX IF EXISTS idx_articles_date;

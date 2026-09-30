@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { REPORT_DRAFT_KEY, type ReportDraft } from "@/lib/report-labels";
 import type { DetectionResult } from "@/lib/detect";
 import { VERDICT_META } from "@/lib/verdict";
 import { LANG_LABEL } from "@/lib/language";
@@ -33,12 +35,23 @@ function Gauge({ value, color }: { value: number; color: string }) {
   );
 }
 
-export function ResultCard({ result }: { result: DetectionResult }) {
+export function ResultCard({ result, text }: { result: DetectionResult; text: string }) {
   const { t } = useI18n();
+  const router = useRouter();
   const m = VERDICT_META[result.verdict];
   const pct = Math.round(result.hoaxProbability * 100);
   const related = result.related ?? [];
   const top = related[0];
+
+  function reportWrong() {
+    const draft: ReportDraft = { reportType: "wrong-result", content: text, detectedVerdict: `${m.labelEn} (${pct}% hoax)` };
+    try {
+      sessionStorage.setItem(REPORT_DRAFT_KEY, JSON.stringify(draft));
+    } catch {
+      /* storage unavailable; the form opens empty */
+    }
+    router.push("/report");
+  }
 
   const shareText = top
     ? `This looks like a known claim. ${VERDICT_META[top.verdict].labelEn}: ${top.title}`
@@ -127,7 +140,10 @@ export function ResultCard({ result }: { result: DetectionResult }) {
 
           {result.simulated && (
             <div className="mt-5 rounded-xl border border-verdict-warn/30 bg-verdict-warn/10 px-4 py-3 text-xs leading-relaxed text-ink-muted">
-              <strong className="text-verdict-warn">{t("res.demoTag")}</strong> {t("res.demoNote")}
+              <strong className="text-verdict-warn">{t("res.demoTag")}</strong>{" "}
+              {result.fallbackReason
+                ? `The detection model is unavailable right now (${result.fallbackReason}), so this verdict comes from matching the fact-check archive and a simple keyword heuristic.`
+                : t("res.demoNote")}
             </div>
           )}
         </div>
@@ -161,6 +177,9 @@ export function ResultCard({ result }: { result: DetectionResult }) {
           </Link>
         </span>
         <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={reportWrong} className="neu-btn px-3 py-1.5 text-xs font-medium text-verdict-hoax">
+            This result is wrong
+          </button>
           <ShareBar text={shareText} url={top ? `/blog/${top.slug}` : "/detector"} label="Share" />
           <CopyButton
             text={

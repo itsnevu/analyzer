@@ -28,7 +28,6 @@ export async function POST(req: Request) {
   }
   const article = normalizeArticle(body);
   if (!article) return NextResponse.json({ error: "Title is required." }, { status: 422 });
-  if (!article.image) article.image = "/articles/clouds.jpg?v=2";
 
   if (await getArticleBySlug(article.slug, true)) {
     return NextResponse.json({ error: `Slug "${article.slug}" is already in use.` }, { status: 409 });

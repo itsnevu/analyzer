@@ -41,6 +41,7 @@ export function DetectorPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<DetectionResult | null>(null);
+  const [analyzed, setAnalyzed] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [mac, setMac] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -114,6 +115,7 @@ export function DetectorPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error.");
       setResult(data as DetectionResult);
+      setAnalyzed(input);
       saveHistory(input, data as DetectionResult);
       // On a phone the result renders below the fold; bring it into view.
       requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -230,7 +232,7 @@ export function DetectorPanel() {
 
       {/* Result */}
       <div ref={resultRef} className="scroll-mt-24">
-        {result && <ResultCard result={result} />}
+        {result && <ResultCard result={result} text={analyzed} />}
       </div>
 
       {/* Recent checks (per-browser history) */}

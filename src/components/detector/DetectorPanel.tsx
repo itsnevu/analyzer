@@ -6,6 +6,7 @@ import { detectLanguage, LANG_LABEL } from "@/lib/language";
 import { VERDICT_META } from "@/lib/verdict";
 import { useI18n } from "@/lib/i18n";
 import { takePendingText } from "@/lib/pending";
+import { isImage, readImageText } from "@/lib/ocr";
 import { ResultCard } from "./ResultCard";
 import { clsx } from "@/lib/clsx";
 
@@ -44,7 +45,11 @@ export function DetectorPanel() {
   const [analyzed, setAnalyzed] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [mac, setMac] = useState(false);
+  const [ocr, setOcr] = useState<{ progress: number; status: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // History is a per-browser convenience only.
@@ -70,7 +75,8 @@ export function DetectorPanel() {
   }, [text]);
 
   const chars = text.length;
-  const missing = Math.max(0, MIN_CHARS - text.trim().length);
+  const isLink = /^https?:\/\/\S+$/i.test(text.trim());
+  const missing = isLink ? 0 : Math.max(0, MIN_CHARS - text.trim().length);
   const canSubmit = missing === 0 && !loading;
 
   function saveHistory(txt: string, r: DetectionResult) {
@@ -101,10 +107,36 @@ export function DetectorPanel() {
     }
   }
 
+  /** Reads a screenshot on this device and puts its text in the box. */
+  async function readScreenshot(file: File) {
+    setError(null);
+    setNotice(null);
+    setOcr({ progress: 0, status: "loading" });
+    try {
+      const found = await readImageText(file, (progress, status) => setOcr({ progress, status }));
+      if (found.replace(/\s+/g, "").length < 10) throw new Error("No readable text was found in that image.");
+      setText((prev) => (prev.trim() ? `${prev.trim()}\n\n${found}` : found));
+      setNotice("Text read from your screenshot. Check it for reading mistakes, then press Analyze.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The screenshot could not be read.");
+    } finally {
+      setOcr(null);
+    }
+  }
+
+  function takeImage(files: FileList | null | undefined): boolean {
+    const file = files ? Array.from(files).find((f) => isImage(f)) : undefined;
+    if (!file) return false;
+    void readScreenshot(file);
+    return true;
+  }
+
   async function analyze(input = text) {
-    if (input.trim().length < MIN_CHARS || loading) return;
+    const single = /^https?:\/\/\S+$/i.test(input.trim());
+    if ((!single && input.trim().length < MIN_CHARS) || loading || ocr) return;
     setLoading(true);
     setError(null);
+    setNotice(null);
     setResult(null);
     try {
       const res = await fetch("/api/detect", {
@@ -145,10 +177,26 @@ export function DetectorPanel() {
           </div>
         </div>
 
-        <div className="neu-inset p-1">
+        <div
+          className={clsx("neu-inset relative p-1 transition-colors", dragging && "ring-2 ring-brand/40")}
+          onDragOver={(e) => {
+            if (Array.from(e.dataTransfer.items).some((i) => i.type.startsWith("image/"))) {
+              e.preventDefault();
+              setDragging(true);
+            }
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            setDragging(false);
+            if (takeImage(e.dataTransfer.files)) e.preventDefault();
+          }}
+        >
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
+            onPaste={(e) => {
+              if (takeImage(e.clipboardData.files)) e.preventDefault();
+            }}
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
                 e.preventDefault();
@@ -160,10 +208,43 @@ export function DetectorPanel() {
             maxLength={20000}
             className="w-full resize-none rounded-xl bg-transparent p-4 text-sm leading-relaxed text-ink outline-none placeholder:text-ink-faint"
           />
+          {ocr && (
+            <div className="absolute inset-1 grid place-items-center rounded-xl bg-surface-sunken/95 text-center">
+              <div className="w-56">
+                <div className="text-sm font-medium text-ink">Reading your screenshot…</div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-hairline">
+                  <div className="h-full bg-brand transition-all" style={{ width: `${Math.round((ocr.status === "recognizing text" ? 0.3 + ocr.progress * 0.7 : ocr.progress * 0.3) * 100)}%` }} />
+                </div>
+                <div className="mt-2 text-xs text-ink-faint">The first time downloads about 4 MB of language data.</div>
+              </div>
+            </div>
+          )}
         </div>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+          className="sr-only"
+          onChange={(e) => {
+            takeImage(e.target.files);
+            e.target.value = "";
+          }}
+        />
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={Boolean(ocr)}
+              className="neu-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-ink"
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <circle cx="9" cy="11" r="2" />
+                <path d="m21 17-5-5-8 7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Read a screenshot
+            </button>
             {SAMPLES.map((s) => (
               <button
                 key={s.labelKey}
@@ -210,15 +291,23 @@ export function DetectorPanel() {
           )}
         </button>
         <p id="detector-hint" className={clsx("mt-2 text-center text-xs", chars > 0 && missing > 0 ? "text-verdict-warn" : "text-ink-faint")}>
-          {chars > 0 && missing > 0
-            ? `Add ${missing} more ${missing === 1 ? "character" : "characters"} to analyze.`
-            : chars === 0
-              ? `Paste at least ${MIN_CHARS} characters.`
-              : `Tip: press ${mac ? "⌘" : "Ctrl"} + Enter to analyze.`}
+          {isLink
+            ? "Link detected: we will read the page and check its text."
+            : chars > 0 && missing > 0
+              ? `Add ${missing} more ${missing === 1 ? "character" : "characters"} to analyze.`
+              : chars === 0
+                ? `Paste at least ${MIN_CHARS} characters, a link, or a screenshot.`
+                : `Tip: press ${mac ? "⌘" : "Ctrl"} + Enter to analyze.`}
         </p>
         <p className="mt-1 text-center text-xs text-ink-faint">
           Checked text is saved with its verdict, without your IP address, to improve the detector. Don&apos;t paste private information.
         </p>
+
+        {notice && (
+          <p role="status" className="mt-4 rounded-xl border border-verdict-valid/30 bg-verdict-valid/10 px-4 py-3 text-sm text-ink">
+            {notice}
+          </p>
+        )}
 
         {error && (
           <p className="mt-4 rounded-xl border border-verdict-hoax/30 bg-verdict-hoax/10 px-4 py-3 text-sm text-verdict-hoax">

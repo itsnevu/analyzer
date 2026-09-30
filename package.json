@@ -12,7 +12,10 @@
     "import:panel": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-legacy-panel.ts",
     "fetch:archived": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/fetch-archived.ts",
     "apply:archived": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/apply-archived.ts",
-    "setup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/setup-env.ts"
+    "setup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/setup-env.ts",
+    "prepare:ocr": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/prepare-ocr.ts",
+    "predev": "npm run -s prepare:ocr",
+    "prebuild": "npm run -s prepare:ocr"
   },
   "dependencies": {
     "geist": "^1.7.2",
@@ -20,7 +23,8 @@
     "nodemailer": "^10.0.13",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "sharp": "^0.35.5"
+    "sharp": "^0.35.5",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

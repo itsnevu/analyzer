@@ -4,6 +4,7 @@ import { findSimilarArticles, type ArticleListItem } from "@/lib/articles";
 import { VERDICT_META } from "@/lib/verdict";
 import { recordSearch } from "@/lib/searches";
 import { clientIp, take, tooMany } from "@/lib/rate-limit";
+import { asSingleUrl, PageError, readPage } from "@/lib/fetch-page";
 
 export const runtime = "nodejs";
 
@@ -47,7 +48,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const text = (body.text ?? "").toString();
+  const input = (body.text ?? "").toString();
+  let text = input;
+  let source: { url: string; title: string } | undefined;
+
+  // A pasted link: read the page and check its text instead.
+  const link = asSingleUrl(input);
+  if (link) {
+    const limited = take(`detect-link:${ip}`, 10, 60_000);
+    if (!limited.ok) return tooMany("Too many links in a short time. Please wait a moment.", limited.retryAfter);
+    try {
+      const page = await readPage(link);
+      text = page.text;
+      source = { url: page.url, title: page.title };
+    } catch (err) {
+      const message = err instanceof PageError ? err.message : "The page could not be read.";
+      return NextResponse.json({ error: `${message} You can paste the text of the message instead.` }, { status: 422 });
+    }
+  }
+
   if (text.trim().length < 15) {
     return NextResponse.json(
       { error: "Text is too short. Enter at least 15 characters to analyze." },
@@ -65,7 +84,8 @@ export async function POST(req: Request) {
     // The archive lookup does not depend on the model, so a slow or failing lookup never hides the verdict.
     const [result, related] = await Promise.all([
       runDetection(text),
-      findSimilarArticles(text, 4).catch((err) => {
+      // A web page carries menus and comments; its title and opening say what the claim is.
+      findSimilarArticles(source ? `${source.title}\n${text.slice(0, 1000)}` : text, 4).catch((err) => {
         console.error("[detect] archive lookup failed:", err);
         return [];
       }),
@@ -73,11 +93,11 @@ export async function POST(req: Request) {
     const final = withArchiveVerdict(result, related);
     // Feeds the admin dashboard's search statistics: the text and verdict only, no IP (disclosed on the detector and in the FAQ).
     try {
-      recordSearch(text, final.verdict);
+      recordSearch(link ?? text, final.verdict);
     } catch (err) {
       console.error("[detect] could not record search:", err);
     }
-    return NextResponse.json({ ...final, related });
+    return NextResponse.json({ ...final, related, ...(source ? { source } : {}) });
   } catch (err) {
     console.error("[detect] failed:", err);
     return NextResponse.json(

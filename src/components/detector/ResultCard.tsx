@@ -11,6 +11,7 @@ import { useI18n } from "@/lib/i18n";
 import { CopyButton } from "@/components/ui/CopyButton";
 import { VerdictBadge } from "@/components/article/ArticleCard";
 import { ShareBar } from "@/components/article/ShareBar";
+import { HighlightedText } from "./HighlightedText";
 
 function Gauge({ value, color }: { value: number; color: string }) {
   const pct = Math.round(value * 100);
@@ -81,6 +82,15 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
         </div>
       </div>
 
+      {result.source && (
+        <div className="border-t border-hairline px-6 py-3 text-xs text-ink-muted sm:px-8">
+          Read from the page{" "}
+          <a href={result.source.url} target="_blank" rel="nofollow noopener noreferrer" className="font-medium text-ink hover:text-brand-to">
+            {result.source.title} ↗
+          </a>
+        </div>
+      )}
+
       {/* Matches from our own archive: the most useful answer when the claim was checked before */}
       {related.length > 0 && (
         <div className="border-y border-hairline bg-surface-sunken/60 px-6 py-5 sm:px-8">
@@ -114,6 +124,15 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
         <div>
           <h4 className="eyebrow">{t("res.explanation")}</h4>
           <p className="mt-3 text-sm leading-relaxed text-ink">{result.explanation}</p>
+
+          {!result.source && result.signals.some((s) => s.kind === "risk") && (
+            <div className="mt-5">
+              <h4 className="eyebrow">Your text, with the risky parts marked</h4>
+              <div className="mt-3 max-h-64 overflow-y-auto rounded-xl bg-surface-sunken p-4">
+                <HighlightedText text={text} signals={result.signals} />
+              </div>
+            </div>
+          )}
 
           {result.signals.length > 0 && (
             <div className="mt-5">

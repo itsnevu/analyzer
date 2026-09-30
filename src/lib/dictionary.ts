@@ -232,7 +232,7 @@ export const DICT: Record<Lang, Record<string, string>> = {
     "det.input": "Input",
     "det.langDetected": "Detected language:",
     "det.placeholder":
-      "Paste the article, news item, or forwarded message you want to check…",
+      "Paste the message, article or headline you want to check… You can also paste a link, or paste or drop a screenshot.",
     "det.clear": "Clear",
     "det.chars": "characters",
     "det.submit": "Process & Analyze",

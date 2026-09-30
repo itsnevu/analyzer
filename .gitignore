@@ -29,3 +29,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# in-browser OCR files, copied/downloaded by `npm run prepare:ocr`
+/public/ocr/

@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
 import { getSitemapEntries } from "@/lib/articles";
+import { SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
-const BASE = "https://syyhoaxanalyzer.com";
+const BASE = SITE_URL;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const routes = ["", "/detector", "/blog", "/disclaimer", "/report", "/contact", "/about"];

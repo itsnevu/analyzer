@@ -21,6 +21,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ScrollProgress } from "@/components/ui/ScrollProgress";
 import { ServiceWorker } from "@/components/ui/ServiceWorker";
+import { SITE_URL } from "@/lib/site";
 import { LangProvider } from "@/lib/i18n";
 
 const jsonLd = {
@@ -42,7 +43,7 @@ export const metadata: Metadata = {
   },
   description:
     "Analyze Indonesian & English hoax news with text-mining, machine learning, and RAG Fusion. Paste the text, get a verdict and an explanation.",
-  metadataBase: new URL("https://syyhoaxanalyzer.com"),
+  metadataBase: new URL(SITE_URL),
   applicationName: "Hoax Analyzer",
   appleWebApp: { capable: true, title: "Hoax Analyzer", statusBarStyle: "default" },
   icons: { apple: "/icons/apple-touch-icon.png" },

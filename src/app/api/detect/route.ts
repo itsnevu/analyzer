@@ -3,6 +3,7 @@ import { runDetection, type DetectionResult } from "@/lib/detect";
 import { findSimilarArticles, type ArticleListItem } from "@/lib/articles";
 import { VERDICT_META } from "@/lib/verdict";
 import { recordSearch } from "@/lib/searches";
+import { clientIp, take, tooMany } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -33,6 +34,12 @@ function withArchiveVerdict(result: DetectionResult, related: ArticleListItem[])
 }
 
 export async function POST(req: Request) {
+  const ip = clientIp(req);
+  for (const [key, limit, windowMs] of [[`detect:${ip}`, 20, 60_000], [`detect-day:${ip}`, 400, 24 * 60 * 60_000]] as const) {
+    const r = take(key, limit, windowMs);
+    if (!r.ok) return tooMany("Too many checks from your network. Please wait a moment and try again.", r.retryAfter);
+  }
+
   let body: { text?: string };
   try {
     body = await req.json();

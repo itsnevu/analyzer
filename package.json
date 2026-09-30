@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "import:legacy": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-legacy.ts",
     "import:panel": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-legacy-panel.ts",
     "fetch:archived": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/fetch-archived.ts",
@@ -21,22 +21,27 @@
   },
   "dependencies": {
     "geist": "^1.7.2",
-    "next": "^15.5.26",
+    "next": "^16.3.8",
     "nodemailer": "^10.0.13",
-    "react": "19.0.0",
-    "react-dom": "19.0.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "sharp": "^0.35.5",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "@types/nodemailer": "^8.0.2",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.20",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.8",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.3",
     "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=22.13"
   }
 }

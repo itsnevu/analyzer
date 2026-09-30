@@ -49,8 +49,14 @@ export async function getAllReports(): Promise<Report[]> {
 export async function listReports(filter: { kind?: ReportKind; status?: ReportStatus } = {}): Promise<Report[]> {
   const where: string[] = [];
   const params: string[] = [];
-  if (filter.kind) (where.push("kind = ?"), params.push(filter.kind));
-  if (filter.status) (where.push("status = ?"), params.push(filter.status));
+  if (filter.kind) {
+    where.push("kind = ?");
+    params.push(filter.kind);
+  }
+  if (filter.status) {
+    where.push("status = ?");
+    params.push(filter.status);
+  }
   const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
   return plain(getDb().prepare(`SELECT * FROM reports ${clause} ORDER BY id DESC`).all(...params));
 }

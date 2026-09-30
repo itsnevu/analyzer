@@ -22,6 +22,7 @@ export function ReportForm() {
   const [number, setNumber] = useState("");
 
   // "This result is wrong" on the detector leaves a draft here.
+  /* eslint-disable react-hooks/set-state-in-effect -- one-time read of browser-only storage after hydration */
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(REPORT_DRAFT_KEY);
@@ -35,6 +36,7 @@ export function ReportForm() {
       /* no draft */
     }
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

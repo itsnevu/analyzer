@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { DetectionResult, Verdict } from "@/lib/detect";
 import { detectLanguage, LANG_LABEL } from "@/lib/language";
 import { VERDICT_META } from "@/lib/verdict";
@@ -44,13 +44,19 @@ export function DetectorPanel() {
   const [result, setResult] = useState<DetectionResult | null>(null);
   const [analyzed, setAnalyzed] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [mac, setMac] = useState(false);
+  // Keyboard hint: ⌘ on Apple devices, Ctrl elsewhere (false while rendering on the server).
+  const mac = useSyncExternalStore(
+    () => () => {},
+    () => /Mac|iPhone|iPad/i.test(navigator.userAgent),
+    () => false,
+  );
   const [ocr, setOcr] = useState<{ progress: number; status: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  /* eslint-disable react-hooks/set-state-in-effect -- one-time read of browser-only storage after hydration */
   useEffect(() => {
     // History is a per-browser convenience only.
     try {
@@ -59,7 +65,6 @@ export function DetectorPanel() {
     } catch {
       /* storage unavailable */
     }
-    setMac(/Mac|iPhone|iPad/i.test(navigator.userAgent));
     // Text pasted on the home page, or shared to the installed app from another app.
     const pending = takePendingText();
     if (pending) {
@@ -68,6 +73,7 @@ export function DetectorPanel() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const live = useMemo(() => {
     if (text.trim().length < 8) return null;

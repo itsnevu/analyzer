@@ -5,7 +5,7 @@ import { clsx } from "@/lib/clsx";
 
 /**
  * Reveal-on-scroll wrapper. Fades + lifts children into view once, when they
- * enter the viewport. Respects prefers-reduced-motion (renders instantly).
+ * enter the viewport. With prefers-reduced-motion the content is simply shown (CSS only).
  */
 export function Reveal({
   children,
@@ -25,12 +25,6 @@ export function Reveal({
     const el = ref.current;
     if (!el) return;
 
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      setShown(true);
-      return;
-    }
-
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -49,8 +43,8 @@ export function Reveal({
       ref={ref}
       style={{ transitionDelay: shown ? `${delay}ms` : "0ms" }}
       className={clsx(
-        "transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform",
-        shown ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-6 blur-[2px]",
+        "transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform motion-reduce:transition-none",
+        shown ? "opacity-100 translate-y-0 blur-0" : "opacity-0 translate-y-6 blur-[2px] motion-reduce:translate-y-0 motion-reduce:opacity-100 motion-reduce:blur-0",
         className,
       )}
     >

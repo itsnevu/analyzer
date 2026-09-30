@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface StatItem {
   value: number;
@@ -10,17 +10,14 @@ export interface StatItem {
 }
 
 /**
- * Counts up from 0 once the tiles scroll into view. The real number is in the
- * server HTML, so crawlers and readers without JavaScript see it too.
+ * Counts up from 0 once the tiles scroll into view (the section fades in at
+ * the same moment, see Reveal). The real number is in the server HTML, so
+ * crawlers and readers without JavaScript see it too.
  */
 function useCountUp(target: number, run: boolean, duration = 1400) {
   const [value, setValue] = useState(target);
-  // Reset to 0 before the first paint on the client, so the count-up has somewhere to start.
-  useLayoutEffect(() => {
-    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) setValue(0);
-  }, []);
   useEffect(() => {
-    if (!run) return;
+    if (!run || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
     const start = performance.now();
     const tick = (now: number) => {

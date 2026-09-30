@@ -1,0 +1,48 @@
+[
+  {
+    "slug": "artificial-clouds-generation-system",
+    "title": "“Artificial Clouds Generation System”",
+    "lang": "id",
+    "category": "Misinformasi",
+    "verdict": "misleading",
+    "date": "2019-04-06",
+    "summaryId": "Video tersebut adalah video lelucon April Mop, direspon dengan keliru oleh banyak orang yang menganggapnya sebagai sesuatu yang serius.",
+    "summaryEn": "The video was meant to be shared as April Fool, falsely responded by many people who took it as something serious.",
+    "source": "(1) Pertanyaan dari salah satu anggota FAFHH. (2) bit.ly/2IL1etB, sudah dibagikan 386.950 kali per tangkapan layar dibuat.",
+    "narration": "“Artificial Clouds Generation System”",
+    "explanation": "Video ini adalah klip yang diedit dari dua tes mesin roket berbeda di NASA Stennis Space Center. NASA tidak memiliki mesin pembuat awan, uap yang terlihat adalah hasil pembakaran oksigen cair dan hidrogen cair pada uji mesin roket. Video disebarkan 1 April dan memuat watermark akun flat-earth, sehingga patut dicurigai sebagai lelucon yang ditanggap serius.",
+    "reference": "The Verge, “No, NASA doesn't have a cloud-making machine, it has a rocket engine.” Loren Grush, 10 Apr 2018.",
+    "image": "/articles/clouds.jpg?v=2",
+    "originalUrl": "https://turnbackhoax.id/2018/04/11/salah-artificial-clouds-generation-system-false-artificial-clouds-generation-system/"
+  },
+  {
+    "slug": "nasa-1-day-total-darkness",
+    "title": "NASA ‘1 Day of Total Darkness’ Hoax",
+    "lang": "en",
+    "category": "Disinformation",
+    "verdict": "hoax",
+    "date": "2019-04-05",
+    "summaryId": "Klaim bahwa NASA memprediksi bumi akan gelap total selama beberapa hari adalah hoaks lama yang berulang.",
+    "summaryEn": "The claim that NASA predicted several days of total darkness on Earth is a recurring, long-debunked hoax.",
+    "source": "Beredar melalui rantai pesan dan situs clickbait.",
+    "narration": "“NASA confirms Earth will experience total darkness for days.”",
+    "explanation": "NASA never issued such a statement. The story originates from a satirical/clickbait site and has been recycled for years. No astronomical event causes multi-day global darkness.",
+    "reference": "Snopes, 'Days of Darkness' fact check.",
+    "image": "/articles/darkness.jpg?v=2"
+  },
+  {
+    "slug": "why-facebook-scammers-want-likes",
+    "title": "Why do Facebook Scammers Want Likes?",
+    "lang": "en",
+    "category": "Verified",
+    "verdict": "valid",
+    "date": "2019-04-04",
+    "summaryId": "Penjelasan kredibel mengenai bagaimana halaman penipuan mengumpulkan 'like' untuk kemudian dijual atau dialihkan.",
+    "summaryEn": "A credible explanation of how scam pages harvest likes to later resell or repurpose the page.",
+    "source": "Hoax-Slayer analysis.",
+    "narration": "How 'like-farming' pages operate on social media.",
+    "explanation": "This is an accurate explainer, not a hoax. Like-farming pages use emotional posts to gather engagement, then rebrand or sell the page. Treat viral 'type Amen to win' posts with suspicion.",
+    "reference": "Hoax-Slayer, Like farming explainer.",
+    "image": "/articles/scam.jpg?v=2"
+  }
+]

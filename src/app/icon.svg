@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 98 98">
+  <rect width="98" height="98" rx="18" fill="#ffffff"/>
+  <g font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="27" font-weight="800" fill="#ffffff" text-anchor="middle">
+    <rect x="4" y="4" width="43" height="43" rx="9" fill="#3b9199"/>
+    <text x="25.5" y="35">H</text>
+    <rect x="51" y="4" width="43" height="43" rx="9" fill="#d1348c"/>
+    <text x="72.5" y="35">O</text>
+    <rect x="4" y="51" width="43" height="43" rx="9" fill="#e2903f"/>
+    <text x="25.5" y="82">A</text>
+    <rect x="51" y="51" width="43" height="43" rx="9" fill="#6d85a6"/>
+    <text x="72.5" y="82">X</text>
+  </g>
+</svg>

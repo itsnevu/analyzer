@@ -1,0 +1,31 @@
+{
+  "name": "syy-hoax-analyzer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hoax Detection & Analyzer — Next.js redesign (dark neumorphism)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "import:legacy": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-legacy.ts",
+    "import:panel": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-legacy-panel.ts",
+    "fetch:archived": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/fetch-archived.ts",
+    "apply:archived": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/apply-archived.ts"
+  },
+  "dependencies": {
+    "geist": "^1.7.2",
+    "next": "^15.5.26",
+    "react": "19.0.0",
+    "react-dom": "19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3"
+  }
+}

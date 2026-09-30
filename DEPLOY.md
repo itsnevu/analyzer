@@ -21,7 +21,7 @@ Also change the WordPress admin password.
 ## 1. What the server needs
 
 - **Node.js 22.13 or newer** (24 LTS recommended). Check with `node -v`.
-- About 1 GB of free disk space (the database is ~75 MB and grows with backups).
+- About 2 GB of free disk space (the database is ~100 MB; 14 daily backups take ~1.4 GB).
 - Internet access during the first build (it downloads ~4 MB of OCR language data once).
 
 ## 2. Copy the project

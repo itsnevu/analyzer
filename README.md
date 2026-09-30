@@ -1,128 +1,108 @@
-# Hoax Detection & Analyzer — Next.js redesign
+# Hoax Detection & Analyzer
 
-A ground-up rebuild of [syyhoaxanalyzer.com](http://www.syyhoaxanalyzer.com/)
-(previously WordPress + VMagazine Lite theme) using **Next.js App Router**,
-**TypeScript**, and **Tailwind CSS**, in a **dark neumorphism** design language.
-The core hoax-check tool takes cues from the polished, dark, section-driven
-layout of [useverdex.xyz](https://useverdex.xyz/).
+The rebuild of [syyhoaxanalyzer.com](http://www.syyhoaxanalyzer.com/) (previously
+WordPress plus a separate PHP detector) on **Next.js 16**, **React 19**,
+**TypeScript**, **Tailwind CSS** and **SQLite**. People paste a message, a link
+or a screenshot; the site finds matching fact-checks in an archive of about
+11,000 of them and gives a verdict.
+
+To put it on a server, follow **[DEPLOY.md](DEPLOY.md)**.
 
 ## Quick start
 
 ```bash
 npm install
-npm run dev
-# open http://localhost:3000
+npm run dev          # http://localhost:3000, admin at /admin (dev password: admin123)
 ```
 
-Requires Node 22.13+ (the database uses the built-in `node:sqlite` module).
+Requires **Node 22.13+**: the database uses the built-in `node:sqlite` module.
+`npm run dev` and `npm run build` first run `prepare:ocr`, which puts the
+screenshot reader under `public/ocr/` (downloads ~4 MB of language data once).
 
-## Database
+## Commands
 
-Articles and report/contact submissions live in a SQLite file, `data/hoax.db`
-(override with `DATABASE_PATH`). It is created on first run and seeded from
-`content/articles.json` if present, otherwise from the `ARTICLES` array in
-[`src/lib/data.ts`](src/lib/data.ts). Schema: [`src/lib/db.ts`](src/lib/db.ts).
-
-## Legacy archive import
-
-The fact-check archive (about 11,000 entries, 2000–2022) comes from the old site:
-
-| File | What it is |
-|------|------------|
-| `data/legacy-wp/posts/*.json` | Public WordPress posts, fetched from `?rest_route=/wp/v2/posts` (full text, up to April 2019) |
-| `data/legacy-panel/panel/hoax-master-data-categorized.json` | The old detector's labeled dataset, exported from `/adminpanel/` (authoritative labels, up to 2022) |
-
-```bash
-npm run import:legacy -- --dry   # show what would change
-npm run import:legacy            # write it
-```
-
-The cleaner ([`scripts/legacy-clean.ts`](scripts/legacy-clean.ts)) strips each source
-site's page chrome, repairs broken characters, recovers claim / explanation /
-reference sections, and dates. Duplicates across sources are dropped. Entries
-with only a title and verdict are published as link-only pages (noindex, not in
-the sitemap). The import is safe to re-run: an article edited in the admin panel
-is never overwritten. Back up `data/hoax.db` first.
-
-## Install as an app
-
-The site ships a web app manifest ([`src/app/manifest.ts`](src/app/manifest.ts)) and a
-small service worker ([`public/sw.js`](public/sw.js), registered in production only).
-Once served over HTTPS it can be installed from the browser; on Android the
-installed app appears in the share sheet, so a WhatsApp message can be shared
-straight into the detector (`/detector?text=…`).
-
-## Self-hosting
-
-```bash
-cp .env.local.example .env.local   # set ADMIN_PASSWORD and AUTH_SECRET
-npm ci
-npm run build
-npm run start                      # serves on port 3000
-```
-
-Keep it running with a process manager (pm2, systemd, NSSM on Windows) and put
-it behind an HTTPS reverse proxy — the admin session cookie is only sent over
-HTTPS in production. Back up `data/hoax.db` (plus its `-wal`/`-shm` files).
+| Command | What it does |
+|---------|--------------|
+| `npm run dev` / `build` / `start` | Develop, build, serve |
+| `npm run setup` | Creates `.env.local` with a strong admin password and session secret |
+| `npm test` | Unit tests (vitest, `tests/`) |
+| `npm run lint` | ESLint 9 with `eslint-config-next` |
+| `npm run db:backup` | Consistent copy of the database to `data/backup/` |
+| `npm run import:legacy` | Builds the fact-check archive from the legacy data (see below) |
+| `npm run fetch:archived` / `apply:archived` | Recover text for dead turnbackhoax.id links from the Internet Archive |
+| `npm run import:panel` | Loads the legacy detector panel's exports into the admin dashboard tables |
 
 ## Pages
 
 | Route | Purpose |
 |-------|---------|
-| `/` | Home — hero, stats, how-it-works, comparison, recent fact-checks, FAQ, CTA |
-| `/detector` | **The core tool.** Paste text → language auto-detect → verdict + confidence + references |
-| `/blog` | Fact-check archive listing |
-| `/blog/[slug]` | Article template (bilingual: Kategori/Sumber/Narasi/Penjelasan/Referensi) |
-| `/disclaimer` | Terms of use (from the original ID disclaimer) |
-| `/report` | Report a hoax / flag a wrong result |
-| `/contact` | Contact form |
-| `/about` | Research overview (text-mining, ML, RAG Fusion) |
+| `/` | Paste box, archive search, a live example, how it works, tips, FAQ |
+| `/detector` | The tool: text, a link, or a screenshot → verdict, matching fact-checks, highlighted risk phrases, share, "this result is wrong" |
+| `/blog` | Archive: search, verdict / language / source / year filters, topics, pages |
+| `/blog/[slug]` | One fact-check: claim, findings, sources, references, related fact-checks, share image |
+| `/report` | Report a hoax, a wrong result or an article error (optional screenshot); returns a report number |
+| `/contact`, `/about`, `/disclaimer`, `/offline` | Contact form; archive and training-data figures; terms; offline page for the installed app |
+| `/admin` | Dashboard, articles (search, hidden drafts, image upload), reports inbox (status, unread, replies) |
 
-API routes: `POST /api/detect` (detection seam) and `POST /api/report`.
+## How a check works
 
-## Connecting the real RAG Fusion backend
+1. **Input.** Pasted text; a link, which the server reads (public http(s) sites
+   only; local-network addresses are refused, see [`src/lib/fetch-page.ts`](src/lib/fetch-page.ts));
+   or a screenshot, read in the browser with tesseract.js so the image never
+   leaves the device ([`src/lib/ocr.ts`](src/lib/ocr.ts)).
+2. **Archive match.** The text's rare words are matched against every fact-check
+   with SQLite full-text search ([`findSimilarArticles`](src/lib/articles.ts)).
+3. **Verdict.** From the trained model when `RAG_FUSION_API_URL` is set. Its
+   request/response contract is documented at the top of
+   [`src/lib/detect.ts`](src/lib/detect.ts); a model that is down, slow or out of
+   contract makes the site fall back to demo mode, visibly. In demo mode the top
+   archive match decides, and a keyword heuristic covers texts with no match.
 
-The detection logic lives in [`src/lib/detect.ts`](src/lib/detect.ts). Out of the
-box it runs a **transparent local heuristic stub** (clearly flagged as "demo
-mode" in the UI) so the whole interface is demonstrable without a backend.
+Each check is stored with its verdict (no IP address) for the dashboard's
+statistics; the detector, FAQ and disclaimer say so.
 
-> **Important:** the research build at `rag-fusion.streamlit.app` is a Streamlit
-> Community Cloud app. Streamlit does **not** expose a JSON/REST API — it drives
-> its own frontend over a websocket, so you can't `fetch()` it as an API.
+## Data
 
-To wire a real backend:
+Everything lives in `data/hoax.db` (override with `DATABASE_PATH`); the schema
+and its migrations are in [`src/lib/db.ts`](src/lib/db.ts) and run at start-up.
+`data/` is not in Git.
 
-1. Put an HTTP endpoint in front of the same RAG pipeline (e.g. FastAPI/Flask)
-   that accepts `POST { text, lang }` and returns the `DetectionResult` shape.
-2. Set `RAG_FUSION_API_URL` in `.env.local` (see `.env.local.example`).
-3. That's it — `runDetection()` switches to the real backend automatically.
+The archive is built by `npm run import:legacy` from two sources:
 
-## Design system
+| File | What it is |
+|------|------------|
+| `data/legacy-wp/posts/*.json` | Public WordPress posts from `?rest_route=/wp/v2/posts` (full text, up to April 2019) |
+| `data/legacy-panel/panel/hoax-master-data-categorized.json` | The old detector's labeled dataset (authoritative labels, up to 2022) |
 
-Dark neumorphism, tokenized in [`src/app/globals.css`](src/app/globals.css) and
-[`tailwind.config.ts`](tailwind.config.ts):
+The cleaner ([`scripts/legacy-clean.ts`](scripts/legacy-clean.ts)) strips each
+source site's page chrome, repairs broken characters, and recovers the claim,
+explanation, references and date. Duplicates across sources are dropped. Entries
+with only a title and verdict become link-only pages (noindex, not in the
+sitemap). Re-running the import never overwrites an article edited in the admin
+panel, nor text recovered later. Several source sites have since closed or moved
+(stophoax.id is now a parked domain; turnbackhoax.id changed its URLs); links to
+them open the Internet Archive's copy instead ([`src/lib/sources.ts`](src/lib/sources.ts)).
 
-- **Surface** `#202429` base, with paired `--shadow-dark` / `--shadow-light`
-  so both the extruded shadow and highlight read (the essence of neumorphism).
-- **Brand gradient** violet `#7c5cff` → cyan `#22d3ee`.
-- **Verdict semantics** green (credible) / amber (misleading) / rose (hoax).
-- Utilities: `.neu`, `.neu-inset`, `.neu-btn`, `.btn-primary`, `.eyebrow`,
-  `.gradient-text`, and `shadow-neu*` in Tailwind.
+Uploads (article covers, report screenshots) are re-encoded to strip EXIF and
+location data and stored in `data/uploads/`.
 
-## Security note (please read)
+## Security
 
-During data-gathering, the legacy `/adminpanel/` path appeared to be reachable.
-**This redesign does not touch it, and you shouldn't either.** If an admin
-backend is publicly accessible without authentication, that is a serious
-vulnerability — report it to the site owner so it can be locked down. Pull real
-data through legitimate admin credentials, not an exposed URL.
+- Admin login refuses the development defaults in production; `npm run setup`
+  generates strong values. Five wrong passwords pause login for 15 minutes.
+- Per-address rate limits on the detector, links, reports and the public API.
+- Content-Security-Policy and related headers ([`next.config.mjs`](next.config.mjs)).
+- The legacy site's `/adminpanel/` is open to anyone; lock it before switching
+  the domain (see [DEPLOY.md](DEPLOY.md), step 0).
 
-## Content migration
+## Design
 
-The original archive holds 8,300+ fact-check posts (5,969 ID + 2,331 EN). The
-`ARTICLES` array in [`src/lib/data.ts`](src/lib/data.ts) ships a few real
-examples in the target template. Full migration should import into a CMS or DB
-and render through `/blog/[slug]`.
+A light editorial look, tokenized in [`src/app/globals.css`](src/app/globals.css)
+and [`tailwind.config.ts`](tailwind.config.ts): warm off-white surfaces
+(`--surface #faf9f6`), ink text (`--ink #191817`), a teal brand (`--brand #0f766e`),
+verdict colours green (credible) / amber (misleading) / red (hoax), Fraunces for
+headings and Geist for text. The UI is English-only; archive articles keep their
+original language.
 
 ## Attribution
 

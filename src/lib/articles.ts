@@ -133,7 +133,11 @@ const STOPWORDS = new Set(
     "masih banyak semua setiap beberapa secara menjadi merupakan terhadap tentang bagi hal orang tahun hari " +
     "the and that this with from have has had was were are been will would there their they them what which about " +
     "when where who whom your you our not but for can could should into than then also just more most some such " +
-    "only over very after before being other these those its his her she him does did doing because while"
+    "only over very after before being other these those its his her she him does did doing because while " +
+    // The wording of the forwarded message itself, shared by hoaxes on every topic.
+    "sebarkan bagikan viral share forward teruskan hati waspada beredar pesan berantai hoaks hoax salah fakta faktanya " +
+    "klaim narasi video foto gambar akun unggahan mengunggah whatsapp facebook twitter instagram grup sosial media " +
+    "rahasia keluarga teman kalian please everyone friends family shocking warning"
   ).split(" "),
 );
 
@@ -240,20 +244,36 @@ export async function findSimilarArticles(text: string, limit = 4, excludeSlug?:
   // A match must share the text's rare words with the claim itself (title and narration), not just
   // somewhere in a long explanation. Scores were calibrated on real hoaxes and on unrelated texts.
   const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0);
+  // The few most distinctive words say what the claim is about (a place, a product, a disease).
+  const distinctive = new Set(weighted.slice(0, 3).map((w) => w.term));
   const share = (text: string) => {
     const words = new Set(tokenize(text, 4));
     const shared = weighted.filter((w) => words.has(w.term));
-    return { hits: shared.length, coverage: shared.reduce((sum, w) => sum + w.weight, 0) / totalWeight };
+    return {
+      hits: shared.length,
+      coverage: shared.reduce((sum, w) => sum + w.weight, 0) / totalWeight,
+      distinctive: shared.some((w) => distinctive.has(w.term)),
+    };
   };
   const scored = rows.map((row) => {
     const head = share(`${row.title} ${String(row.narration).slice(0, 600)}`);
     const all = share(`${row.title} ${row.narration} ${row.explanation}`);
-    return { row, headHits: head.hits, score: 0.6 * head.coverage + 0.4 * all.coverage };
+    return { row, headHits: head.hits, onTopic: head.distinctive, score: 0.6 * head.coverage + 0.4 * all.coverage };
   });
   const best = Math.max(0, ...scored.map((c) => c.score));
+  // The same claim checked by two sites ("[SALAH] X", "[HOAKS] X") is shown once.
+  const claimKey = (title: unknown) =>
+    String(title).toLowerCase().replace(/^\s*[[(][^\])]{2,40}[\])]\s*:?\s*/, "").replace(/[^\p{L}\p{N}]+/gu, "");
+  const seen = new Set<string>();
   return scored
-    .filter((c) => c.headHits >= 2 && c.score >= Math.max(0.25, 0.45 * best))
+    .filter((c) => c.headHits >= 2 && c.onTopic && c.score >= Math.max(0.25, 0.45 * best))
     .sort((a, b) => b.score - a.score)
+    .filter((c) => {
+      const key = claimKey(c.row.title);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .slice(0, limit)
     .map((c) => toListItem(c.row));
 }

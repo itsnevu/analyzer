@@ -39,7 +39,9 @@ const normUrl = (u: string) => {
   }
   return s.toLowerCase().replace(/^https?:\/\/(www\.)?/, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
 };
-const normTitle = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+// "VIDEO: [CEK FAKTA] X" and "[Cek Fakta] X" are the same fact-check.
+const normTitle = (t: string) =>
+  t.toLowerCase().replace(/^\s*video\s*:\s*/, "").replace(/^\s*\[cek fakta\]\s*/, "").replace(/[^\p{L}\p{N}]+/gu, "");
 
 function rank(a: CleanArticle): number {
   const i = SOURCE_RANK.indexOf(a.sourceSite);

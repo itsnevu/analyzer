@@ -15,7 +15,8 @@
     "setup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/setup-env.ts",
     "prepare:ocr": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/prepare-ocr.ts",
     "predev": "npm run -s prepare:ocr",
-    "prebuild": "npm run -s prepare:ocr"
+    "prebuild": "npm run -s prepare:ocr",
+    "db:backup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/backup-db.ts"
   },
   "dependencies": {
     "geist": "^1.7.2",

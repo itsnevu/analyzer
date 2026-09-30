@@ -230,6 +230,18 @@ function labelPrefix(title: string): string {
   return (title.match(PREFIX) ?? title.match(COLON_PREFIX))?.[1] ?? "";
 }
 
+/**
+ * Verdicts that some publishers put in the headline instead of a label, e.g.
+ * Liputan6: "[Cek Fakta] Hoaks Bakso Tikus…", "… Adalah Hoaks", "… Tak Terkait Pilpres".
+ * Headlines that only ask ("…, Benarkah?") are left alone.
+ */
+function headlineVerdict(title: string): LabelClass | null {
+  const t = stripLabelPrefix(title).trim();
+  if (/^hoa(ks|x)\b/i.test(t) || /\badalah (hoa(ks|x)|salah)\s*$/i.test(t) || /\bhasil suntingan\s*$/i.test(t) || /\bbantah(an)?\b/i.test(t)) return "hoax";
+  if (/\btak terkait\b/i.test(t)) return "misleading";
+  return null;
+}
+
 function stripLabelPrefix(title: string): string {
   return title.replace(PREFIX, "").replace(COLON_PREFIX, "");
 }
@@ -552,7 +564,7 @@ export function cleanPost(post: LegacyPost): CleanArticle {
 
   // Verdict: a label in the title wins, then the dataset's cover image, then the site's own rating.
   const image = IMAGE_LABEL[post.featured_media];
-  const cls = classify(labelPrefix(title)) ?? image?.cls ?? siteClass;
+  const cls = classify(labelPrefix(title)) ?? image?.cls ?? siteClass ?? headlineVerdict(title);
 
   const isNews =
     NEWS_SITES.test(host) ||

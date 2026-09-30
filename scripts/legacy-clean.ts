@@ -101,21 +101,70 @@ export function fixMojibake(s: string): string {
   return fixed.replace(/â€(?![\u0080-¿])/g, "”");
 }
 
-/** softBreaks: treat <br> as a space, for sources that hard-wrap their paragraphs. */
+/**
+ * Text as a browser shows it, one line per paragraph. Line breaks in the source are
+ * spaces, as in HTML (many posts were pasted from Word and wrap mid-sentence);
+ * only tags break lines. softBreaks: treat <br> as a space too, for sources that
+ * hard-wrap their paragraphs with it.
+ */
 export function htmlToLines(html: string, softBreaks = false): string[] {
   const text = decodeEntities(
-    (softBreaks ? html.replace(/<br\b[^>]*>\s*/gi, " ") : html)
+    html
       .replace(/<!--[\s\S]*?-->/g, " ")
       .replace(/<(script|style|noscript|iframe)\b[\s\S]*?<\/\1>/gi, " ")
-      .replace(/<(br|hr|\/p|\/div|\/h[1-6]|\/li|\/tr|\/blockquote|\/ul|\/ol|\/table)\b[^>]*>/gi, "\n")
+      .replace(/<pre\b[^>]*>([\s\S]*?)<\/pre>/gi, (_, body: string) => body.replace(/\r?\n/g, "<br>"))
+      .replace(/\s+/g, " ")
+      .replace(/<br\b[^>]*>/gi, softBreaks ? " " : BR)
+      .replace(BLOCK_TAG, "\n")
       .replace(/<[^>]+>/g, " "),
   );
-  return fixMojibake(text)
+  return joinHardWraps(fixMojibake(text)
     .replace(/[ \t ​﻿]+/g, " ")
     .replace(/ +([,.;!?])/g, "$1")
-    .split("\n")
+    .split("\n"))
     .map((l) => l.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    // A list of links separated only by spaces is still a list.
+    .flatMap((l) => (/^https?:\/\/\S+(\s+https?:\/\/\S+)+$/.test(l) ? l.split(/\s+/) : [l]));
+}
+
+// Where a browser starts a new line. <br> is marked with BR first, see joinHardWraps.
+const BLOCK_TAG =
+  /<\/?(p|div|h[1-6]|li|ul|ol|dl|dt|dd|table|thead|tbody|tr|td|th|blockquote|figure|figcaption|section|article|header|footer|aside|nav|pre|address)\b[^>]*>|<hr\b[^>]*>/gi;
+const BR = "\u2028";
+const SENTENCE_END = /[.!?:;…]["”’)\]]*$/;
+const LIST_ITEM = /^(\d{1,2}[.):]|[-–•*·>]|\p{Extended_Pictographic})/u;
+// Lines that stand alone even in a hard-wrapped post: headings, "Sumber : X", links, separators.
+const OWN_LINE = /^(\p{Lu}[\p{Lu}\d &/.,()-]{1,40}|\p{Lu}[\p{L} ./&-]{1,40}\s*:.*|https?:\/\/\S+|\[[^\]]{2,40}\].*|([=\-_*~#]\s*){3,}.*)$/u;
+
+/** Whether two <br>-separated pieces are one sentence wrapped in two. */
+function continues(prev: string, next: string): boolean {
+  if (SENTENCE_END.test(prev) || LIST_ITEM.test(next) || OWN_LINE.test(prev) || OWN_LINE.test(next)) return false;
+  if (isHeading(prev) || isHeading(next)) return false;
+  // Short pieces on both sides are a list or a byline ("April 5, 2019", "Muhammad Khairil"), not prose.
+  return prev.length >= 40 || next.length >= 50;
+}
+
+/**
+ * Posts pasted from e-mail or Word end every line with <br>, about every 70
+ * characters. When most of a post's <br> lines look like that, a <br> inside a
+ * sentence is a space; one after a full stop, or around a heading, link or list item, stays.
+ */
+function joinHardWraps(lines: string[]): string[] {
+  const split = lines.map((l) => l.split(BR).map((s) => s.trim()).filter(Boolean));
+  const broken = split.flatMap((segments) => segments.slice(0, -1));
+  const wrapped = broken.filter((s) => s.length >= 50 && s.length <= 100 && !SENTENCE_END.test(s)).length;
+  const hardWrapped = wrapped >= 4 && wrapped >= broken.length * 0.4;
+  return split.flatMap((segments) => {
+    if (!hardWrapped) return segments;
+    const out: string[] = [];
+    for (const s of segments) {
+      const prev = out.at(-1);
+      if (prev !== undefined && continues(prev, s)) out[out.length - 1] = `${prev} ${s}`;
+      else out.push(s);
+    }
+    return out;
+  });
 }
 
 export function cleanTitle(raw: string): string {
@@ -226,8 +275,11 @@ function classify(label: string): LabelClass | null {
 const PREFIX = /^\s*[\[(]\s*([^\])]{2,60}?)\s*[\])]\s*:?\s*/;
 const COLON_PREFIX = /^\s*([A-Z][A-Z +,&/]{2,40}?)\s*:\s+/;
 
+const VIDEO_PREFIX = /^\s*video\s*:\s*/i;
+
 function labelPrefix(title: string): string {
-  return (title.match(PREFIX) ?? title.match(COLON_PREFIX))?.[1] ?? "";
+  const t = title.replace(VIDEO_PREFIX, "");
+  return (t.match(PREFIX) ?? t.match(COLON_PREFIX))?.[1] ?? "";
 }
 
 /**
@@ -242,8 +294,14 @@ function headlineVerdict(title: string): LabelClass | null {
   return null;
 }
 
+/** "VIDEO: [CEK FAKTA] Hoaks X" becomes "Hoaks X". */
 function stripLabelPrefix(title: string): string {
-  return title.replace(PREFIX, "").replace(COLON_PREFIX, "");
+  let t = title;
+  for (let prev = ""; t !== prev; ) {
+    prev = t;
+    t = t.replace(PREFIX, "").replace(COLON_PREFIX, "");
+  }
+  return t;
 }
 
 const IMAGE_LABEL: Record<number, { label: string; cls: LabelClass }> = {
@@ -302,10 +360,18 @@ function headingOf(line: string, headings: HeadingRule[]): { section: Section; r
   return null;
 }
 
+function isHeading(line: string): boolean {
+  return !!(headingOf(line, HEADINGS) ?? headingOf(line, HOAX_SLAYER_HEADINGS));
+}
+
+// "[NARASI]:" is the same heading as "NARASI:".
+const BRACKET_HEADING = /^\[([A-Za-z][A-Za-z.&/ ]{2,50}?)\]\s*(?=:|$)/;
+
 function splitSections(lines: string[], headings = HEADINGS): Record<Section, string[]> {
   const out: Record<Section, string[]> = { preamble: [], source: [], narration: [], explanation: [], reference: [], category: [] };
   let current: Section = "preamble";
-  for (const line of lines) {
+  for (const raw of lines) {
+    const line = raw.replace(BRACKET_HEADING, "$1");
     const h = headingOf(line, headings);
     if (h) {
       // "Kesimpulan" continues the explanation under its own sub-heading.
@@ -313,7 +379,7 @@ function splitSections(lines: string[], headings = HEADINGS): Record<Section, st
       current = h.section;
       if (h.rest) out[current].push(h.rest);
     } else {
-      out[current].push(line);
+      out[current].push(raw);
       // A category is one line; whatever follows belongs to the article again.
       if (current === "category") current = out.explanation.length ? "explanation" : "preamble";
     }
@@ -329,7 +395,7 @@ const JUNK: RegExp[] = [
   /^(?:[=\-_*~#]\s*){3,}$/,
   /^Please enable JavaScript to view the comments/i,
   /^Selengkapnya$/i,
-  /^Selengkapnya (di|pada|ada di) (bagian )?(penjelasan|referensi)\b.*$/i,
+  /^Selengkapnya (di|pada|ada di|terdapat di|dapat dilihat di|bisa dilihat di) (bagian )?(penjelasan|referensi)\b.*$/i,
   /^(Share|Tweet|Send|Bagikan|Reddit|WhatsApp|Email|Advertisement)$/i,
   /^Baca (juga|selengkapnya)\b/i,
   /^Share [\d.,]+[km]?$/i,
@@ -518,6 +584,14 @@ export function cleanPost(post: LegacyPost): CleanArticle {
     if (/^Description$/i.test(lines[0] ?? "")) lines.shift();
   } else if (site === "liputan6.com") {
     lines = cutAt(lines, /^(Saksikan video pilihan|Lanjutkan Membaca|Tag Terkait)/i);
+    // Video pages end with their tags ("Cek Fakta", "Hoaks", topics), a reaction widget and popular stories.
+    const widget = lines.findIndex((l) => /^\d+% suka$/i.test(l));
+    if (widget >= 0) {
+      const tagsFrom = lines.lastIndexOf("Cek Fakta", widget);
+      const tags = tagsFrom >= 0 && widget - tagsFrom <= 8 ? lines.slice(tagsFrom, widget) : [];
+      if (/\/cek-fakta\//.test(originalUrl) && tags.some((t) => /^hoa(ks|x)$/i.test(t))) siteClass = "hoax";
+      lines = lines.slice(0, tags.length ? tagsFrom : widget);
+    }
     if (/^Home$/i.test(lines[0] ?? "")) lines = lines.slice(2);
     dropTitle();
     const stamp = lines.findIndex((l, i) => i < 3 && /WIB$/.test(l));
@@ -526,6 +600,10 @@ export function cleanPost(post: LegacyPost): CleanArticle {
       lines = lines.slice(stamp + 1);
       if (/^[\d.,]+k?$/i.test(lines[0] ?? "")) lines.shift();
     }
+    // The teaser is repeated as the first paragraph, after the "Liputan6.com, Jakarta" dateline.
+    const dateline = lines.findIndex((l) => /^Liputan6\.com, [A-Z]/.test(l));
+    const teaser = dateline > 0 ? norm(lines[dateline - 1]).slice(0, 80) : "";
+    if (teaser.length >= 40 && norm(lines[dateline]).includes(teaser)) lines.splice(dateline - 1, 1);
   } else {
     dropTitle();
   }

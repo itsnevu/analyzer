@@ -101,4 +101,56 @@ describe("WordPress posts", () => {
     expect(c.explanation).not.toContain("Selengkapnya");
     expect(c.reference).toBe("https://example.org/a");
   });
+
+  it("reads text the way a browser shows it", () => {
+    const html =
+      "<figure><img src='a.jpg'><figcaption>Ilustrasi tes CPNS</figcaption></figure>" +
+      "<p>Mesut Ozil tidak\nmenyinggung soal Indonesia\r\ndalam cuitannya.</p>" +
+      "<p>REFERENSI:</p><p>https://example.org/a\nhttps://example.org/b</p>";
+    const c = cleanPost({ ...post("[SALAH] Mesut Ozil Sindir Indonesia", html, "https://turnbackhoax.id/2019/12/18/salah-ozil/"), categories: [] });
+    expect(c.explanation).toBe("Ilustrasi tes CPNS\nMesut Ozil tidak menyinggung soal Indonesia dalam cuitannya.");
+    expect(c.reference).toBe("https://example.org/a\nhttps://example.org/b");
+  });
+
+  it("joins lines hard-wrapped with <br>, but keeps bylines, headings and links apart", () => {
+    const wrapped = [
+      "Kabar mengenai",
+      "telah diculiknya Bupati Nduga, Yarius Gwijangge merupakan informasi yang tidak",
+      "benar. Hal itu disampaikan oleh Kapolda Papua, Irjen Pol Martuani Sormin. Ia menyatakan",
+      "bahwa kabar penculikan Bupati Nduga merupakan hoaks dan hingga kini pihaknya",
+      "masih mendalami kemunculan isu yang menyesatkan publik tersebut. Polisi juga",
+      "mengimbau masyarakat agar tidak mudah percaya.",
+    ];
+    const html =
+      "<p>April 5, 2019<br />\nMuhammad Khairil<br />\nFitnah / Hasut / Hoax<br />\n0</p>" +
+      `<p>${wrapped.join("<br />\n")}</p>` +
+      "<p>REFERENSI:<br />\nhttps://example.org/a<br />\nhttps://example.org/b</p>";
+    const c = cleanPost({ ...post("[SALAH] Bupati Nduga Diculik TNI", html, "https://turnbackhoax.id/salah-bupati-nduga/"), categories: [] });
+    expect(c.date).toBe("2019-04-05");
+    expect(c.explanation).toBe(wrapped.join(" "));
+    expect(c.reference).toBe("https://example.org/a\nhttps://example.org/b");
+  });
+
+  it("understands bracketed headings", () => {
+    const html =
+      "<p>Ringkasan singkat klaim ini.</p><p>[KATEGORI]: KONTEN PALSU</p><p>[SUMBER]: FACEBOOK</p>" +
+      "<p>[NARASI]:</p><p>Pesan berantai palsu.</p><p>[PENJELASAN]:</p><p>Faktanya tidak benar.</p>" +
+      "<p>Selengkapnya terdapat di penjelasan!</p>";
+    const c = cleanPost({ ...post("[SALAH] Pesan Berantai", html, "https://turnbackhoax.id/2019/10/20/salah-pesan/"), categories: [] });
+    expect(c.source).toBe("FACEBOOK");
+    expect(c.narration).toBe("Pesan berantai palsu.");
+    expect(c.explanation).toBe("Ringkasan singkat klaim ini.\nFaktanya tidak benar.");
+  });
+
+  it("cleans Liputan6 video pages", () => {
+    const teaser = "Beredar kabar helikopter yang jatuh di Tasikmalaya membawa uang satu kardus.";
+    const html =
+      `<p>${teaser}</p><p>Liputan6.com, Jakarta ${teaser}</p>` +
+      "<p>Cek Fakta</p><p>Hoaks</p><p>Helikopter jatuh</p><p>0% suka</p><p>0% lucu</p><p>TOPIK POPULER</p><p>[Cek Fakta] Artikel lain</p>";
+    const c = cleanPost(post("VIDEO: [CEK FAKTA] Helikopter Jatuh di Tasikmalaya", html));
+    expect(c.explanation).toBe(`Liputan6.com, Jakarta ${teaser}`);
+    // The page's own "Hoaks" tag is its verdict.
+    expect(c.verdict).toBe("hoax");
+    expect(cleanPost(post("VIDEO: [CEK FAKTA] Hoaks Bakso Tikus Beredar di Pasaran", "<p>Isi artikel.</p>")).verdict).toBe("hoax");
+  });
 });

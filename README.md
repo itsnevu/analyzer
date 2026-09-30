@@ -83,6 +83,15 @@ panel, nor text recovered later. Several source sites have since closed or moved
 (stophoax.id is now a parked domain; turnbackhoax.id changed its URLs); links to
 them open the Internet Archive's copy instead ([`src/lib/sources.ts`](src/lib/sources.ts)).
 
+For the old turnbackhoax.id links, `npm run fetch:archived` downloads the
+Internet Archive's copies (to `data/originals/`, about 1,300 pages) and
+`npm run apply:archived` turns them into article text; the article page credits
+the copy it came from. After a change to the cleaner, `npm run import:legacy`
+followed by `npm run apply:archived -- --refresh` rebuilds everything that nobody
+has edited. The remaining ~1,500 link-only entries are from stophoax.id (whose
+article pages the Archive mostly did not save) and from Tempo and Kompas, which
+block automated downloads.
+
 Uploads (article covers, report screenshots) are re-encoded to strip EXIF and
 location data and stored in `data/uploads/`.
 

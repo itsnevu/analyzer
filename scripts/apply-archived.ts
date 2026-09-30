@@ -2,11 +2,13 @@
  * Turns the Internet Archive copies saved by `npm run fetch:archived` into
  * article text for link-only entries.
  *
- *   npm run apply:archived -- --dry   show what would change
- *   npm run apply:archived            write it
+ *   npm run apply:archived -- --dry       show what would change
+ *   npm run apply:archived                write it
+ *   npm run apply:archived -- --refresh   also redo text recovered earlier (after a cleaner fix)
  *
- * Only rows that still have no text are touched, so an edit made in the admin
- * panel is never overwritten; the Archive copy used is kept in archiveUrl and
+ * Only rows that still have no text are touched (with --refresh, also rows filled
+ * by an earlier run that nobody has edited since), so an edit made in the admin
+ * panel is never overwritten. The Archive copy used is kept in archiveUrl and
  * credited on the article page.
  */
 
@@ -18,6 +20,7 @@ import { cleanPost, cleanTitle } from "./legacy-clean.ts";
 
 const DIR = path.join(process.cwd(), "data", "originals", "turnbackhoax");
 const DRY = process.argv.includes("--dry");
+const REFRESH = process.argv.includes("--refresh");
 
 /** The element that starts at `start`, found by counting nested <div>s. */
 function divBlock(html: string, start: number): string {
@@ -45,13 +48,15 @@ function extract(html: string): { snapshot: string; title: string; content: stri
 
 const files = fs.existsSync(DIR) ? fs.readdirSync(DIR).filter((f) => f.endsWith(".html.gz")) : [];
 const db = getDb();
-const find = db.prepare("SELECT id, title, originalUrl FROM articles WHERE slug = ? AND explanation = '' AND narration = ''");
+// "updatedAt = createdAt" holds only for rows nobody has edited since they were imported.
+const writable = `((explanation = '' AND narration = '') OR (${REFRESH ? 1 : 0} AND archiveUrl != '' AND updatedAt = createdAt))`;
+const find = db.prepare(`SELECT id, title, originalUrl FROM articles WHERE slug = ? AND ${writable}`);
 const update = db.prepare(
   `UPDATE articles SET narration = ?, explanation = ?, reference = ?, source = ?,
      summaryId = CASE WHEN lang = 'id' THEN ? ELSE summaryId END,
      summaryEn = CASE WHEN lang = 'en' THEN ? ELSE summaryEn END,
      archiveUrl = ?
-   WHERE id = ? AND explanation = '' AND narration = ''`,
+   WHERE id = ? AND ${writable}`,
 );
 
 let applied = 0;
@@ -99,4 +104,4 @@ try {
 console.log(`archived pages found       ${files.length}`);
 console.log(`  text recovered           ${applied}${DRY ? " (dry run, nothing written)" : ""}`);
 console.log(`  no usable text           ${empty}`);
-console.log(`  already had text / gone  ${skipped}`);
+console.log(`  already had text / gone  ${skipped}${REFRESH ? "" : "  (use --refresh to redo text recovered earlier)"}`);

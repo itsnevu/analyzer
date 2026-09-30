@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { ARTICLES as SEED, type Article, type ArticleListItem } from "./data";
 import { getDb, hasFts } from "./db";
@@ -7,16 +5,13 @@ export { slugify } from "./slug";
 export type { ArticleListItem } from "./data";
 
 /**
- * SQLite-backed article store (see ./db). On first run the table is seeded
- * from the legacy content/articles.json if it exists, otherwise from the
- * built-in ARTICLES array. Server-only — never import this into a client
+ * SQLite-backed article store (see ./db). An empty table is seeded with the
+ * built-in ARTICLES examples; the real archive comes from `npm run import:legacy`. Server-only — never import this into a client
  * component; the public site reaches it through server components.
  *
  * The archive holds thousands of rows, so nothing here loads the whole table:
  * lists are paginated and return only what a card needs.
  */
-
-const LEGACY_FILE = path.join(process.cwd(), "content", "articles.json");
 
 /** Columns an editor can change. */
 const COLUMNS = [
@@ -38,7 +33,7 @@ const COLUMNS = [
 
 const COLUMN_LIST = COLUMNS.map((c) => `"${c}"`).join(", ");
 const INSERT_SQL = `INSERT INTO articles (${COLUMN_LIST}, published) VALUES (${COLUMNS.map(() => "?").join(", ")}, ?)`;
-const SELECT_SQL = `SELECT ${COLUMN_LIST}, sourceSite, published FROM articles`;
+const SELECT_SQL = `SELECT ${COLUMN_LIST}, sourceSite, published, archiveUrl FROM articles`;
 const CARD_COLUMNS = "a.slug, a.title, a.lang, a.category, a.verdict, a.date, a.summaryId, a.summaryEn, a.image, a.sourceSite, a.published";
 
 const globalForSeed = globalThis as unknown as { __hoaxSeeded?: boolean };
@@ -78,14 +73,6 @@ export interface ArticleStats {
   hidden: number;
 }
 
-function readSeed(): Article[] {
-  try {
-    return JSON.parse(fs.readFileSync(LEGACY_FILE, "utf8")) as Article[];
-  } catch {
-    return SEED;
-  }
-}
-
 function values(a: Article): (string | number | null)[] {
   return [...COLUMNS.map((c) => a[c] ?? null), a.published === false ? 0 : 1];
 }
@@ -100,7 +87,7 @@ function db(): DatabaseSync {
     conn.exec("BEGIN");
     try {
       // Reverse so "id DESC" tie-breaking keeps the original list order.
-      for (const a of [...readSeed()].reverse()) insert.run(...values(a));
+      for (const a of [...SEED].reverse()) insert.run(...values(a));
       conn.exec("COMMIT");
     } catch (err) {
       conn.exec("ROLLBACK");
@@ -115,6 +102,7 @@ function toArticle(row: Row): Article {
   const article = Object.fromEntries(COLUMNS.map((c) => [c, row[c]])) as unknown as Article;
   if (article.originalUrl == null) delete article.originalUrl;
   if (row.sourceSite) article.sourceSite = String(row.sourceSite);
+  if (row.archiveUrl) article.archiveUrl = String(row.archiveUrl);
   article.published = row.published !== 0;
   return article;
 }

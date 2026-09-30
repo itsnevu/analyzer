@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Article, ArticleListItem } from "@/lib/data";
 import { VERDICT_META } from "@/lib/verdict";
-import { LANGUAGE_NAME, formatDate, hostOf, sourceName } from "@/lib/sources";
+import { LANGUAGE_NAME, formatDate, hostOf, outboundLink, sourceName } from "@/lib/sources";
 import { VerdictBadge } from "./ArticleCard";
 import { RichText } from "./RichText";
 import { ShareBar } from "./ShareBar";
@@ -25,6 +25,8 @@ export function ArticleLayout({ article, related }: { article: Article; related:
   const publisher = article.sourceSite ? sourceName(article.sourceSite) : "";
   const originalHost = hostOf(article.originalUrl);
   const date = formatDate(article.date, "long");
+  // Many source sites have moved or closed; their links go to the Internet Archive copy instead.
+  const link = article.originalUrl ? outboundLink(article.originalUrl, article.date, article.archiveUrl) : null;
 
   return (
     <article className="container-page pb-8">
@@ -49,14 +51,14 @@ export function ArticleLayout({ article, related }: { article: Article; related:
         {publisher && (
           <p className="mt-4 text-sm text-ink-muted">
             Fact-check by{" "}
-            {article.originalUrl ? (
-              <a href={article.originalUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-ink hover:text-brand-to">
+            {link ? (
+              <a href={link.href} target="_blank" rel="noopener noreferrer" className="font-medium text-ink hover:text-brand-to">
                 {publisher}
               </a>
             ) : (
               <span className="font-medium text-ink">{publisher}</span>
             )}
-            {date && `, published ${date}`}. Archived here with a link to the original.
+            {date && `, published ${date}`}. {link?.archived ? "The original site is no longer online; links go to the Internet Archive's copy." : "Archived here with a link to the original."}
           </p>
         )}
 
@@ -77,16 +79,22 @@ export function ArticleLayout({ article, related }: { article: Article; related:
           <div className="neu-inset mt-8 rounded-2xl p-6 text-sm leading-relaxed text-ink-muted">
             <p>
               Only the verdict of this fact-check is kept in our archive.
-              {article.originalUrl && (
+              {link && !link.archived && (
                 <>
                   {" "}The full explanation and sources are on{" "}
                   <span className="font-medium text-ink">{publisher || originalHost}</span>.
                 </>
               )}
+              {link?.archived && (
+                <>
+                  {" "}The original page on <span className="font-medium text-ink">{publisher || originalHost}</span> is no longer online; the Internet
+                  Archive may still have a copy.
+                </>
+              )}
             </p>
-            {article.originalUrl && (
-              <a href={article.originalUrl} target="_blank" rel="noopener noreferrer" className="btn-primary mt-4 inline-flex px-5 py-2.5 text-sm">
-                Read the full fact-check ↗
+            {link && (
+              <a href={link.href} target="_blank" rel="noopener noreferrer" className="btn-primary mt-4 inline-flex px-5 py-2.5 text-sm">
+                {link.archived ? "Try the archived copy ↗" : "Read the full fact-check ↗"}
               </a>
             )}
           </div>
@@ -116,13 +124,14 @@ export function ArticleLayout({ article, related }: { article: Article; related:
           )}
         </div>
 
-        {article.originalUrl && (
+        {link && (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-hairline p-5 text-sm">
             <span className="text-ink-muted">
               Original source: <span className="font-medium text-ink">{originalHost || article.originalUrl}</span>
+              {link.archived && <span className="block text-xs text-ink-faint">No longer online, so this opens the Internet Archive&apos;s copy.</span>}
             </span>
-            <a href={article.originalUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-to hover:underline">
-              Open the original ↗
+            <a href={link.href} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-to hover:underline">
+              {link.archived ? "Open the archived copy ↗" : "Open the original ↗"}
             </a>
           </div>
         )}

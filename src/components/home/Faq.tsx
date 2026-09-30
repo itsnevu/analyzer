@@ -8,14 +8,14 @@ import { clsx } from "@/lib/clsx";
 
 export function Faq() {
   const [open, setOpen] = useState<number | null>(0);
-  const { lang, t } = useI18n();
+  const { t } = useI18n();
 
   return (
     <section className="container-page py-16">
       <SectionHeading center eyebrow={t("faq.eyebrow")} title={t("faq.title")} />
 
       <div className="mx-auto mt-12 max-w-3xl space-y-3">
-        {FAQ[lang].map((item, i) => {
+        {FAQ.map((item, i) => {
           const isOpen = open === i;
           return (
             <div key={i} className={clsx("overflow-hidden transition-all", isOpen ? "neu" : "neu-sm")}>

@@ -158,11 +158,13 @@ const COLUMNS = [
   "slug", "title", "lang", "category", "verdict", "date", "summaryId", "summaryEn", "source", "narration",
   "explanation", "reference", "image", "originalUrl", "published", "sourceSite", "label", "legacyId", "datasetId",
 ];
+// Text filled in later (e.g. by `npm run apply:archived`) survives a re-import that has none.
+const KEEP_TEXT = new Set(["narration", "explanation", "reference", "source", "summaryId", "summaryEn"]);
 const upsert = (key: "legacyId" | "datasetId") =>
   db.prepare(
     `INSERT INTO articles (${COLUMNS.join(", ")}) VALUES (${COLUMNS.map(() => "?").join(", ")})
      ON CONFLICT (${key}) WHERE ${key} IS NOT NULL DO UPDATE SET
-       ${COLUMNS.filter((c) => c !== key).map((c) => `${c} = excluded.${c}`).join(", ")}
+       ${COLUMNS.filter((c) => c !== key).map((c) => (KEEP_TEXT.has(c) ? `${c} = CASE WHEN excluded.${c} = '' THEN articles.${c} ELSE excluded.${c} END` : `${c} = excluded.${c}`)).join(", ")}
      WHERE articles.updatedAt = articles.createdAt`,
   );
 // "updatedAt = createdAt" is true only for rows nobody has edited since they were imported.

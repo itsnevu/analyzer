@@ -19,13 +19,13 @@ function TipIcon({ name }: { name: string }) {
 }
 
 export function Tips() {
-  const { lang, t } = useI18n();
+  const { t } = useI18n();
   return (
     <section className="container-page py-16">
       <SectionHeading eyebrow={t("tips.eyebrow")} title={t("tips.title")} intro={t("tips.intro")} />
 
       <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {TIPS[lang].map((tip, i) => (
+        {TIPS.map((tip, i) => (
           <Reveal key={tip.title} delay={i * 60}>
             <div className="neu group h-full p-6 transition-transform duration-300 hover:-translate-y-1">
               <span className="grid h-11 w-11 place-items-center rounded-xl bg-surface-sunken text-brand shadow-neu-inset-sm transition-colors group-hover:text-brand-to">

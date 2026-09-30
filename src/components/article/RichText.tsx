@@ -1,4 +1,5 @@
 import { clsx } from "@/lib/clsx";
+import { outboundLink } from "@/lib/sources";
 
 const URL_RE = /(https?:\/\/[^\s<>"'()]+[^\s<>"'().,;:!?])/g;
 
@@ -16,7 +17,7 @@ export function RichText({ text, className }: { text: string; className?: string
               j % 2 === 1 ? (
                 <a
                   key={j}
-                  href={part}
+                  href={outboundLink(part).href}
                   target="_blank"
                   rel="nofollow noopener noreferrer"
                   className="text-brand-to underline decoration-brand-to/40 underline-offset-2 hover:decoration-brand-to"

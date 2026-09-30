@@ -8,13 +8,13 @@ import { useI18n } from "@/lib/i18n";
 const STEP_COLORS = ["#3b9199", "#d1348c", "#e2903f", "#6d85a6"];
 
 export function HowItWorks() {
-  const { lang, t } = useI18n();
+  const { t } = useI18n();
   return (
     <section id="how" className="container-page scroll-mt-24 py-16">
       <SectionHeading eyebrow={t("how.eyebrow")} title={t("how.title")} intro={t("how.intro")} />
 
       <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {HOW[lang].map((s, i) => (
+        {HOW.map((s, i) => (
           <div
             key={s.step}
             className="neu group relative overflow-hidden p-6 transition-transform duration-300 hover:-translate-y-1"

@@ -4,41 +4,63 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { NAV } from "@/lib/dictionary";
-import { useI18n } from "@/lib/i18n";
 import { Logo } from "@/components/ui/Logo";
 import { clsx } from "@/lib/clsx";
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Archive search as a plain GET form, so it works before the page's JavaScript loads. */
+function SearchForm({ id, className, onDone }: { id: string; className?: string; onDone?: () => void }) {
+  return (
+    <form action="/blog" method="get" role="search" onSubmit={onDone} className={clsx("relative", className)}>
+      <label className="sr-only" htmlFor={id}>
+        Search the fact-check archive
+      </label>
+      <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
+      <input
+        id={id}
+        type="search"
+        name="q"
+        placeholder="Search fact-checks…"
+        className="w-full rounded-full border border-hairline bg-surface-sunken py-2 pl-9 pr-3 text-sm text-ink outline-none placeholder:text-ink-faint focus:ring-2 focus:ring-brand/30"
+      />
+    </form>
+  );
+}
 
 export function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const { lang, t } = useI18n();
-  const links = NAV[lang];
 
   if (pathname.startsWith("/admin")) return null;
 
   return (
     <header className="sticky top-0 z-50">
       <div className="container-page pt-4">
-        <nav className="flex items-center justify-between gap-4 rounded-2xl border border-hairline bg-surface-raised px-4 py-3 sm:px-5 shadow-[0_14px_34px_-14px_rgba(25,24,23,0.38)]">
-          {/* Logo */}
-          <Link href="/" onClick={() => setOpen(false)}>
+        <nav className="flex items-center justify-between gap-4 rounded-2xl border border-hairline bg-surface-raised px-4 py-3 shadow-[0_14px_34px_-14px_rgba(25,24,23,0.38)] sm:px-5">
+          <Link href="/" onClick={() => setOpen(false)} className="shrink-0">
             <Logo />
           </Link>
 
           {/* Desktop links */}
           <ul className="hidden items-center gap-1 md:flex">
-            {links.map((l) => {
-              const active =
-                l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
+            {NAV.map((l) => {
+              const active = l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
               return (
                 <li key={l.href}>
                   <Link
                     href={l.href}
+                    aria-current={active ? "page" : undefined}
                     className={clsx(
                       "rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
-                      active
-                        ? "text-ink shadow-neu-inset-sm bg-surface-sunken"
-                        : "text-ink-muted hover:text-ink",
+                      active ? "bg-surface-sunken text-ink shadow-neu-inset-sm" : "text-ink-muted hover:text-ink",
                     )}
                   >
                     {l.label}
@@ -49,11 +71,13 @@ export function Navbar() {
           </ul>
 
           <div className="flex items-center gap-2">
-            <Link href="/detector" className="btn-primary hidden px-4 py-2 text-sm sm:inline-flex">
-              {t("nav.cta")}
+            <SearchForm id="nav-search" className="hidden w-52 lg:block" />
+            <Link href="/blog" aria-label="Search the fact-check archive" className="neu-btn hidden h-10 w-10 place-items-center md:grid lg:hidden">
+              <SearchIcon className="h-4 w-4" />
             </Link>
             <button
               aria-label="Toggle menu"
+              aria-expanded={open}
               onClick={() => setOpen((v) => !v)}
               className="neu-btn grid h-10 w-10 place-items-center md:hidden"
             >
@@ -68,8 +92,9 @@ export function Navbar() {
 
         {/* Mobile menu */}
         {open && (
-          <div className="neu-sm mt-2 flex flex-col gap-1 p-2 md:hidden animate-fade-up">
-            {links.map((l) => (
+          <div className="neu-sm mt-2 flex flex-col gap-1 p-2 animate-fade-up md:hidden">
+            <SearchForm id="nav-search-mobile" className="mb-1 px-1 pt-1" onDone={() => setOpen(false)} />
+            {NAV.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
@@ -79,9 +104,6 @@ export function Navbar() {
                 {l.label}
               </Link>
             ))}
-            <Link href="/detector" onClick={() => setOpen(false)} className="btn-primary mt-1 px-4 py-2.5 text-sm">
-              {t("nav.cta")}
-            </Link>
           </div>
         )}
       </div>

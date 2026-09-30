@@ -1,91 +1,5 @@
 import type { Verdict } from "./detect";
 
-export const NAV_LINKS = [
-  { href: "/", label: "Home" },
-  { href: "/detector", label: "Detektor" },
-  { href: "/blog", label: "Blog" },
-  { href: "/report", label: "Lapor Hoaks" },
-  { href: "/about", label: "Tentang" },
-];
-
-export const STATS = [
-  { value: 8300, suffix: "+", label: "Artikel periksa fakta", sub: "Bahasa Indonesia & Inggris" },
-  { value: 5969, suffix: "", label: "Entri Bahasa Indonesia", sub: "Kategori lokal" },
-  { value: 2331, suffix: "", label: "Entri English", sub: "Sumber internasional" },
-  { value: 2, suffix: "", label: "Bahasa didukung", sub: "Deteksi otomatis ID / EN" },
-];
-
-export const HOW_IT_WORKS = [
-  {
-    step: "01",
-    title: "Tempel teksnya",
-    kicker: "Input",
-    body: "Salin artikel, berita, atau pesan berantai yang kamu ragukan ke kolom analisa. Mendukung teks panjang.",
-  },
-  {
-    step: "02",
-    title: "Deteksi bahasa",
-    kicker: "Preprocess",
-    body: "Sistem mengenali Bahasa Indonesia atau Inggris, lalu menjalankan filtering, stopword removal, dan stemming.",
-  },
-  {
-    step: "03",
-    title: "RAG Fusion menilai",
-    kicker: "Analyze",
-    body: "Retrieval-Augmented Generation menarik referensi relevan dari basis data dan menilai probabilitas hoaks.",
-  },
-  {
-    step: "04",
-    title: "Hasil & referensi",
-    kicker: "Result",
-    body: "Dapatkan verdict, tingkat keyakinan, penjelasan, dan tautan referensi untuk verifikasi mandiri.",
-  },
-];
-
-export const COMPARISON = {
-  withUs: [
-    "Deteksi bahasa otomatis ID & EN",
-    "Verdict + tingkat keyakinan terukur",
-    "Referensi periksa fakta yang bisa ditelusuri",
-    "Penjelasan mengapa sesuatu dinilai hoaks",
-    "Berbasis riset RAG Fusion",
-  ],
-  without: [
-    "Menebak sendiri kredibilitas berita",
-    "Tidak tahu seberapa yakin penilaiannya",
-    "Sumber tidak jelas asalnya",
-    "Label tanpa alasan",
-    "Mengandalkan kata orang",
-  ],
-};
-
-export const FAQ = [
-  {
-    q: "Apakah hasilnya bisa dijadikan bukti hukum?",
-    a: "Tidak. Hasil sistem hanya berupa prediksi berbasis analisa referensi, tidak dapat dijadikan barang bukti di pengadilan. Selalu verifikasi ke sumber resmi.",
-  },
-  {
-    q: "Bahasa apa saja yang didukung?",
-    a: "Saat ini Bahasa Indonesia dan Inggris. Bahasa dideteksi otomatis dari teks yang kamu masukkan.",
-  },
-  {
-    q: "Jenis input apa yang bisa dianalisa?",
-    a: "Input berupa teks: artikel, berita, atau pesan terusan. Untuk konten gambar/video, sertakan deskripsi teksnya.",
-  },
-  {
-    q: "Bagaimana kalau hasilnya menurut saya salah?",
-    a: "Laporkan lewat halaman Lapor Hoaks. Sistem terus diperbaiki berdasarkan laporan pengguna dan verifikasi tim.",
-  },
-  {
-    q: "Apa itu RAG Fusion?",
-    a: "Retrieval-Augmented Generation Fusion menggabungkan pencarian informasi dan model generatif untuk meningkatkan akurasi dan keterjelasan deteksi hoaks.",
-  },
-  {
-    q: "Apakah data yang saya tempel disimpan?",
-    a: "Teks hanya diproses untuk analisa. Pada versi ini tidak ada penyimpanan permanen di sisi klien.",
-  },
-];
-
 export interface Article {
   slug: string;
   title: string;
@@ -106,6 +20,8 @@ export interface Article {
   sourceSite?: string;
   /** False hides the article from the public site. Defaults to true. */
   published?: boolean;
+  /** Internet Archive copy the text was recovered from, when the original page is gone. */
+  archiveUrl?: string;
 }
 
 /** What a list or card shows; the article body stays in the database. */

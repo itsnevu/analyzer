@@ -19,6 +19,33 @@ export function sourceName(site: string): string {
   return SOURCE_NAMES[site] ?? site;
 }
 
+// Sources whose old article links no longer lead to the article (checked October 2026).
+const GONE: RegExp[] = [
+  /^https?:\/\/(www\.)?stophoax\.id\//i, // domain is parked and for sale
+  /^https?:\/\/(www\.)?turnbackhoax\.id\/\d{4}\/\d{2}\/\d{2}\//i, // old WordPress permalinks, 404 since the site moved
+  /^https?:\/\/(www\.)?hoax-slayer\.(net|com)\//i, // offline
+  /^https?:\/\/(www\.)?kominfo\.go\.id\//i, // unreachable since the ministry became Komdigi
+  /^https?:\/\/(www\.)?sophos\.com\/+en-us\/threat-center\//i, // section removed
+  /^https?:\/\/jabarsaberhoaks\.jabarprov\.go\.id\//i, // old domain offline
+];
+
+export function isGone(url: string): boolean {
+  return GONE.some((re) => re.test(url));
+}
+
+/** Internet Archive copy of `url` closest to `date` (YYYY-MM-DD), i.e. from before the site went away. */
+export function archiveCopy(url: string, date?: string): string {
+  const stamp = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.replace(/-/g, "") : "2019";
+  return `https://web.archive.org/web/${stamp}/${url}`;
+}
+
+/** Where a link to a source should point: the original, or its archived copy when the original is gone. */
+export function outboundLink(url: string, date?: string, archiveUrl?: string): { href: string; archived: boolean } {
+  if (archiveUrl) return { href: archiveUrl, archived: true };
+  if (isGone(url)) return { href: archiveCopy(url, date), archived: true };
+  return { href: url, archived: false };
+}
+
 /** Hostname of a URL without "www.", or "" when it is not a URL. */
 export function hostOf(url: string | undefined): string {
   if (!url) return "";

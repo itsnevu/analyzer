@@ -2,7 +2,7 @@ import { Hero } from "@/components/home/Hero";
 import { SourcesMarquee } from "@/components/home/SourcesMarquee";
 import { Stats } from "@/components/home/Stats";
 import { HowItWorks } from "@/components/home/HowItWorks";
-import { FeatureComparison } from "@/components/home/FeatureComparison";
+import { ExampleResult } from "@/components/home/ExampleResult";
 import { Tips } from "@/components/home/Tips";
 import { RecentPosts } from "@/components/home/RecentPosts";
 import { Faq } from "@/components/home/Faq";
@@ -29,7 +29,7 @@ export default async function HomePage() {
       <Reveal><Stats items={items} /></Reveal>
       <Reveal><RecentPosts articles={recent.items} total={stats.total} /></Reveal>
       <Reveal><HowItWorks /></Reveal>
-      <Reveal><FeatureComparison /></Reveal>
+      <Reveal><ExampleResult /></Reveal>
       <Reveal><Tips /></Reveal>
       <Reveal><Faq /></Reveal>
       <Reveal><CtaBand /></Reveal>

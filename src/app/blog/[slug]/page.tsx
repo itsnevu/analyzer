@@ -29,9 +29,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       description: summary,
       type: "article",
       url: `/blog/${article.slug}`,
-      images: [{ url: article.image || "/og.jpg" }],
     },
-    twitter: { card: "summary_large_image", title, description: summary, images: [article.image || "/og.jpg"] },
+    // The preview image comes from ./opengraph-image.tsx.
+    twitter: { card: "summary_large_image", title, description: summary },
   };
 }
 

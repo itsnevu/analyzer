@@ -314,9 +314,10 @@ function splitSections(lines: string[], headings = HEADINGS): Record<Section, st
 const JUNK: RegExp[] = [
   /^-->$/,
   /^`$/,
-  /^[=\-_*~#]{3,}$/,
+  /^(?:[=\-_*~#]\s*){3,}$/,
   /^Please enable JavaScript to view the comments/i,
   /^Selengkapnya$/i,
+  /^Selengkapnya (di|pada|ada di) (bagian )?(penjelasan|referensi)\b.*$/i,
   /^(Share|Tweet|Send|Bagikan|Reddit|WhatsApp|Email|Advertisement)$/i,
   /^Baca (juga|selengkapnya)\b/i,
   /^Share [\d.,]+[km]?$/i,

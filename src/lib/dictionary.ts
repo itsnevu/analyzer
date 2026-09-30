@@ -138,7 +138,7 @@ export const FAQ: { q: string; a: string }[] = [
   { q: "What kind of input can be analyzed?", a: "Text input: articles, news, or forwarded messages. For image/video content, include a text description." },
   { q: "What if I think the result is wrong?", a: "Report it via the Report a Hoax page. The system keeps improving based on user reports and team verification." },
   { q: "What is RAG Fusion?", a: "Retrieval-Augmented Generation Fusion combines information retrieval and generative models to improve the accuracy and interpretability of hoax detection." },
-  { q: "Is the text I paste stored?", a: "Yes. The text you check is saved on our server together with its verdict, without your IP address, so we can see which claims are circulating and improve the detector. Please don't paste private information. Your last five checks are also remembered in this browser, and you can clear them at any time." },
+  { q: "Is the text I paste stored?", a: "Yes. Every check is saved on our server with its result, your IP address, network and device details, for research on how the tool is used and to improve the detector. Research is published only as statistics or anonymized data; see the Privacy page. Please don't paste private information. Your last five checks are also remembered in this browser, and you can clear them at any time." },
   { q: "Where do the fact-checks come from?", a: "The archive collects published fact-checks from TurnBackHoax (MAFINDO), Kominfo, the COVID-19 task force, Tempo, Kompas, CekFakta.com, Hoax-Slayer and others. Every entry links to the original article." },
 ];
 
@@ -159,5 +159,5 @@ export const DISCLAIMER_POINTS: string[] = [
   "The system's result is only a prediction and cannot serve as evidence in court. Any loss caused by the system is not the developer's responsibility.",
   "If a result is considered incorrect, users can report it via the complaint feature. The system keeps improving based on user reports and verification by the authorized team.",
   "For better results, use input from original articles / news from the internet or forwarded messages on social media.",
-  "Text submitted to the detector is stored together with its verdict, without the sender's IP address, to improve the system. Do not submit personal or confidential information.",
+  "Every use of the site is recorded for research, including the submitted text, the result, the IP address, network and device (see the Privacy page). Do not submit personal or confidential information.",
 ];

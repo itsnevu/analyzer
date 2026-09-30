@@ -21,6 +21,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ScrollProgress } from "@/components/ui/ScrollProgress";
 import { ServiceWorker } from "@/components/ui/ServiceWorker";
+import { UsageBeacon } from "@/components/ui/UsageBeacon";
 import { SITE_URL } from "@/lib/site";
 import { LangProvider } from "@/lib/i18n";
 
@@ -86,6 +87,7 @@ export default function RootLayout({
           <Footer />
         </LangProvider>
         <ServiceWorker />
+        <UsageBeacon />
       </body>
     </html>
   );

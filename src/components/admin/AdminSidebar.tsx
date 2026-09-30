@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/admin", label: "Dashboard", exact: true },
   { href: "/admin/articles", label: "Articles", exact: false },
   { href: "/admin/reports", label: "Reports", exact: false },
+  { href: "/admin/research", label: "Research", exact: false },
 ];
 
 export function AdminSidebar({ unreadReports = 0 }: { unreadReports?: number }) {

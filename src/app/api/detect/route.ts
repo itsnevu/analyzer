@@ -3,6 +3,8 @@ import { runDetection, type DetectionResult } from "@/lib/detect";
 import { findSimilarArticles, type ArticleListItem } from "@/lib/articles";
 import { VERDICT_META } from "@/lib/verdict";
 import { recordSearch } from "@/lib/searches";
+import { readClientMeta, recordUsage, type UsageFields } from "@/lib/usage";
+import { isAdmin } from "@/lib/admin-articles";
 import { clientIp, take, tooMany } from "@/lib/rate-limit";
 import { asSingleUrl, PageError, readPage } from "@/lib/fetch-page";
 
@@ -41,7 +43,7 @@ export async function POST(req: Request) {
     if (!r.ok) return tooMany("Too many checks from your network. Please wait a moment and try again.", r.retryAfter);
   }
 
-  let body: { text?: string };
+  let body: { text?: string; meta?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -49,6 +51,12 @@ export async function POST(req: Request) {
   }
 
   const input = (body.text ?? "").toString();
+  const started = Date.now();
+  const meta = readClientMeta(body.meta);
+  const staff = await isAdmin();
+  // Every attempt goes to the research log (see /privacy), failed ones with the reason.
+  const log = (fields: UsageFields) =>
+    recordUsage(req, "check", meta, { text: input, input: asSingleUrl(input) ? "link" : "text", ms: Date.now() - started, ...fields }, staff);
   let text = input;
   let source: { url: string; title: string } | undefined;
 
@@ -62,18 +70,21 @@ export async function POST(req: Request) {
       text = page.text;
       source = { url: page.url, title: page.title };
     } catch (err) {
+      log({ url: link, error: "link-unreadable" });
       const message = err instanceof PageError ? err.message : "The page could not be read.";
       return NextResponse.json({ error: `${message} You can paste the text of the message instead.` }, { status: 422 });
     }
   }
 
   if (text.trim().length < 15) {
+    log({ error: "too-short" });
     return NextResponse.json(
       { error: "Text is too short. Enter at least 15 characters to analyze." },
       { status: 422 },
     );
   }
   if (text.length > MAX_CHARS) {
+    log({ error: "too-long" });
     return NextResponse.json(
       { error: `Text is too long. Paste at most ${MAX_CHARS.toLocaleString("en-US")} characters.` },
       { status: 413 },
@@ -91,15 +102,20 @@ export async function POST(req: Request) {
       }),
     ]);
     const final = withArchiveVerdict(result, related);
-    // Feeds the admin dashboard's search statistics: the text and verdict only, no IP (disclosed on the detector and in the FAQ).
+    // Feeds the admin dashboard's search statistics (text and verdict); the full record is in the research log above.
     try {
       recordSearch(link ?? text, final.verdict);
     } catch (err) {
       console.error("[detect] could not record search:", err);
     }
-    return NextResponse.json({ ...final, related, ...(source ? { source } : {}) });
+    const checkId = log({
+      url: link ?? "", pageTitle: source?.title ?? "", lang: final.language, verdict: final.verdict,
+      probability: final.hoaxProbability, engine: final.simulated ? "demo" : "model", matches: related.length, topMatch: related[0]?.slug ?? "",
+    });
+    return NextResponse.json({ ...final, related, checkId, ...(source ? { source } : {}) });
   } catch (err) {
     console.error("[detect] failed:", err);
+    log({ error: "failed" });
     return NextResponse.json(
       { error: "Failed to analyze the text. Please try again shortly." },
       { status: 502 },

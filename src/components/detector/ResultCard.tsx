@@ -12,6 +12,7 @@ import { CopyButton } from "@/components/ui/CopyButton";
 import { VerdictBadge } from "@/components/article/ArticleCard";
 import { ShareBar } from "@/components/article/ShareBar";
 import { HighlightedText } from "./HighlightedText";
+import { ResearchCard } from "./ResearchCard";
 
 function Gauge({ value, color }: { value: number; color: string }) {
   const pct = Math.round(value * 100);
@@ -187,6 +188,8 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
           </ul>
         </div>
       </div>
+
+      <ResearchCard checkId={result.checkId} />
 
       <div className="flex flex-col items-start justify-between gap-3 border-t border-hairline px-6 py-4 text-xs text-ink-faint sm:flex-row sm:items-center sm:px-8">
         <span>

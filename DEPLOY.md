@@ -137,7 +137,8 @@ Database changes are applied automatically when the server starts. Run
 ## 8. Backups
 
 The server copies the database once a day to `data/backup/` and keeps the last
-14 (`DB_BACKUP_KEEP`). Those copies are on the same disk, so also copy
+14 (`DB_BACKUP_KEEP`). They hold personal data (visitors' IP addresses in the research log), so encrypt
+any copy you keep elsewhere. Those copies are on the same disk, so also copy
 `data/backup/` somewhere else regularly (an external drive or cloud storage).
 
 To restore: stop the site (`pm2 stop hoax-analyzer`), copy a backup to

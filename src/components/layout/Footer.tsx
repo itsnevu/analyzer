@@ -18,6 +18,7 @@ export function Footer() {
         { label: t("footer.link.blog"), href: "/blog" },
         { label: t("footer.link.report"), href: "/report" },
         { label: t("footer.link.disclaimer"), href: "/disclaimer" },
+        { label: "Privacy", href: "/privacy" },
       ],
     },
     {

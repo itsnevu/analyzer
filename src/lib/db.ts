@@ -10,7 +10,7 @@ import { DatabaseSync } from "node:sqlite";
 const DB_FILE = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "hoax.db");
 
 /** Bump when migrate() changes, so a hot-reloaded dev server re-runs it on the open connection. */
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 // Reuse one connection across dev hot reloads.
 const globalForDb = globalThis as unknown as {
@@ -101,6 +101,36 @@ function migrate(db: DatabaseSync): void {
   addReportColumn("attachment", "TEXT NOT NULL DEFAULT ''"); // screenshot file name in data/uploads/reports
   addReportColumn("status", "TEXT NOT NULL DEFAULT 'new'"); // 'new' | 'in-progress' | 'done'
   addReportColumn("readAt", "TEXT"); // when an admin opened it
+
+  // Research log of site usage (see ./usage). ip is cleared after the retention period.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS usage_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      at TEXT NOT NULL,
+      recordedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      origin TEXT NOT NULL DEFAULT 'site',
+      legacyId INTEGER,
+      kind TEXT NOT NULL,
+      staff INTEGER NOT NULL DEFAULT 0,
+      visitor TEXT NOT NULL DEFAULT '', session TEXT NOT NULL DEFAULT '',
+      ip TEXT, ipHash TEXT NOT NULL DEFAULT '',
+      asn INTEGER, asOrg TEXT NOT NULL DEFAULT '', country TEXT NOT NULL DEFAULT '',
+      userAgent TEXT NOT NULL DEFAULT '', device TEXT NOT NULL DEFAULT '', os TEXT NOT NULL DEFAULT '',
+      browser TEXT NOT NULL DEFAULT '', inApp TEXT NOT NULL DEFAULT '',
+      language TEXT NOT NULL DEFAULT '', timezone TEXT NOT NULL DEFAULT '', screen TEXT NOT NULL DEFAULT '',
+      installed INTEGER NOT NULL DEFAULT 0,
+      referrer TEXT NOT NULL DEFAULT '', utm TEXT NOT NULL DEFAULT '', path TEXT NOT NULL DEFAULT '',
+      via TEXT NOT NULL DEFAULT '', input TEXT NOT NULL DEFAULT '',
+      text TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '', pageTitle TEXT NOT NULL DEFAULT '',
+      lang TEXT NOT NULL DEFAULT '', verdict TEXT NOT NULL DEFAULT '', probability REAL,
+      engine TEXT NOT NULL DEFAULT '', matches INTEGER, topMatch TEXT NOT NULL DEFAULT '',
+      ms INTEGER, error TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT '', organization TEXT NOT NULL DEFAULT '',
+      reportId INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_usage_kind ON usage_log (kind, at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_legacy ON usage_log (legacyId) WHERE legacyId IS NOT NULL;
+  `);
 
   db.exec(`
     DROP INDEX IF EXISTS idx_articles_date;

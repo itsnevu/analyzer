@@ -58,6 +58,8 @@ export interface DetectionResult {
   simulated: boolean;
   /** set when a model is configured but could not be used, so demo mode answered instead */
   fallbackReason?: string;
+  /** Row in the research log, so a role given afterwards can label this check. */
+  checkId?: number | null;
   /** fact-checks from our own archive about the same claim; added by the API, not the model */
   related?: ArticleListItem[];
   /** the page that was read, when the input was a link */

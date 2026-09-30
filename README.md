@@ -58,8 +58,12 @@ screenshot reader under `public/ocr/` (downloads ~4 MB of language data once).
    contract makes the site fall back to demo mode, visibly. In demo mode the top
    archive match decides, and a keyword heuristic covers texts with no match.
 
-Each check is stored with its verdict (no IP address) for the dashboard's
-statistics; the detector, FAQ and disclaimer say so.
+Every visit, check, report and message is also written to a research log
+(`usage_log`): IP address, network (from the public-domain IPtoASN database,
+looked up locally; `npm run prepare:ipdb`), device, referrer and an optional
+self-reported role. It is explained on `/privacy`, browsed and exported as CSV
+at `/admin/research`, and IPs are cleared after `RESEARCH_IP_RETENTION_DAYS`.
+`npm run import:usage` adds the old panel's search log (2019–2024, with IPs).
 
 ## Data
 

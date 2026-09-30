@@ -6,9 +6,10 @@ export const PENDING_TEXT_KEY = "hoax-analyzer:pending";
  * what another app shared to the installed web app (`?text=`, `?title=`,
  * `?url=` from the manifest's share_target). Clears both once read.
  */
-export function takePendingText(): { text: string; run: boolean } | null {
+export function takePendingText(): { text: string; run: boolean; from: "home" | "share" } | null {
   let text = "";
   let run = false;
+  let from: "home" | "share" = "home";
   const params = new URLSearchParams(window.location.search);
   try {
     const saved = sessionStorage.getItem(PENDING_TEXT_KEY);
@@ -27,9 +28,10 @@ export function takePendingText(): { text: string; run: boolean } | null {
       .filter((p, i, all) => all.findIndex((x) => x.includes(p)) === i);
     text = shared.join("\n").trim();
     run = text.length > 0;
+    from = "share";
   }
   if (params.has("run") || params.has("text") || params.has("title") || params.has("url")) {
     window.history.replaceState(null, "", window.location.pathname);
   }
-  return text ? { text, run } : null;
+  return text ? { text, run, from } : null;
 }

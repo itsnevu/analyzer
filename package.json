@@ -14,10 +14,12 @@
     "apply:archived": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/apply-archived.ts",
     "setup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/setup-env.ts",
     "prepare:ocr": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/prepare-ocr.ts",
-    "predev": "npm run -s prepare:ocr",
-    "prebuild": "npm run -s prepare:ocr",
+    "predev": "npm run -s prepare:ocr && npm run -s prepare:ipdb",
+    "prebuild": "npm run -s prepare:ocr && npm run -s prepare:ipdb",
     "db:backup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/backup-db.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepare:ipdb": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/prepare-ipdb.ts",
+    "import:usage": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-legacy-usage.ts"
   },
   "dependencies": {
     "geist": "^1.7.2",

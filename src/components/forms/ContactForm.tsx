@@ -1,5 +1,6 @@
 "use client";
 
+import { usageMeta } from "@/lib/usage-client";
 import { useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { clsx } from "@/lib/clsx";
@@ -51,7 +52,7 @@ export function ContactForm() {
       const res = await fetch("/api/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, meta: JSON.stringify(usageMeta()) }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to send.");

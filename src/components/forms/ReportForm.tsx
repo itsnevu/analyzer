@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { REPORT_DRAFT_KEY, type ReportDraft, type ReportType } from "@/lib/report-labels";
 import { FormStatus, Honeypot, fieldClass } from "./ContactForm";
 import { clsx } from "@/lib/clsx";
+import { usageMeta } from "@/lib/usage-client";
 
 const TYPES: { key: ReportType; title: string; hint: string }[] = [
   { key: "hoax", title: "I found a possible hoax", hint: "A message, post or article you want checked." },
@@ -45,6 +46,7 @@ export function ReportForm() {
     data.set("kind", "report");
     data.set("reportType", type);
     if (detectedVerdict) data.set("detectedVerdict", detectedVerdict);
+    data.set("meta", JSON.stringify(usageMeta()));
     const file = data.get("screenshot");
     if (file instanceof File && file.size > 5 * 1024 * 1024) {
       setStatus("error");
@@ -174,7 +176,7 @@ export function ReportForm() {
       <button type="submit" disabled={status === "sending"} className="btn-primary w-full py-3.5">
         {status === "sending" ? "Sending…" : "Send report"}
       </button>
-      <p className="text-center text-xs text-ink-faint">Screenshots are re-saved without their location data. Only the admin can see them.</p>
+      <p className="text-center text-xs text-ink-faint">Screenshots are re-saved without their location data. Reports are stored with your IP address and device details (<Link href="/privacy" className="underline">privacy</Link>); only the admin can see them.</p>
 
       <FormStatus status={status} message={msg} />
     </form>

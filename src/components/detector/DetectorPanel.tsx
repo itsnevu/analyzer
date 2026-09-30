@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { takePendingText } from "@/lib/pending";
 import { isImage, readImageText } from "@/lib/ocr";
 import { ResultCard } from "./ResultCard";
+import { usageMeta } from "@/lib/usage-client";
 import { clsx } from "@/lib/clsx";
 
 const HISTORY_KEY = "hoax-analyzer:history";
@@ -53,6 +54,8 @@ export function DetectorPanel() {
   const [ocr, setOcr] = useState<{ progress: number; status: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  // How the current text got into the box, for the research log.
+  const via = useRef("typed");
   const resultRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -69,6 +72,7 @@ export function DetectorPanel() {
     const pending = takePendingText();
     if (pending) {
       setText(pending.text);
+      via.current = pending.from;
       if (pending.run && pending.text.trim().length >= MIN_CHARS) void analyze(pending.text);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,6 +126,7 @@ export function DetectorPanel() {
       const found = await readImageText(file, (progress, status) => setOcr({ progress, status }));
       if (found.replace(/\s+/g, "").length < 10) throw new Error("No readable text was found in that image.");
       setText((prev) => (prev.trim() ? `${prev.trim()}\n\n${found}` : found));
+      via.current = "screenshot";
       setNotice("Text read from your screenshot. Check it for reading mistakes, then press Analyze.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "The screenshot could not be read.");
@@ -148,7 +153,7 @@ export function DetectorPanel() {
       const res = await fetch("/api/detect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input }),
+        body: JSON.stringify({ text: input, meta: usageMeta(via.current) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error.");
@@ -199,9 +204,13 @@ export function DetectorPanel() {
         >
           <textarea
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              if (!e.target.value) via.current = "typed";
+            }}
             onPaste={(e) => {
               if (takeImage(e.clipboardData.files)) e.preventDefault();
+              else via.current = "paste";
             }}
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
@@ -254,7 +263,10 @@ export function DetectorPanel() {
             {SAMPLES.map((s) => (
               <button
                 key={s.labelKey}
-                onClick={() => setText(s.text)}
+                onClick={() => {
+                  setText(s.text);
+                  via.current = "sample";
+                }}
                 className="neu-btn px-3 py-1.5 text-xs font-medium text-ink-muted"
               >
                 {t(s.labelKey)}
@@ -306,7 +318,11 @@ export function DetectorPanel() {
                 : `Tip: press ${mac ? "⌘" : "Ctrl"} + Enter to analyze.`}
         </p>
         <p className="mt-1 text-center text-xs text-ink-faint">
-          Checked text is saved with its verdict, without your IP address, to improve the detector. Don&apos;t paste private information.
+          Every check is recorded for research on how this tool is used, with your IP address, network and device.
+          Don&apos;t paste private information.{" "}
+          <a href="/privacy" className="underline hover:text-ink">
+            Privacy
+          </a>
         </p>
 
         {notice && (
@@ -345,7 +361,7 @@ export function DetectorPanel() {
               return (
                 <li key={h.ts}>
                   <button
-                    onClick={() => { setText(h.text); setResult(null); setError(null); }}
+                    onClick={() => { setText(h.text); via.current = "history"; setResult(null); setError(null); }}
                     className="neu-inset flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors hover:text-ink"
                   >
                     <span

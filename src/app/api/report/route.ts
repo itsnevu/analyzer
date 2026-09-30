@@ -3,6 +3,8 @@ import { addReport, reportNumber, type NewReport, type ReportType } from "@/lib/
 import { notifyNewReport } from "@/lib/notify";
 import { MAX_UPLOAD_BYTES, saveReportImage, UploadError } from "@/lib/uploads";
 import { clientIp, take, tooMany } from "@/lib/rate-limit";
+import { readClientMeta, recordUsage } from "@/lib/usage";
+import { isAdmin } from "@/lib/admin-articles";
 
 export const runtime = "nodejs";
 
@@ -102,6 +104,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to save. Please try again shortly." }, { status: 500 });
   }
   void notifyNewReport(id, report);
+  let meta = {};
+  try {
+    meta = JSON.parse(fields.meta ?? "{}");
+  } catch {
+    /* no meta */
+  }
+  recordUsage(req, kind, readClientMeta(meta), { reportId: id, text: report.content || report.message }, await isAdmin());
 
   const number = reportNumber(id);
   return NextResponse.json({

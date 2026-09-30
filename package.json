@@ -16,7 +16,8 @@
     "prepare:ocr": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/prepare-ocr.ts",
     "predev": "npm run -s prepare:ocr",
     "prebuild": "npm run -s prepare:ocr",
-    "db:backup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/backup-db.ts"
+    "db:backup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/backup-db.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "geist": "^1.7.2",
@@ -35,6 +36,7 @@
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^5.0.3"
   }
 }

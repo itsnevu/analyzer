@@ -28,7 +28,7 @@ export function Faq() {
                 <span
                   className={clsx(
                     "grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-muted transition-transform duration-300",
-                    isOpen ? "rotate-45 bg-brand-gradient text-white" : "shadow-neu-inset-sm",
+                    isOpen ? "rotate-45 bg-brand-gradient text-surface" : "shadow-neu-inset-sm",
                   )}
                 >
                   +

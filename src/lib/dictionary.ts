@@ -68,7 +68,7 @@ export const DICT: Record<string, string> = {
   "res.references": "References",
   "res.copy": "Copy result",
   "res.copied": "Copied",
-  "res.demoNote": "The trained detection model is not connected yet. This verdict comes from matching your text against the fact-check archive, or from a simple keyword heuristic when nothing matches.",
+  "res.demoNote": "The trained RAG Fusion model is not connected yet. This verdict comes from matching your text against the fact-check archive, or from a baseline classifier trained on the archive when nothing matches.",
   "res.demoTag": "Demo mode.",
   "res.footer": "Results are predictions and cannot serve as legal evidence.",
   "blog.eyebrow": "Blog",

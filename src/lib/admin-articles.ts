@@ -32,6 +32,19 @@ export function normalizeArticle(input: Record<string, unknown>): Article | null
     reference: s(input.reference),
     image: s(input.image),
     originalUrl: /^https?:\/\//i.test(s(input.originalUrl)) ? s(input.originalUrl) : undefined,
+    sourceSite: siteName(s(input.sourceSite)),
     published: input.published !== false && input.published !== "false" && input.published !== 0,
   };
+}
+
+/** "https://www.Kompas.com/x" or "Kompas.com" → "kompas.com"; anything that is not a host name → "". */
+function siteName(input: string): string {
+  let s = input.toLowerCase();
+  try {
+    if (/^https?:\/\//.test(s)) s = new URL(s).hostname;
+  } catch {
+    return "";
+  }
+  s = s.replace(/^www\./, "").slice(0, 100);
+  return /^[a-z0-9.-]+\.[a-z]{2,}$/.test(s) ? s : "";
 }

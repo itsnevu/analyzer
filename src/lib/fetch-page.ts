@@ -168,8 +168,8 @@ function charsetOf(contentType: string, head: string): string {
   return (contentType.match(/charset=([\w-]+)/i)?.[1] ?? head.match(/<meta[^>]+charset=["']?([\w-]+)/i)?.[1] ?? "utf-8").toLowerCase();
 }
 
-/** Fetches a public page and returns its title and readable text. */
-export async function readPage(raw: string): Promise<{ url: string; title: string; text: string }> {
+/** Fetches a public page (same checks as readPage) and returns its decoded HTML, for callers with their own parser. */
+export async function readPageHtml(raw: string): Promise<{ url: string; contentType: string; html: string }> {
   const page = await fetchPublic(raw.trim());
   const head = page.body.subarray(0, 4096).toString("latin1");
   let html: string;
@@ -178,6 +178,13 @@ export async function readPage(raw: string): Promise<{ url: string; title: strin
   } catch {
     html = page.body.toString("utf8");
   }
+  return { url: page.url, contentType: page.contentType, html };
+}
+
+/** Fetches a public page and returns its title and readable text. */
+export async function readPage(raw: string): Promise<{ url: string; title: string; text: string }> {
+  const page = await readPageHtml(raw);
+  const html = page.html;
   const { title, text } = page.contentType.includes("text/plain") ? { title: "", text: html.slice(0, 20_000) } : extractText(html);
   if (text.replace(/\s+/g, "").length < 60) {
     throw new PageError("We could not find readable text on that page. Social media posts usually need a login; paste the text instead.");

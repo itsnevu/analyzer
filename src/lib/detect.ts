@@ -20,9 +20,16 @@
  * default 15 s) or answers out of contract never breaks the page: the site
  * falls back to demo mode and says why. Streamlit apps (rag-fusion.streamlit.app)
  * do not expose such an API and need a small HTTP wrapper.
+ *
+ * Demo mode (no external model, or one that failed) is answered by the baseline
+ * classifier trained on the archive (./baseline, `npm run train:baseline`) when
+ * its model file exists, and by a keyword heuristic otherwise. Both are marked
+ * `simulated`, so the public page shows the demo note and a matching archived
+ * fact-check still overrides the verdict (see app/api/detect/route.ts).
  */
 
 import { detectLanguage, type Lang } from "./language";
+import { predictBaseline, type BaselinePrediction } from "./baseline";
 import type { ArticleListItem } from "./data";
 
 export type Verdict = "valid" | "misleading" | "hoax";
@@ -111,17 +118,17 @@ export function parseModelResponse(data: unknown, lang: Lang, langConf: number):
   };
 }
 
-async function askModel(url: string, text: string, lang: Lang, langConf: number): Promise<DetectionResult> {
-  const timeout = Number(process.env.RAG_FUSION_TIMEOUT_MS) || 15_000;
+const modelTimeoutMs = () => Number(process.env.RAG_FUSION_TIMEOUT_MS) || 15_000;
+
+/** The request the contract above describes; the key goes in the header only when set. */
+function modelRequest(text: string, lang: Lang): RequestInit {
   const headers: Record<string, string> = { "Content-Type": "application/json", Accept: "application/json" };
   if (process.env.RAG_FUSION_API_KEY) headers.Authorization = `Bearer ${process.env.RAG_FUSION_API_KEY}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ text, lang }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(timeout),
-  });
+  return { method: "POST", headers, body: JSON.stringify({ text, lang }), cache: "no-store", signal: AbortSignal.timeout(modelTimeoutMs()) };
+}
+
+async function askModel(url: string, text: string, lang: Lang, langConf: number): Promise<DetectionResult> {
+  const res = await fetch(url, modelRequest(text, lang));
   if (!res.ok) throw new Error(`the model answered HTTP ${res.status}`);
   let data: unknown;
   try {
@@ -132,6 +139,49 @@ async function askModel(url: string, text: string, lang: Lang, langConf: number)
   const parsed = parseModelResponse(data, lang, langConf);
   if (!parsed) throw new Error("the model's answer did not match the expected format");
   return parsed;
+}
+
+export interface PingResult {
+  /** the URL answered at all (any HTTP status) */
+  reachable: boolean;
+  status: number | null;
+  latencyMs: number | null;
+  /** the answer was JSON that follows the contract */
+  contract: boolean;
+  model?: string;
+  verdict?: Verdict;
+  hoaxProbability?: number;
+  error?: string;
+}
+
+const PING_TEXT = "Pesan berantai: vaksin mengandung chip yang bisa melacak lokasi kita. Sebarkan ke semua grup sebelum dihapus!";
+
+/**
+ * Sends a short sample to the configured external model and reports what came
+ * back, for the admin Model page. Never throws and never exposes the key.
+ */
+export async function pingModel(text = PING_TEXT): Promise<PingResult> {
+  const url = process.env.RAG_FUSION_API_URL;
+  if (!url) return { reachable: false, status: null, latencyMs: null, contract: false, error: "RAG_FUSION_API_URL is not set" };
+  const started = performance.now();
+  const latencyMs = () => Math.round(performance.now() - started);
+  let res: Response;
+  try {
+    res = await fetch(url, modelRequest(text, "id"));
+  } catch (err) {
+    const error = err instanceof Error && err.name === "TimeoutError" ? `no answer within ${modelTimeoutMs()} ms` : err instanceof Error ? err.message : "could not be reached";
+    return { reachable: false, status: null, latencyMs: latencyMs(), contract: false, error };
+  }
+  const status = res.status;
+  let data: unknown;
+  try {
+    data = await res.json();
+  } catch {
+    return { reachable: true, status, latencyMs: latencyMs(), contract: false, error: res.ok ? "the answer was not JSON" : `HTTP ${status}` };
+  }
+  const parsed = parseModelResponse(data, "id", 0.9);
+  if (!parsed) return { reachable: true, status, latencyMs: latencyMs(), contract: false, error: res.ok ? "the answer did not match the contract" : `HTTP ${status}` };
+  return { reachable: true, status, latencyMs: latencyMs(), contract: true, model: parsed.model, verdict: parsed.verdict, hoaxProbability: parsed.hoaxProbability };
 }
 
 export async function runDetection(rawText: string): Promise<DetectionResult> {
@@ -152,16 +202,33 @@ export async function runDetection(rawText: string): Promise<DetectionResult> {
   return simulateDetection(text, lang, langConf);
 }
 
+/** Markers any text can show, whichever demo engine answers: shouting, stacked exclamation marks, a one-liner. */
+function surfaceSignals(text: string): { signals: DetectionSignal[]; score: number } {
+  const signals: DetectionSignal[] = [];
+  let score = 0;
+  if (text.length < 60) { score += 0.08; signals.push({ label: "very short text", kind: "risk" }); }
+  if ((text.match(/!/g) || []).length >= 3) { score += 0.1; signals.push({ label: "excessive exclamation marks", kind: "risk" }); }
+  if ((text.match(/[A-Z]{5,}/g) || []).length >= 2) { score += 0.08; signals.push({ label: "excessive capitals", kind: "risk" }); }
+  return { signals, score };
+}
+
+const categoryOf = (v: Verdict) => (v === "hoax" ? "Disinformation" : v === "misleading" ? "Misinformation" : "Verified");
+
 /**
- * Transparent, deterministic stub so the UI is fully demonstrable without a
- * backend. It scores a handful of well-known clickbait / hoax signals. This
- * is NOT a real classifier, it exists only to exercise the interface.
+ * Demo mode: the baseline classifier when its model file exists (see
+ * ./baseline), otherwise a transparent, deterministic keyword stub that scores
+ * a handful of well-known clickbait / hoax signals so the UI is demonstrable
+ * without any model at all.
  */
 function simulateDetection(
   text: string,
   lang: Lang,
   langConf: number,
 ): DetectionResult {
+  const surface = surfaceSignals(text);
+  const baseline = predictBaseline(text);
+  if (baseline) return baselineDetection(baseline, surface.signals, lang, langConf);
+
   const lower = text.toLowerCase();
 
   const hoaxSignals = [
@@ -182,9 +249,8 @@ function simulateDetection(
     if (lower.includes(s)) { score += 0.14; signals.push({ label: s, kind: "risk" }); }
   for (const s of credibleSignals)
     if (lower.includes(s)) { score -= 0.1; signals.push({ label: s, kind: "trust" }); }
-  if (text.length < 60) { score += 0.08; signals.push({ label: "very short text", kind: "risk" }); }
-  if ((text.match(/!/g) || []).length >= 3) { score += 0.1; signals.push({ label: "excessive exclamation marks", kind: "risk" }); }
-  if ((text.match(/[A-Z]{5,}/g) || []).length >= 2) { score += 0.08; signals.push({ label: "excessive capitals", kind: "risk" }); }
+  signals.push(...surface.signals);
+  score += surface.score;
 
   const hits = signals.filter((s) => s.kind === "risk").length;
   const hoaxProbability = Math.min(0.97, Math.max(0.05, score));
@@ -194,26 +260,48 @@ function simulateDetection(
   else if (hoaxProbability >= 0.42) verdict = "misleading";
   else verdict = "valid";
 
-  const category =
-    verdict === "hoax"
-      ? "Disinformation"
-      : verdict === "misleading"
-        ? "Misinformation"
-        : "Verified";
-
-  const explanation = buildExplanation(verdict, hits);
-
   return {
     verdict,
     confidence: 0.55 + Math.min(0.35, hits * 0.08),
     hoaxProbability,
     language: lang,
     languageConfidence: langConf,
-    category,
-    explanation,
+    category: categoryOf(verdict),
+    explanation: buildExplanation(verdict, hits),
     references: SAMPLE_REFERENCES,
     signals,
     model: "local-heuristic-stub",
+    simulated: true,
+  };
+}
+
+const VERDICT_PHRASE: Record<Verdict, string> = { hoax: "a hoax", misleading: "misleading", valid: "credible" };
+
+/** The baseline's answer in the shape of a detection, with its strongest cues as signals. */
+function baselineDetection(p: BaselinePrediction, surface: DetectionSignal[], lang: Lang, langConf: number): DetectionResult {
+  const pct = (v: number) => `${Math.round(v * 100)}%`;
+  const quoted = (kind: "risk" | "trust") => p.topFeatures.filter((f) => f.kind === kind).slice(0, 4).map((f) => `“${f.token}”`);
+  const risk = quoted("risk");
+  const trust = quoted("trust");
+  const cues: DetectionSignal[] = p.topFeatures.slice(0, 6).map((f) => ({ label: `${f.token.includes(" ") ? "phrase" : "word"}: ${f.token}`, kind: f.kind }));
+  const explanation =
+    `A baseline classifier trained on the fact-check archive read this text as ${VERDICT_PHRASE[p.verdict]} ` +
+    `(hoax ${pct(p.probabilities.hoax)}, misleading ${pct(p.probabilities.misleading)}, credible ${pct(p.probabilities.valid)}). ` +
+    "It weighs the wording against claims that fact-checkers have debunked or confirmed; it does not verify facts." +
+    (risk.length ? ` Strongest cues toward hoax: ${risk.join(", ")}.` : "") +
+    (trust.length ? ` Toward credible: ${trust.join(", ")}.` : "") +
+    " Verify with official sources before sharing.";
+  return {
+    verdict: p.verdict,
+    confidence: p.confidence,
+    hoaxProbability: p.hoaxProbability,
+    language: lang,
+    languageConfidence: langConf,
+    category: categoryOf(p.verdict),
+    explanation,
+    references: SAMPLE_REFERENCES,
+    signals: [...cues, ...surface],
+    model: p.model,
     simulated: true,
   };
 }

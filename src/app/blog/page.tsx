@@ -138,7 +138,7 @@ export default async function BlogPage({ searchParams }: { searchParams: Promise
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="font-semibold uppercase tracking-[0.18em] text-ink-faint">Topics</span>
             {TOPICS.map((t) => (
-              <Link key={t.label} href={href({ q: t.q })} className={clsx("rounded-full px-3 py-1 font-medium transition-colors", q === t.q ? "bg-brand-gradient text-white" : "bg-surface-sunken text-ink-muted hover:text-ink")}>
+              <Link key={t.label} href={href({ q: t.q })} className={clsx("rounded-full px-3 py-1 font-medium transition-colors", q === t.q ? "bg-brand-gradient text-surface" : "bg-surface-sunken text-ink-muted hover:text-ink")}>
                 {t.label}
               </Link>
             ))}

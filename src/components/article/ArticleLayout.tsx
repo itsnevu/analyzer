@@ -17,6 +17,9 @@ function Section({ label, tone, children }: { label: string; tone?: string; chil
 
 const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
 
+/** Which web archive a recovered copy came from, for the credit line. */
+const archiveName = (url: string | undefined) => (url && /^https?:\/\/index\.commoncrawl\.org\//i.test(url) ? "Common Crawl" : "the Internet Archive");
+
 export function ArticleLayout({ article, related }: { article: Article; related: ArticleListItem[] }) {
   const meta = VERDICT_META[article.verdict];
   const summary = article.summaryEn || article.summaryId;
@@ -27,6 +30,7 @@ export function ArticleLayout({ article, related }: { article: Article; related:
   const date = formatDate(article.date, "long");
   // Many source sites have moved or closed; their links go to the Internet Archive copy instead.
   const link = article.originalUrl ? outboundLink(article.originalUrl, article.date, article.archiveUrl) : null;
+  const archive = archiveName(article.archiveUrl);
 
   return (
     <article className="container-page pb-8">
@@ -58,7 +62,7 @@ export function ArticleLayout({ article, related }: { article: Article; related:
             ) : (
               <span className="font-medium text-ink">{publisher}</span>
             )}
-            {date && `, published ${date}`}. {link?.archived ? "The original site is no longer online; links go to the Internet Archive's copy." : "Archived here with a link to the original."}
+            {date && `, published ${date}`}. {link?.archived ? `The original site is no longer online; links go to ${archive}'s copy.` : "Archived here with a link to the original."}
           </p>
         )}
 
@@ -128,7 +132,7 @@ export function ArticleLayout({ article, related }: { article: Article; related:
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-hairline p-5 text-sm">
             <span className="text-ink-muted">
               Original source: <span className="font-medium text-ink">{originalHost || article.originalUrl}</span>
-              {link.archived && <span className="block text-xs text-ink-faint">No longer online, so this opens the Internet Archive&apos;s copy.</span>}
+              {link.archived && <span className="block text-xs text-ink-faint">No longer online, so this opens {archive}&apos;s copy.</span>}
             </span>
             <a href={link.href} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-to hover:underline">
               {link.archived ? "Open the archived copy ↗" : "Open the original ↗"}

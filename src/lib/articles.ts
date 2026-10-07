@@ -29,11 +29,12 @@ const COLUMNS = [
   "reference",
   "image",
   "originalUrl",
+  "sourceSite",
 ] as const satisfies readonly (keyof Article)[];
 
 const COLUMN_LIST = COLUMNS.map((c) => `"${c}"`).join(", ");
 const INSERT_SQL = `INSERT INTO articles (${COLUMN_LIST}, published) VALUES (${COLUMNS.map(() => "?").join(", ")}, ?)`;
-const SELECT_SQL = `SELECT ${COLUMN_LIST}, sourceSite, published, archiveUrl FROM articles`;
+const SELECT_SQL = `SELECT ${COLUMN_LIST}, published, archiveUrl FROM articles`;
 const CARD_COLUMNS = "a.slug, a.title, a.lang, a.category, a.verdict, a.date, a.summaryId, a.summaryEn, a.image, a.sourceSite, a.published";
 
 const globalForSeed = globalThis as unknown as { __hoaxSeeded?: boolean };
@@ -74,7 +75,8 @@ export interface ArticleStats {
 }
 
 function values(a: Article): (string | number | null)[] {
-  return [...COLUMNS.map((c) => a[c] ?? null), a.published === false ? 0 : 1];
+  // sourceSite is NOT NULL in the table; an article written by hand simply has none.
+  return [...COLUMNS.map((c) => (c === "sourceSite" ? (a.sourceSite ?? "") : (a[c] ?? null))), a.published === false ? 0 : 1];
 }
 
 function db(): DatabaseSync {
@@ -101,7 +103,7 @@ function db(): DatabaseSync {
 function toArticle(row: Row): Article {
   const article = Object.fromEntries(COLUMNS.map((c) => [c, row[c]])) as unknown as Article;
   if (article.originalUrl == null) delete article.originalUrl;
-  if (row.sourceSite) article.sourceSite = String(row.sourceSite);
+  if (!row.sourceSite) delete article.sourceSite;
   if (row.archiveUrl) article.archiveUrl = String(row.archiveUrl);
   article.published = row.published !== 0;
   return article;

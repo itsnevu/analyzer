@@ -1,5 +1,10 @@
+import os from "node:os";
+import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { parseModelResponse, runDetection } from "@/lib/detect";
+import { parseModelResponse, pingModel, runDetection } from "@/lib/detect";
+
+// No baseline model file here, whatever data/models holds: demo mode is the keyword heuristic.
+process.env.BASELINE_MODEL_PATH = path.join(os.tmpdir(), "hoax-detect-test-no-model", "baseline.json");
 
 describe("parseModelResponse", () => {
   it("accepts a response that follows the contract", () => {
@@ -32,6 +37,7 @@ describe("runDetection", () => {
     expect(r.simulated).toBe(true);
     expect(r.fallbackReason).toBeUndefined();
     expect(r.verdict).toBe("hoax");
+    expect(r.model).toBe("local-heuristic-stub");
   });
 
   it("uses the model's answer when it follows the contract", async () => {
@@ -55,5 +61,38 @@ describe("runDetection", () => {
     const r = await runDetection("Pesan berantai tentang vaksin yang perlu dicek kebenarannya.");
     expect(r.simulated).toBe(true);
     expect(r.fallbackReason).toMatch(reason);
+  });
+});
+
+describe("pingModel", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+  });
+
+  it("says when nothing is configured", async () => {
+    vi.stubEnv("RAG_FUSION_API_URL", "");
+    expect(await pingModel()).toMatchObject({ reachable: false, contract: false, status: null });
+  });
+
+  it("reports a contract-following answer with its latency", async () => {
+    vi.stubEnv("RAG_FUSION_API_URL", "http://model.test/detect");
+    vi.stubEnv("RAG_FUSION_API_KEY", "secret");
+    const fetchMock = vi.fn(async () => Response.json({ verdict: "hoax", hoaxProbability: 0.9, model: "m1" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await pingModel();
+    expect(r).toMatchObject({ reachable: true, status: 200, contract: true, model: "m1", verdict: "hoax", hoaxProbability: 0.9 });
+    expect(r.latencyMs).toBeGreaterThanOrEqual(0);
+    expect(JSON.stringify(r)).not.toContain("secret");
+  });
+
+  it.each([
+    ["an HTTP error", async () => new Response("boom", { status: 503 }), { reachable: true, status: 503, contract: false }],
+    ["an answer out of contract", async () => Response.json({ verdict: "unsure" }), { reachable: true, status: 200, contract: false }],
+    ["a network failure", async () => { throw new TypeError("fetch failed"); }, { reachable: false, status: null, contract: false, error: "fetch failed" }],
+  ])("reports %s", async (_name, impl, expected) => {
+    vi.stubEnv("RAG_FUSION_API_URL", "http://model.test/detect");
+    vi.stubGlobal("fetch", vi.fn(impl));
+    expect(await pingModel()).toMatchObject(expected);
   });
 });

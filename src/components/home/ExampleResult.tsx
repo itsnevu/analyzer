@@ -27,7 +27,7 @@ export async function ExampleResult() {
         {/* The message, as it arrives */}
         <div className="neu flex flex-col justify-center p-6">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-faint">Forwarded many times</div>
-          <p className="mt-3 max-w-md rounded-2xl rounded-tl-sm bg-[#e7ffdb] px-4 py-3 text-sm leading-relaxed text-[#111b21] shadow-sm">
+          <p className="mt-3 max-w-md rounded-2xl rounded-tl-sm bg-[var(--bubble)] px-4 py-3 text-sm leading-relaxed text-[var(--bubble-ink)] shadow-sm">
             {SAMPLE}
           </p>
         </div>

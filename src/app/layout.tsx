@@ -37,6 +37,13 @@ const jsonLd = {
   offers: { "@type": "Offer", price: "0", priceCurrency: "IDR" },
 };
 
+/**
+ * Applies the stored theme before the first paint, so a dark-mode visitor never
+ * sees a light flash. Runs in <head>, synchronously, before any content is painted;
+ * ThemeToggle keeps the attribute current afterwards.
+ */
+const themeScript = `(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`;
+
 export const metadata: Metadata = {
   title: {
     default: "Hoax Detection & Analyzer",
@@ -48,6 +55,9 @@ export const metadata: Metadata = {
   applicationName: "Hoax Analyzer",
   appleWebApp: { capable: true, title: "Hoax Analyzer", statusBarStyle: "default" },
   icons: { apple: "/icons/apple-touch-icon.png" },
+  alternates: {
+    types: { "application/rss+xml": [{ url: "/feed.xml", title: "Hoax Detection & Analyzer — latest fact-checks" }] },
+  },
   openGraph: {
     title: "Hoax Detection & Analyzer",
     description:
@@ -65,7 +75,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#faf9f6",
+  // Must match --surface in globals.css and BAR_COLOR in ThemeToggle.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf9f6" },
+    { media: "(prefers-color-scheme: dark)", color: "#171716" },
+  ],
 };
 
 export default function RootLayout({
@@ -74,7 +88,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${fraunces.variable} ${jetbrains.variable}`}>
+    // suppressHydrationWarning: the inline script sets data-theme before React hydrates.
+    <html lang="en" className={`${GeistSans.variable} ${fraunces.variable} ${jetbrains.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body>
         <script
           type="application/ld+json"

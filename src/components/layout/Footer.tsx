@@ -19,6 +19,7 @@ export function Footer() {
         { label: t("footer.link.report"), href: "/report" },
         { label: t("footer.link.disclaimer"), href: "/disclaimer" },
         { label: "Privacy", href: "/privacy" },
+        { label: "RSS feed", href: "/feed.xml" },
       ],
     },
     {
@@ -57,12 +58,16 @@ export function Footer() {
               <ul className="mt-4 space-y-2.5">
                 {col.links.map((l) => (
                   <li key={l.label}>
-                    <Link
-                      href={l.href}
-                      className="text-sm text-ink-muted transition-colors hover:text-ink"
-                    >
-                      {l.label}
-                    </Link>
+                    {/* Files and other sites are plain links; the router only handles pages. */}
+                    {/^(https?:|mailto:)|\.xml$/.test(l.href) ? (
+                      <a href={l.href} className="text-sm text-ink-muted transition-colors hover:text-ink">
+                        {l.label}
+                      </a>
+                    ) : (
+                      <Link href={l.href} className="text-sm text-ink-muted transition-colors hover:text-ink">
+                        {l.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>

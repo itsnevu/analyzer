@@ -180,7 +180,7 @@ export function DetectorPanel() {
             <span
               className={clsx(
                 "rounded-full px-2.5 py-1 font-medium transition-colors",
-                live ? "bg-brand-gradient text-white" : "shadow-neu-inset-sm text-ink-faint",
+                live ? "bg-brand-gradient text-surface" : "shadow-neu-inset-sm text-ink-faint",
               )}
             >
               {live ? LANG_LABEL[live.lang] : "…"}
@@ -302,7 +302,7 @@ export function DetectorPanel() {
           ) : (
             <span className="flex items-center justify-center gap-2">
               {t("det.submit")}
-              <kbd className="hidden rounded border border-white/20 bg-black/10 px-1.5 py-0.5 text-[10px] font-semibold sm:inline">
+              <kbd className="hidden rounded border border-surface-raised/30 bg-surface-raised/10 px-1.5 py-0.5 text-[10px] font-semibold sm:inline">
                 {mac ? "⌘ ↵" : "Ctrl ↵"}
               </kbd>
             </span>

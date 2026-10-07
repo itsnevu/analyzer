@@ -69,6 +69,16 @@ npm start -- -H 127.0.0.1
 
 Open `http://127.0.0.1:3000` on the server. Stop it with Ctrl+C.
 
+Then train the baseline classifier once, so demo mode gives real verdicts until
+the trained model is connected (`data/models/` is not copied with Git):
+
+```bash
+npm run train:baseline
+```
+
+It can also be retrained any time from the admin **Model** page, for example
+after the archive grows.
+
 ## 5. Keep it running
 
 With [pm2](https://pm2.keymetrics.io/) (works on Linux and Windows):
@@ -85,6 +95,24 @@ pm2 save
 The app listens on `127.0.0.1:3000` only. That is deliberate: the HTTPS proxy
 below is the only way in, so nobody can reach the app directly or fake their
 address to get around the rate limits.
+
+### Health check
+
+`GET /api/health` answers `200` with `{"ok":true, "time", "uptimeSeconds",
+"version", "db":{"ok":true,"articles":N,"published":N}, "model":"external"|"demo",
+"fts":true|false}` and `503` with `"ok":false` when the database does not
+answer. It needs no login, runs one aggregate query and is never cached, so it
+is safe to poll every minute. Point your uptime monitor (Cloudflare Health
+Checks or any external checker) at `https://syyhoaxanalyzer.com/api/health` and
+alert on anything other than HTTP 200. On the server itself, a cron line such as
+
+```bash
+curl -fsS --max-time 10 http://127.0.0.1:3000/api/health >/dev/null || pm2 restart hoax-analyzer
+```
+
+restarts the site when it stops answering. `model` tells you whether the
+trained model is wired up (`external`) or demo mode is answering (`demo`), and
+`fts` whether this Node build has full-text search.
 
 ## 6. HTTPS and the domain
 
@@ -152,7 +180,8 @@ Run the model as an HTTP service (e.g. FastAPI) on the same machine, then set
 The request and response format is documented at the top of
 [`src/lib/detect.ts`](src/lib/detect.ts). If the model is slow, down, or answers
 in the wrong format, the site keeps working in demo mode and says so on the
-result.
+result. The admin **Model** page shows which engine is answering, pings the
+model and reports whether its answer matches the contract.
 
 ## Troubleshooting
 

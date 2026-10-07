@@ -18,7 +18,7 @@ export function VerdictBadge({ verdict, className }: { verdict: Article["verdict
       )}
       style={{ background: `color-mix(in srgb, ${m.color} 12%, transparent)` }}
     >
-      <span className="grid h-4 w-4 place-items-center rounded-full text-[10px]" style={{ background: m.color, color: "#0f1115" }}>
+      <span className="grid h-4 w-4 place-items-center rounded-full text-[10px]" style={{ background: m.color, color: "var(--verdict-ink)" }}>
         {m.emoji}
       </span>
       {m.labelEn}

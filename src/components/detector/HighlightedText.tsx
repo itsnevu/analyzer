@@ -20,7 +20,11 @@ function markerRanges(text: string, signals: DetectionSignal[]): [number, number
     // Case matters here, so this one is matched without the "i" flag.
     if (label.includes("capital")) add(/\b[A-Z]{5,}\b/g);
     else if (label.includes("exclamation")) add(/!{2,}/g);
-    else if (label.length >= 3 && label.length <= 60 && !label.includes("archived") && !label.includes("short text")) add(new RegExp(escape(s.label), "gi"));
+    else if (label.length >= 3 && label.length <= 60 && !label.includes("archived") && !label.includes("short text")) {
+      // The baseline classifier labels its cues "word: vaksin" / "phrase: vaksin covid"; only the cue itself is in the text.
+      const phrase = s.label.replace(/^(?:word|phrase):\s*/i, "");
+      if (phrase.length >= 3) add(new RegExp(escape(phrase), "gi"));
+    }
   }
   found.sort((a, b) => a[0] - b[0]);
   const merged: [number, number][] = [];

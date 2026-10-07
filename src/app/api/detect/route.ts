@@ -7,6 +7,7 @@ import { readClientMeta, recordUsage, type UsageFields } from "@/lib/usage";
 import { isAdmin } from "@/lib/admin-articles";
 import { clientIp, take, tooMany } from "@/lib/rate-limit";
 import { asSingleUrl, PageError, readPage } from "@/lib/fetch-page";
+import { isSkippedDomain } from "@/lib/settings";
 
 export const runtime = "nodejs";
 
@@ -63,6 +64,17 @@ export async function POST(req: Request) {
   // A pasted link: read the page and check its text instead.
   const link = asSingleUrl(input);
   if (link) {
+    // Sites on the admin's skip list (social networks, archive mirrors) are never fetched.
+    let host = "";
+    try {
+      host = new URL(link).hostname;
+    } catch {
+      /* readPage reports the bad link below */
+    }
+    if (host && isSkippedDomain(host)) {
+      log({ url: link, error: "skipped-domain" });
+      return NextResponse.json({ error: "That site is on the skip list, so its pages are not read. Paste the text instead." }, { status: 422 });
+    }
     const limited = take(`detect-link:${ip}`, 10, 60_000);
     if (!limited.ok) return tooMany("Too many links in a short time. Please wait a moment.", limited.retryAfter);
     try {

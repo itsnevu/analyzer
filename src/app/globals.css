@@ -3,34 +3,143 @@
 @tailwind utilities;
 
 /* ============================================================
-   Dark Neumorphism design tokens
-   Base surface is a mid-dark charcoal so BOTH the dark shadow
-   and the light highlight read, the essence of neumorphism.
+   Editorial design tokens
+   Every colour is an RGB triplet (so Tailwind can add an alpha,
+   e.g. bg-verdict-hoax/10) plus the composed colour for inline
+   styles. The light set is the default; the dark set applies
+   when the system asks for it and nothing is stored, or when the
+   visitor chose it (data-theme on <html>, see ThemeToggle).
    ============================================================ */
 :root {
-  --surface: #faf9f6;
-  --surface-raised: #ffffff;
-  --surface-sunken: #f2f1ec;
+  color-scheme: light;
+
+  --surface-rgb: 250 249 246;
+  --surface-raised-rgb: 255 255 255;
+  --surface-sunken-rgb: 242 241 236;
+  --ink-rgb: 25 24 23;
+  --ink-muted-rgb: 87 83 78;
+  --ink-faint-rgb: 143 139 132;
+  --brand-rgb: 15 118 110;
+  --brand-from-rgb: 15 118 110;
+  --brand-to-rgb: 17 94 89;
+  --valid-rgb: 21 128 61;
+  --warn-rgb: 180 83 9;
+  --hoax-rgb: 185 28 28;
+
+  --surface: rgb(var(--surface-rgb));
+  --surface-raised: rgb(var(--surface-raised-rgb));
+  --surface-sunken: rgb(var(--surface-sunken-rgb));
 
   --shadow-dark: #e6e4de;
   --shadow-light: #ffffff;
 
-  --ink: #191817;
-  --ink-muted: #57534e;
-  --ink-faint: #8f8b84;
+  --ink: rgb(var(--ink-rgb));
+  --ink-muted: rgb(var(--ink-muted-rgb));
+  --ink-faint: rgb(var(--ink-faint-rgb));
 
-  --brand: #0f766e;
-  --brand-from: #0f766e;
-  --brand-to: #115e59;
+  --brand: rgb(var(--brand-rgb));
+  --brand-from: rgb(var(--brand-from-rgb));
+  --brand-to: rgb(var(--brand-to-rgb));
 
-  --valid: #15803d;
-  --warn: #b45309;
-  --hoax: #b91c1c;
+  --valid: rgb(var(--valid-rgb));
+  --warn: rgb(var(--warn-rgb));
+  --hoax: rgb(var(--hoax-rgb));
+  /* Glyph on a solid verdict-coloured disc (VerdictBadge). */
+  --verdict-ink: #0f1115;
 
   --hairline: rgba(25, 24, 23, 0.12);
 
+  /* Depth: card shadows, the floating navbar, the dotted hero grid. */
+  --shadow-1: rgba(25, 24, 23, 0.05);
+  --shadow-2: rgba(25, 24, 23, 0.04);
+  --shadow-3: rgba(25, 24, 23, 0.09);
+  --nav-shadow: rgba(25, 24, 23, 0.38);
+  --dot: rgba(15, 23, 42, 0.06);
+
+  --scrollbar-thumb: #c2c9d6;
+  --scrollbar-thumb-hover: #aeb6c6;
+
+  /* The forwarded-message bubble on the home page, in chat-app colours. */
+  --bubble: #e7ffdb;
+  --bubble-ink: #111b21;
+  /* "Unlabeled" bars in the admin charts. */
+  --chart-neutral: #cfcbc3;
+
   --font-body: var(--font-geist-sans), system-ui, sans-serif;
   --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+}
+
+/* Dark: charcoal surfaces, warm light ink, verdict colours a step brighter so they keep their contrast. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --surface-rgb: 23 23 22;
+    --surface-raised-rgb: 33 33 32;
+    --surface-sunken-rgb: 15 15 14;
+    --ink-rgb: 235 233 228;
+    --ink-muted-rgb: 168 164 156;
+    --ink-faint-rgb: 122 118 111;
+    --brand-rgb: 47 191 176;
+    --brand-from-rgb: 47 191 176;
+    --brand-to-rgb: 94 234 212;
+    --valid-rgb: 74 222 128;
+    --warn-rgb: 251 191 36;
+    --hoax-rgb: 248 113 113;
+
+    --shadow-dark: #2e2e2c;
+    --shadow-light: #262624;
+    --verdict-ink: #0f1115;
+    --hairline: rgba(235, 233, 228, 0.14);
+
+    --shadow-1: rgba(0, 0, 0, 0.35);
+    --shadow-2: rgba(0, 0, 0, 0.3);
+    --shadow-3: rgba(0, 0, 0, 0.55);
+    --nav-shadow: rgba(0, 0, 0, 0.7);
+    --dot: rgba(255, 255, 255, 0.07);
+
+    --scrollbar-thumb: #3a3a38;
+    --scrollbar-thumb-hover: #4a4a47;
+
+    --bubble: #005c4b;
+    --bubble-ink: #e9edef;
+    --chart-neutral: #4a4844;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-rgb: 23 23 22;
+  --surface-raised-rgb: 33 33 32;
+  --surface-sunken-rgb: 15 15 14;
+  --ink-rgb: 235 233 228;
+  --ink-muted-rgb: 168 164 156;
+  --ink-faint-rgb: 122 118 111;
+  --brand-rgb: 47 191 176;
+  --brand-from-rgb: 47 191 176;
+  --brand-to-rgb: 94 234 212;
+  --valid-rgb: 74 222 128;
+  --warn-rgb: 251 191 36;
+  --hoax-rgb: 248 113 113;
+
+  --shadow-dark: #2e2e2c;
+  --shadow-light: #262624;
+  --verdict-ink: #0f1115;
+  --hairline: rgba(235, 233, 228, 0.14);
+
+  --shadow-1: rgba(0, 0, 0, 0.35);
+  --shadow-2: rgba(0, 0, 0, 0.3);
+  --shadow-3: rgba(0, 0, 0, 0.55);
+  --nav-shadow: rgba(0, 0, 0, 0.7);
+  --dot: rgba(255, 255, 255, 0.07);
+
+  --scrollbar-thumb: #3a3a38;
+  --scrollbar-thumb-hover: #4a4a47;
+
+  --bubble: #005c4b;
+  --bubble-ink: #e9edef;
+  --chart-neutral: #4a4844;
 }
 
 * {
@@ -51,7 +160,7 @@ body {
 
 ::selection {
   background: color-mix(in srgb, var(--brand-from) 45%, transparent);
-  color: #14210a;
+  color: var(--ink);
 }
 
 /* Custom scrollbar */
@@ -63,12 +172,12 @@ body {
   background: var(--surface-sunken);
 }
 ::-webkit-scrollbar-thumb {
-  background: #c2c9d6;
+  background: var(--scrollbar-thumb);
   border-radius: 8px;
   border: 2px solid var(--surface-sunken);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #aeb6c6;
+  background: var(--scrollbar-thumb-hover);
 }
 
 @layer components {
@@ -120,9 +229,9 @@ body {
   .text-balance {
     text-wrap: balance;
   }
-  /* Subtle animated dotted grid used behind heroes */
+  /* Subtle dotted grid used behind heroes */
   .bg-dot-grid {
-    background-image: radial-gradient(circle at center, rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+    background-image: radial-gradient(circle at center, var(--dot) 1px, transparent 1px);
     background-size: 22px 22px;
   }
 }

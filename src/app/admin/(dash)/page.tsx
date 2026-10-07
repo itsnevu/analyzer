@@ -6,6 +6,8 @@ import { formatCount, formatDate, sourceName } from "@/lib/sources";
 import { CLASS_META, DATASET_CLASSES } from "@/lib/dataset-classes";
 import { getDatasetByYear, getDatasetOverview, getDatasetSources } from "@/lib/legacy-panel";
 import { getRecentSearches, getRepeatedSearches, getSearchOverview, getSearchesByMonth } from "@/lib/searches";
+import { modelStatus } from "@/lib/baseline";
+import { countStopwords, listSkipDomains } from "@/lib/settings";
 import { ClassCards } from "@/components/admin/charts/ClassCards";
 import { MonthlyColumns } from "@/components/admin/charts/MonthlyColumns";
 import { SourceBars } from "@/components/admin/charts/SourceBars";
@@ -16,6 +18,17 @@ export const dynamic = "force-dynamic";
 const LANG_NAME: Record<string, string> = { id: "Indonesian", en: "English", ms: "Malay" };
 const LABEL_NAME: Record<string, string> = { EDUKASI: "Education", KLARIFIKASI: "Clarification", UNKNOWN: "Unknown" };
 const TOP_SOURCES = 10;
+const ENGINE_NAME = { external: "RAG Fusion model", baseline: "Baseline classifier (demo mode)", heuristic: "Keyword heuristic (demo mode)" } as const;
+const TOOLS = [
+  { href: "/admin/detect", label: "Detection lab", note: "Score a text against the archive with BM25, Levenshtein, Damerau, Smith–Waterman, Jaccard or cosine." },
+  { href: "/admin/extract", label: "Extract from a page", note: "Turn a fact-check page or a forwarded message into a draft article." },
+  { href: "/admin/review", label: "Review queue", note: "Give the hidden entries a verdict, one at a time." },
+  { href: "/admin/dataset", label: "Dataset", note: "The old detector's 17k labeled and unlabeled rows; relabel or add to the archive." },
+  { href: "/admin/sources", label: "Sources", note: "The 23 sites the old crawler collected from, with counts." },
+  { href: "/admin/searches", label: "Searches", note: "Every text submitted to the detector, old panel included." },
+  { href: "/admin/research", label: "Research log", note: "Visits and checks with network and device, for the paper." },
+  { href: "/admin/settings", label: "Settings", note: "Stopwords per language, HTML entity replacements, skipped domains." },
+];
 
 const monthYear = (ym: string) =>
   new Date(`${ym}-01T00:00:00Z`).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
@@ -54,6 +67,9 @@ export default async function AdminDashboard() {
     { label: "Reports received", value: reports.length, href: "/admin/reports" },
   ];
 
+  const model = modelStatus();
+  const stopwords = countStopwords();
+  const skipped = listSkipDomains();
   const dataset = getDatasetOverview();
   const years = getDatasetByYear();
   const sources = getDatasetSources();
@@ -105,6 +121,50 @@ export default async function AdminDashboard() {
             <div className="mt-1 text-xs text-ink-muted">{s.label}</div>
           </Link>
         ))}
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-5">
+        <Card title="Detector engine" subtitle="Which engine answers public checks right now" className="lg:col-span-2">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: model.engine === "external" ? "var(--valid)" : model.engine === "baseline" ? "var(--warn)" : "var(--hoax)" }} aria-hidden />
+            <span className="text-lg font-semibold">{ENGINE_NAME[model.engine]}</span>
+          </div>
+          <dl className="mt-3 space-y-1.5 text-sm">
+            <div className="flex justify-between gap-3 border-b border-hairline pb-1.5">
+              <dt className="text-ink-muted">RAG Fusion model</dt>
+              <dd className="truncate">{model.external.configured ? model.external.host : "not configured"}</dd>
+            </div>
+            <div className="flex justify-between gap-3 border-b border-hairline pb-1.5">
+              <dt className="text-ink-muted">Baseline classifier</dt>
+              <dd>{model.baseline ? `${Math.round(model.baseline.accuracy * 100)}% accuracy, F1 ${model.baseline.macroF1.toFixed(2)}` : "not trained"}</dd>
+            </div>
+            {model.baseline && (
+              <div className="flex justify-between gap-3 border-b border-hairline pb-1.5">
+                <dt className="text-ink-muted">Trained</dt>
+                <dd>{formatDate(model.baseline.trainedAt.slice(0, 10)) || model.baseline.trainedAt} on {formatCount(model.baseline.docs)} fact-checks</dd>
+              </div>
+            )}
+          </dl>
+          <Link href="/admin/model" className="mt-4 inline-block text-sm text-brand hover:underline">
+            Model details, ping and retrain →
+          </Link>
+        </Card>
+
+        <Card title="Tools" subtitle="Rebuilt from the old panel's menus" className="lg:col-span-3">
+          <ul className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+            {TOOLS.map((t) => (
+              <li key={t.href}>
+                <Link href={t.href} className="font-medium hover:text-brand">
+                  {t.label}
+                </Link>
+                <span className="block text-xs text-ink-faint">{t.note}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-4 text-xs text-ink-faint">
+            Settings hold {formatCount(stopwords.id)} Indonesian, {formatCount(stopwords.en)} English and {formatCount(stopwords.ms)} Malay stopwords and {skipped.length} skipped {skipped.length === 1 ? "domain" : "domains"}.
+          </p>
+        </Card>
       </div>
 
       <Section

@@ -98,3 +98,98 @@ export function getRepeatedSearches(limit = 5): { query: string; count: number }
     )
     .all(limit) as unknown as { query: string; count: number }[];
 }
+
+/* ------------------------------------------------------------ admin list */
+
+export interface SearchFilter {
+  /** substring of the query text */
+  q?: string;
+  /** YYYY-MM-DD, inclusive, on the stored timestamp's date */
+  from?: string;
+  to?: string;
+  origin?: "" | "site" | "legacy";
+  verdict?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface SearchPage {
+  items: SearchRow[];
+  total: number;
+  page: number;
+  pages: number;
+  pageSize: number;
+}
+
+function searchWhere(f: SearchFilter): { sql: string; args: string[] } {
+  const where: string[] = [];
+  const args: string[] = [];
+  const date = (s?: string) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : "");
+  if (f.q?.trim()) {
+    where.push("query LIKE ?");
+    args.push(`%${f.q.trim()}%`);
+  }
+  if (date(f.from)) {
+    where.push("substr(createdAt, 1, 10) >= ?");
+    args.push(date(f.from));
+  }
+  if (date(f.to)) {
+    where.push("substr(createdAt, 1, 10) <= ?");
+    args.push(date(f.to));
+  }
+  if (f.origin === "site" || f.origin === "legacy") {
+    where.push("origin = ?");
+    args.push(f.origin);
+  }
+  if (f.verdict === "none") where.push("verdict IS NULL");
+  else if (f.verdict) {
+    where.push("verdict = ?");
+    args.push(f.verdict);
+  }
+  return { sql: where.length ? `WHERE ${where.join(" AND ")}` : "", args };
+}
+
+/** The search log, newest first, for the admin table. */
+export function listSearches(f: SearchFilter = {}): SearchPage {
+  const db = panelDb();
+  const pageSize = Math.min(Math.max(f.pageSize ?? 50, 1), 200);
+  const { sql, args } = searchWhere(f);
+  const { n: total } = db.prepare(`SELECT COUNT(*) AS n FROM searches ${sql}`).get(...args) as { n: number };
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(Math.max(Math.floor(f.page ?? 1) || 1, 1), pages);
+  const items = db
+    .prepare(`SELECT id, query, verdict, origin, createdAt FROM searches ${sql} ORDER BY createdAt DESC, id DESC LIMIT ? OFFSET ?`)
+    .all(...args, pageSize, (page - 1) * pageSize) as unknown as SearchRow[];
+  return { items, total, page, pages, pageSize };
+}
+
+export function deleteSearch(id: number): boolean {
+  return Number(panelDb().prepare("DELETE FROM searches WHERE id = ?").run(id).changes) > 0;
+}
+
+/** The filtered log as CSV, oldest first. */
+export function* searchesCsv(f: SearchFilter): Generator<string> {
+  const cols = ["id", "createdAt", "origin", "verdict", "query"];
+  const cell = (v: unknown) => {
+    const s = v === null || v === undefined ? "" : String(v);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  yield "\ufeff" + cols.join(",") + "\n";
+  const { sql, args } = searchWhere(f);
+  const rows = panelDb().prepare(`SELECT id, createdAt, origin, verdict, query FROM searches ${sql} ORDER BY createdAt, id`).iterate(...args) as Iterable<Record<string, unknown>>;
+  for (const row of rows) yield cols.map((c) => cell(row[c])).join(",") + "\n";
+}
+
+/** Reads the filter from query parameters (page, API and export share it). */
+export function searchFilterFrom(get: (key: string) => string | undefined): SearchFilter {
+  const origin = get("origin");
+  const verdict = get("verdict") ?? "";
+  return {
+    q: (get("q") ?? "").trim().slice(0, 200),
+    from: get("from"),
+    to: get("to"),
+    origin: origin === "site" || origin === "legacy" ? origin : "",
+    verdict: ["hoax", "misleading", "valid", "none"].includes(verdict) ? verdict : "",
+    page: Number(get("page")) || 1,
+  };
+}

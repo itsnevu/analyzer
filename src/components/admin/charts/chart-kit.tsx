@@ -3,14 +3,14 @@
  * (SourceBars) can use it as well as the client charts.
  */
 
-/** Chrome colors shared by the dashboard charts (the site has a light theme only). */
+/** Chrome colors shared by the dashboard charts: theme tokens, so the charts follow light and dark mode. */
 export const CHART = {
-  surface: "#ffffff",
-  grid: "#ebe9e4",
-  axisText: "#8f8b84",
-  hover: "#f2f1ec",
-  neutral: "#cfcbc3",
-  brand: "#0f766e",
+  surface: "var(--surface-raised)",
+  grid: "var(--hairline)",
+  axisText: "var(--ink-faint)",
+  hover: "var(--surface-sunken)",
+  neutral: "var(--chart-neutral)",
+  brand: "var(--brand)",
 } as const;
 
 export const fmt = (n: number) => n.toLocaleString("en-US");

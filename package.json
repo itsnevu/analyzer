@@ -19,7 +19,10 @@
     "db:backup": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/backup-db.ts",
     "test": "vitest run",
     "prepare:ipdb": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/prepare-ipdb.ts",
-    "import:usage": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-legacy-usage.ts"
+    "import:usage": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-legacy-usage.ts",
+    "train:baseline": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/train-baseline.ts",
+    "fetch:commoncrawl": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/fetch-commoncrawl.ts",
+    "apply:commoncrawl": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/apply-commoncrawl.ts"
   },
   "dependencies": {
     "geist": "^1.7.2",

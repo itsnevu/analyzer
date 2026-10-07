@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { NAV } from "@/lib/dictionary";
 import { Logo } from "@/components/ui/Logo";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { clsx } from "@/lib/clsx";
 
 function SearchIcon({ className }: { className?: string }) {
@@ -44,7 +45,7 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50">
       <div className="container-page pt-4">
-        <nav className="flex items-center justify-between gap-4 rounded-2xl border border-hairline bg-surface-raised px-4 py-3 shadow-[0_14px_34px_-14px_rgba(25,24,23,0.38)] sm:px-5">
+        <nav className="flex items-center justify-between gap-4 rounded-2xl border border-hairline bg-surface-raised px-4 py-3 shadow-nav sm:px-5">
           <Link href="/" onClick={() => setOpen(false)} className="shrink-0">
             <Logo />
           </Link>
@@ -75,6 +76,7 @@ export function Navbar() {
             <Link href="/blog" aria-label="Search the fact-check archive" className="neu-btn hidden h-10 w-10 place-items-center md:grid lg:hidden">
               <SearchIcon className="h-4 w-4" />
             </Link>
+            <ThemeToggle className="hidden md:grid" />
             <button
               aria-label="Toggle menu"
               aria-expanded={open}
@@ -104,6 +106,10 @@ export function Navbar() {
                 {l.label}
               </Link>
             ))}
+            <div className="mt-1 flex items-center justify-between border-t border-hairline px-4 pt-3 pb-1 text-sm font-medium text-ink-muted">
+              <span>Appearance</span>
+              <ThemeToggle />
+            </div>
           </div>
         )}
       </div>

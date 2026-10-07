@@ -10,7 +10,7 @@ import { ensurePanelSchema } from "./panel-schema";
  */
 
 /** Bump when panel-schema.ts changes, so a hot-reloaded dev server re-runs it. */
-const PANEL_SCHEMA = 1;
+const PANEL_SCHEMA = 2;
 const globalForPanel = globalThis as unknown as { __hoaxPanelSchema?: number };
 
 export function panelDb(): DatabaseSync {
@@ -22,6 +22,9 @@ export function panelDb(): DatabaseSync {
   return db;
 }
 
+/** The label that counts: the one given in this admin panel, else the imported one. */
+export const EFFECTIVE_LABEL = "COALESCE(adminLabel, label)";
+
 export interface DatasetOverview {
   labeled: number;
   unlabeled: number;
@@ -32,7 +35,7 @@ export interface DatasetOverview {
 
 export function getDatasetOverview(): DatasetOverview {
   const rows = panelDb()
-    .prepare("SELECT label, COUNT(*) AS n FROM legacy_dataset GROUP BY label ORDER BY n DESC")
+    .prepare(`SELECT ${EFFECTIVE_LABEL} AS label, COUNT(*) AS n FROM legacy_dataset GROUP BY 1 ORDER BY n DESC`)
     .all() as { label: string | null; n: number }[];
   const byClass = { HOAX: 0, INFORMATION: 0, DISINFORMATION: 0, FACT: 0 };
   const other: DatasetOverview["other"] = [];
@@ -59,8 +62,8 @@ export interface YearCounts {
 export function getDatasetByYear(): YearCounts[] {
   const rows = panelDb()
     .prepare(
-      `SELECT substr(publishedOn, 1, 4) AS year, label, COUNT(*) AS n FROM legacy_dataset
-       WHERE label IS NOT NULL AND publishedOn IS NOT NULL GROUP BY year, label`,
+      `SELECT substr(publishedOn, 1, 4) AS year, ${EFFECTIVE_LABEL} AS label, COUNT(*) AS n FROM legacy_dataset
+       WHERE ${EFFECTIVE_LABEL} IS NOT NULL AND publishedOn IS NOT NULL GROUP BY year, label`,
     )
     .all() as { year: string; label: string; n: number }[];
   if (!rows.length) return [];
@@ -90,7 +93,7 @@ export function getDatasetSources(): SourceCounts[] {
   return panelDb()
     .prepare(
       `SELECT COALESCE(s.site, 'unknown') AS site, COALESCE(s.lang, '') AS lang,
-              SUM(d.label IS NOT NULL) AS labeled, SUM(d.label IS NULL) AS unlabeled
+              SUM(COALESCE(d.adminLabel, d.label) IS NOT NULL) AS labeled, SUM(COALESCE(d.adminLabel, d.label) IS NULL) AS unlabeled
        FROM legacy_dataset d LEFT JOIN legacy_sources s ON s.id = d.sourceId
        GROUP BY site ORDER BY labeled + unlabeled DESC`,
     )

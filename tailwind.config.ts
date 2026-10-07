@@ -1,5 +1,8 @@
 import type { Config } from "tailwindcss";
 
+/** A theme colour from its RGB-triplet token, so `bg-x/50` style alpha modifiers work. */
+const token = (name: string) => `rgb(var(--${name}-rgb) / <alpha-value>)`;
+
 const config: Config = {
   content: [
     "./src/app/**/*.{ts,tsx}",
@@ -9,24 +12,24 @@ const config: Config = {
     extend: {
       colors: {
         surface: {
-          DEFAULT: "var(--surface)",
-          raised: "var(--surface-raised)",
-          sunken: "var(--surface-sunken)",
+          DEFAULT: token("surface"),
+          raised: token("surface-raised"),
+          sunken: token("surface-sunken"),
         },
         ink: {
-          DEFAULT: "var(--ink)",
-          muted: "var(--ink-muted)",
-          faint: "var(--ink-faint)",
+          DEFAULT: token("ink"),
+          muted: token("ink-muted"),
+          faint: token("ink-faint"),
         },
         brand: {
-          DEFAULT: "var(--brand)",
-          from: "var(--brand-from)",
-          to: "var(--brand-to)",
+          DEFAULT: token("brand"),
+          from: token("brand-from"),
+          to: token("brand-to"),
         },
         verdict: {
-          valid: "var(--valid)",
-          warn: "var(--warn)",
-          hoax: "var(--hoax)",
+          valid: token("valid"),
+          warn: token("warn"),
+          hoax: token("hoax"),
         },
         hairline: "var(--hairline)",
       },
@@ -35,12 +38,14 @@ const config: Config = {
         display: ["var(--font-display)", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
+      // Shadow colours are theme tokens: faint on the light theme, deeper on charcoal.
       boxShadow: {
-        neu: "0 1px 2px rgba(25,24,23,0.05)",
-        "neu-sm": "0 1px 2px rgba(25,24,23,0.04)",
-        "neu-lg": "0 16px 48px rgba(25,24,23,0.09)",
+        neu: "0 1px 2px var(--shadow-1)",
+        "neu-sm": "0 1px 2px var(--shadow-2)",
+        "neu-lg": "0 16px 48px var(--shadow-3)",
         "neu-inset": "none",
         "neu-inset-sm": "none",
+        nav: "0 14px 34px -14px var(--nav-shadow)",
         glow: "none",
       },
       backgroundImage: {

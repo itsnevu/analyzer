@@ -3,7 +3,12 @@ import { ExtractTool } from "@/components/admin/ExtractTool";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Extract from a page" };
 
-export default function ExtractPage() {
+type Params = Record<string, string | string[] | undefined>;
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+
+/** `?text=` prefills the box (the "needs attention" queue and the reports inbox link here); nothing runs until Process is pressed. */
+export default async function ExtractPage({ searchParams }: { searchParams: Promise<Params> }) {
+  const initialText = one((await searchParams).text).slice(0, 20_000);
   return (
     <div className="space-y-4">
       <div>
@@ -15,7 +20,7 @@ export default function ExtractPage() {
           same claim, and saves the result as a hidden draft or a published article.
         </p>
       </div>
-      <ExtractTool />
+      <ExtractTool initialText={initialText} />
     </div>
   );
 }

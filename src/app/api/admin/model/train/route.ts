@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAdmin } from "@/lib/admin-log";
 import { isAdmin } from "@/lib/admin-articles";
 import { baselineInfo, modelStatus, trainBaseline, type BaselineMetrics } from "@/lib/baseline";
 import { getDb } from "@/lib/db";
@@ -14,7 +15,7 @@ const globalForTrain = globalThis as unknown as { __hoaxTraining?: Promise<Basel
  * file. Takes a second or two on the real archive and blocks the event loop
  * meanwhile, which is acceptable for an admin action. Admins only.
  */
-export async function POST() {
+export async function POST(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     if (!globalForTrain.__hoaxTraining) {
@@ -32,6 +33,7 @@ export async function POST() {
       });
     }
     const metrics = await globalForTrain.__hoaxTraining;
+    logAdmin(req, "model.train", `${metrics.docs} docs`, `accuracy ${metrics.accuracy}, macro-F1 ${metrics.macroF1}, ${metrics.trainMs} ms`);
     return NextResponse.json({ ok: true, metrics, status: modelStatus(), baseline: baselineInfo() });
   } catch (err) {
     console.error("[model] training failed:", err);

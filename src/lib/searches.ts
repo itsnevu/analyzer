@@ -101,6 +101,14 @@ export function getRepeatedSearches(limit = 5): { query: string; count: number }
 
 /* ------------------------------------------------------------ admin list */
 
+/** Columns the grid can sort by. */
+export const SEARCH_SORTS = ["date", "query", "verdict", "origin"] as const;
+export type SearchSort = (typeof SEARCH_SORTS)[number];
+
+export function isSearchSort(v: unknown): v is SearchSort {
+  return typeof v === "string" && (SEARCH_SORTS as readonly string[]).includes(v);
+}
+
 export interface SearchFilter {
   /** substring of the query text */
   q?: string;
@@ -109,6 +117,9 @@ export interface SearchFilter {
   to?: string;
   origin?: "" | "site" | "legacy";
   verdict?: string;
+  /** default: date, newest first */
+  sort?: SearchSort;
+  order?: "asc" | "desc";
   page?: number;
   pageSize?: number;
 }
@@ -149,7 +160,22 @@ function searchWhere(f: SearchFilter): { sql: string; args: string[] } {
   return { sql: where.length ? `WHERE ${where.join(" AND ")}` : "", args };
 }
 
-/** The search log, newest first, for the admin table. */
+/** The order a filter asks for, defaults filled in: queries A–Z, everything else newest first. */
+export function searchSortOf(f: SearchFilter): { key: SearchSort; order: "asc" | "desc" } {
+  const key = f.sort ?? "date";
+  return { key, order: f.order ?? (key === "query" ? "asc" : "desc") };
+}
+
+function searchOrder(f: SearchFilter): string {
+  const { key, order } = searchSortOf(f);
+  const dir = order === "asc" ? "ASC" : "DESC";
+  if (key === "query") return `ORDER BY query COLLATE NOCASE ${dir}, id DESC`;
+  if (key === "verdict") return `ORDER BY verdict IS NULL, verdict ${dir}, createdAt DESC, id DESC`;
+  if (key === "origin") return `ORDER BY origin ${dir}, createdAt DESC, id DESC`;
+  return `ORDER BY createdAt ${dir}, id ${dir}`;
+}
+
+/** The search log, newest first unless sorted otherwise, for the admin table. */
 export function listSearches(f: SearchFilter = {}): SearchPage {
   const db = panelDb();
   const pageSize = Math.min(Math.max(f.pageSize ?? 50, 1), 200);
@@ -157,9 +183,12 @@ export function listSearches(f: SearchFilter = {}): SearchPage {
   const { n: total } = db.prepare(`SELECT COUNT(*) AS n FROM searches ${sql}`).get(...args) as { n: number };
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const page = Math.min(Math.max(Math.floor(f.page ?? 1) || 1, 1), pages);
-  const items = db
-    .prepare(`SELECT id, query, verdict, origin, createdAt FROM searches ${sql} ORDER BY createdAt DESC, id DESC LIMIT ? OFFSET ?`)
-    .all(...args, pageSize, (page - 1) * pageSize) as unknown as SearchRow[];
+  // node:sqlite rows have a null prototype, which React refuses to pass to client components; spread them.
+  const items = (
+    db
+      .prepare(`SELECT id, query, verdict, origin, createdAt FROM searches ${sql} ${searchOrder(f)} LIMIT ? OFFSET ?`)
+      .all(...args, pageSize, (page - 1) * pageSize) as unknown as SearchRow[]
+  ).map((r) => ({ ...r }));
   return { items, total, page, pages, pageSize };
 }
 
@@ -180,16 +209,22 @@ export function* searchesCsv(f: SearchFilter): Generator<string> {
   for (const row of rows) yield cols.map((c) => cell(row[c])).join(",") + "\n";
 }
 
-/** Reads the filter from query parameters (page, API and export share it). */
+/** Reads the filter from query parameters (page, API and export share it); `sort`/`order` come back with their defaults filled in. */
 export function searchFilterFrom(get: (key: string) => string | undefined): SearchFilter {
   const origin = get("origin");
   const verdict = get("verdict") ?? "";
-  return {
+  const sort = get("sort");
+  const order = get("order");
+  const f: SearchFilter = {
     q: (get("q") ?? "").trim().slice(0, 200),
     from: get("from"),
     to: get("to"),
     origin: origin === "site" || origin === "legacy" ? origin : "",
     verdict: ["hoax", "misleading", "valid", "none"].includes(verdict) ? verdict : "",
+    sort: isSearchSort(sort) ? sort : "date",
+    order: order === "asc" || order === "desc" ? order : undefined,
     page: Number(get("page")) || 1,
+    pageSize: Number(get("pageSize")) || undefined,
   };
+  return { ...f, ...searchSortOf(f) };
 }

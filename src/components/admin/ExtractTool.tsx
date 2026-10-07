@@ -25,9 +25,9 @@ function nextSlug(slug: string): string {
   return m ? `${m[1]}-${Number(m[2]) + 1}` : `${slug}-2`;
 }
 
-export function ExtractTool() {
+export function ExtractTool({ initialText = "" }: { initialText?: string }) {
   const router = useRouter();
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialText);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ExtractResult | null>(null);

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAdmin } from "@/lib/admin-log";
 import { isAdmin } from "@/lib/admin-articles";
 import { getSourceAdmin, listSourcesAdmin, normalizeSourceInput, saveSource } from "@/lib/sources-admin";
 
@@ -22,5 +23,6 @@ export async function POST(req: Request) {
   const input = normalizeSourceInput(body);
   if (!input) return NextResponse.json({ error: "A site URL is required." }, { status: 422 });
   const id = saveSource(input);
+  logAdmin(req, "source.create", String(id), input.url);
   return NextResponse.json({ ok: true, source: getSourceAdmin(id) });
 }

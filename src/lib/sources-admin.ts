@@ -49,6 +49,25 @@ export interface CrawlQueueRow {
   status: string;
 }
 
+/** Columns the grid can sort by; without one the list goes by total rows, largest first. */
+export const SOURCE_SORTS = ["site", "lang", "labeled", "unlabeled", "articles"] as const;
+export type SourceSort = (typeof SOURCE_SORTS)[number];
+
+export function isSourceSort(v: unknown): v is SourceSort {
+  return typeof v === "string" && (SOURCE_SORTS as readonly string[]).includes(v);
+}
+
+export interface SourceFilter {
+  /** substring of the site or its URL */
+  q?: string;
+  /** en | id | ms, or "none" for rows without a language */
+  lang?: string;
+  status?: "" | "active" | "inactive" | "offline";
+  origin?: "" | "legacy" | "site";
+  sort?: SourceSort;
+  order?: "asc" | "desc";
+}
+
 const SELECT = `SELECT s.*,
     (SELECT COUNT(*) FROM legacy_dataset d WHERE d.sourceId = s.id AND COALESCE(d.adminLabel, d.label) IS NOT NULL) AS labeled,
     (SELECT COUNT(*) FROM legacy_dataset d WHERE d.sourceId = s.id AND COALESCE(d.adminLabel, d.label) IS NULL) AS unlabeled,
@@ -88,8 +107,46 @@ export function siteOf(url: string): string {
   }
 }
 
-export function listSourcesAdmin(): SourceAdmin[] {
-  return (panelDb().prepare(`${SELECT} ORDER BY labeled + unlabeled + articles DESC, s.site`).all() as Row[]).map(toSource);
+const ORDER_BY: Record<SourceSort, string> = { site: "s.site", lang: "s.lang", labeled: "labeled", unlabeled: "unlabeled", articles: "articles" };
+
+export function listSourcesAdmin(f: SourceFilter = {}): SourceAdmin[] {
+  const where: string[] = [];
+  const args: (string | number)[] = [];
+  if (f.q?.trim()) {
+    where.push("(s.site LIKE ? OR s.url LIKE ?)");
+    args.push(`%${f.q.trim()}%`, `%${f.q.trim()}%`);
+  }
+  if (f.lang === "none") where.push("s.lang = ''");
+  else if (f.lang) {
+    where.push("s.lang = ?");
+    args.push(f.lang);
+  }
+  if (f.status === "active") where.push("s.active != 0");
+  if (f.status === "inactive") where.push("s.active = 0");
+  if (f.origin === "site") where.push("s.origin = 'site'");
+  if (f.origin === "legacy") where.push("s.origin != 'site'");
+  const dir = f.order === "asc" ? "ASC" : f.order === "desc" ? "DESC" : f.sort === "site" || f.sort === "lang" ? "ASC" : "DESC";
+  const order = f.sort ? `ORDER BY ${ORDER_BY[f.sort]} ${dir}, s.site` : "ORDER BY labeled + unlabeled + articles DESC, s.site";
+  const rows = (panelDb().prepare(`${SELECT} ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ${order}`).all(...args) as Row[]).map(toSource);
+  // "offline" is worked out from the URL, not stored, so it is filtered here.
+  return f.status === "offline" ? rows.filter((s) => s.offline) : rows;
+}
+
+/** Reads the grid's filter from query parameters. */
+export function sourceFilterFrom(get: (key: string) => string | undefined): SourceFilter {
+  const lang = get("lang");
+  const status = get("status");
+  const origin = get("origin");
+  const sort = get("sort");
+  const order = get("order");
+  return {
+    q: (get("q") ?? "").trim().slice(0, 100),
+    lang: lang === "en" || lang === "id" || lang === "ms" || lang === "none" ? lang : "",
+    status: status === "active" || status === "inactive" || status === "offline" ? status : "",
+    origin: origin === "legacy" || origin === "site" ? origin : "",
+    sort: isSourceSort(sort) ? sort : undefined,
+    order: order === "asc" || order === "desc" ? order : undefined,
+  };
 }
 
 export function getSourceAdmin(id: number): SourceAdmin | null {

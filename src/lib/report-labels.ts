@@ -34,6 +34,12 @@ export interface Report {
   readAt: string | null;
   /** UTC timestamp, "YYYY-MM-DD HH:MM:SS" */
   createdAt: string;
+  /** Internal note, admins only. */
+  note: string;
+  /** Slug of the fact-check that answers this report, "" when none. */
+  resolvedSlug: string;
+  /** Title of that fact-check, looked up when the report is read; "" when none or deleted. */
+  resolvedTitle?: string;
 }
 
 /** Public reference shown to the person who sent it, e.g. "R-00042". */

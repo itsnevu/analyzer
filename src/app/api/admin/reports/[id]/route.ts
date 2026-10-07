@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAdmin } from "@/lib/admin-log";
 import { isAdmin } from "@/lib/admin-articles";
 import { deleteReport, getReport, updateReport, REPORT_STATUSES, type ReportStatus } from "@/lib/reports";
 
@@ -26,13 +27,15 @@ export async function PATCH(req: Request, { params }: Params) {
   const status = body.status && body.status in REPORT_STATUSES ? (body.status as ReportStatus) : undefined;
   if (body.status && !status) return NextResponse.json({ error: "Unknown status." }, { status: 422 });
   await updateReport(id, { status, read: typeof body.read === "boolean" ? body.read : undefined });
+  if (status) logAdmin(req, "report.update", String(id), `status ${status}`);
   return NextResponse.json({ ok: true, report: await getReport(id) });
 }
 
-export async function DELETE(_req: Request, { params }: Params) {
+export async function DELETE(req: Request, { params }: Params) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const id = await reportId(params);
   if (!id) return NextResponse.json({ error: "Invalid ID." }, { status: 400 });
   await deleteReport(id);
+  logAdmin(req, "report.delete", String(id));
   return NextResponse.json({ ok: true });
 }

@@ -235,3 +235,26 @@ body {
     background-size: 22px 22px;
   }
 }
+
+/* ============================================================
+   Admin shell: a dark side rail in both themes (as in the old
+   control panel), with its own small token set.
+   ============================================================ */
+:root {
+  --sidebar-bg: #16181d;
+  --sidebar-ink: #e8eaf0;
+  --sidebar-muted: #8a90a0;
+  --sidebar-line: rgba(255, 255, 255, 0.08);
+  --sidebar-hover: rgba(255, 255, 255, 0.07);
+  --sidebar-active: rgba(255, 255, 255, 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --sidebar-bg: #0f0f0e;
+    --sidebar-line: rgba(255, 255, 255, 0.1);
+  }
+}
+:root[data-theme="dark"] {
+  --sidebar-bg: #0f0f0e;
+  --sidebar-line: rgba(255, 255, 255, 0.1);
+}

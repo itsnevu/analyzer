@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAdmin } from "@/lib/admin-log";
 import { isAdmin } from "@/lib/admin-articles";
 import { listHtmlTags, saveHtmlTag } from "@/lib/settings";
 
@@ -22,5 +23,6 @@ export async function POST(req: Request) {
   const tag = typeof body.tag === "string" ? body.tag.trim() : "";
   if (!tag) return NextResponse.json({ error: "The tag is required." }, { status: 422 });
   saveHtmlTag(tag, typeof body.alt === "string" ? body.alt : "");
+  logAdmin(req, "settings.html-tags", tag, "added");
   return NextResponse.json({ ok: true, tags: listHtmlTags() });
 }

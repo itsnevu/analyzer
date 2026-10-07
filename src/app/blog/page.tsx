@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Pagination } from "@/components/ui/Pagination";
 import { VerdictBadge } from "@/components/article/ArticleCard";
+import { PopularPosts } from "@/components/home/PopularPosts";
 import { getArticleYears, getSourceCounts, listArticles, type ArticleFilter } from "@/lib/articles";
 import type { Verdict } from "@/lib/detect";
 import { LANGUAGE_NAME, formatCount, formatDate, sourceName } from "@/lib/sources";
@@ -144,6 +145,8 @@ export default async function BlogPage({ searchParams }: { searchParams: Promise
             ))}
           </div>
         </form>
+
+        {!filtered && <PopularPosts compact />}
 
         {/* Results */}
         <div className="mt-6 flex flex-wrap items-baseline justify-between gap-2">

@@ -7,34 +7,7 @@ import { NAV } from "@/lib/dictionary";
 import { Logo } from "@/components/ui/Logo";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { clsx } from "@/lib/clsx";
-
-function SearchIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-3.5-3.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-/** Archive search as a plain GET form, so it works before the page's JavaScript loads. */
-function SearchForm({ id, className, onDone }: { id: string; className?: string; onDone?: () => void }) {
-  return (
-    <form action="/blog" method="get" role="search" onSubmit={onDone} className={clsx("relative", className)}>
-      <label className="sr-only" htmlFor={id}>
-        Search the fact-check archive
-      </label>
-      <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
-      <input
-        id={id}
-        type="search"
-        name="q"
-        placeholder="Search fact-checks…"
-        className="w-full rounded-full border border-hairline bg-surface-sunken py-2 pl-9 pr-3 text-sm text-ink outline-none placeholder:text-ink-faint focus:ring-2 focus:ring-brand/30"
-      />
-    </form>
-  );
-}
+import { SearchAutocomplete as SearchForm, SearchIcon } from "./SearchAutocomplete";
 
 export function Navbar() {
   const pathname = usePathname();

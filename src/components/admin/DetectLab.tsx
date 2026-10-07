@@ -74,8 +74,8 @@ function subscribeHistory(listener: () => void) {
   };
 }
 
-export function DetectLab({ stopwords, modelConfigured }: { stopwords: Record<string, number>; modelConfigured: boolean }) {
-  const [text, setText] = useState("");
+export function DetectLab({ stopwords, modelConfigured, initialText = "" }: { stopwords: Record<string, number>; modelConfigured: boolean; initialText?: string }) {
+  const [text, setText] = useState(initialText);
   const [lang, setLang] = useState<LangChoice>("auto");
   const [method, setMethod] = useState<Method>("archive");
   const [limit, setLimit] = useState<number>(25);

@@ -21,6 +21,15 @@ export function isDatasetLabel(v: unknown): v is DatasetLabel {
 
 export type DatasetTab = "categorized" | "uncategorized";
 
+/** Columns the grid can sort by. */
+export const DATASET_SORTS = ["date", "title", "id"] as const;
+export type DatasetSort = (typeof DATASET_SORTS)[number];
+export type SortOrder = "asc" | "desc";
+
+export function isDatasetSort(v: unknown): v is DatasetSort {
+  return typeof v === "string" && (DATASET_SORTS as readonly string[]).includes(v);
+}
+
 export interface DatasetFilter {
   tab?: DatasetTab;
   /** effective label; ignored on the uncategorized tab */
@@ -33,6 +42,9 @@ export interface DatasetFilter {
   year?: string;
   /** "yes" = already in the archive, "no" = not yet */
   archived?: "yes" | "no" | "";
+  /** default: date, newest first */
+  sort?: DatasetSort;
+  order?: SortOrder;
   page?: number;
   pageSize?: number;
 }
@@ -99,6 +111,21 @@ function whereSql(f: DatasetFilter): { sql: string; args: (string | number)[] } 
   return { sql: where.length ? `WHERE ${where.join(" AND ")}` : "", args };
 }
 
+/** The order a filter asks for, defaults filled in: titles A–Z, dates and ids newest first. */
+export function datasetSortOf(f: DatasetFilter): { key: DatasetSort; order: SortOrder } {
+  const key = f.sort ?? "date";
+  return { key, order: f.order ?? (key === "title" ? "asc" : "desc") };
+}
+
+function orderSql(f: DatasetFilter): string {
+  const { key, order } = datasetSortOf(f);
+  const dir = order === "asc" ? "ASC" : "DESC";
+  // Rows without a date go last either way; the id breaks ties so paging is stable.
+  if (key === "date") return `ORDER BY d.publishedOn IS NULL, d.publishedOn ${dir}, d.id ${dir}`;
+  if (key === "title") return `ORDER BY d.title COLLATE NOCASE ${dir}, d.id ${dir}`;
+  return `ORDER BY d.id ${dir}`;
+}
+
 type Row = Record<string, unknown>;
 
 function toItem(r: Row): DatasetItem {
@@ -127,9 +154,7 @@ export function listDataset(f: DatasetFilter = {}): DatasetPage {
     .get(...args) as { n: number };
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const page = Math.min(Math.max(Math.floor(f.page ?? 1) || 1, 1), pages);
-  const rows = db
-    .prepare(`${SELECT} ${sql} ORDER BY d.publishedOn DESC, d.id DESC LIMIT ? OFFSET ?`)
-    .all(...args, pageSize, (page - 1) * pageSize) as Row[];
+  const rows = db.prepare(`${SELECT} ${sql} ${orderSql(f)} LIMIT ? OFFSET ?`).all(...args, pageSize, (page - 1) * pageSize) as Row[];
   return { items: rows.map(toItem), total, page, pages, pageSize };
 }
 
@@ -162,7 +187,7 @@ export function setDatasetLabel(id: number, label: DatasetLabel | null): boolean
   return Number(r.changes) > 0;
 }
 
-/** The current filter as CSV, one row per dataset entry. */
+/** The current filter as CSV, one row per dataset entry, in the grid's order. */
 export function* datasetCsv(f: DatasetFilter): Generator<string> {
   const cols = ["id", "label", "adminLabel", "effectiveLabel", "reviewedAt", "title", "publishedOn", "url", "site", "archiveSlug"];
   const cell = (v: unknown) => {
@@ -171,7 +196,7 @@ export function* datasetCsv(f: DatasetFilter): Generator<string> {
   };
   yield "﻿" + cols.join(",") + "\n";
   const { sql, args } = whereSql(f);
-  const rows = panelDb().prepare(`${SELECT} ${sql} ORDER BY d.publishedOn DESC, d.id DESC`).iterate(...args) as Iterable<Row>;
+  const rows = panelDb().prepare(`${SELECT} ${sql} ${orderSql(f)}`).iterate(...args) as Iterable<Row>;
   for (const row of rows) yield cols.map((c) => cell(row[c])).join(",") + "\n";
 }
 
@@ -266,16 +291,22 @@ export function addDatasetRowToArchive(id: number): AddResult {
   return { ok: true, slug, published: visible, withText: !!(a.explanation || a.narration) };
 }
 
-/** Reads the filter from query parameters (page, API and export share it). */
+/** Reads the filter from query parameters (page, API and export share it); `sort`/`order` come back with their defaults filled in. */
 export function datasetFilterFrom(get: (key: string) => string | undefined): DatasetFilter {
   const archived = get("archived");
-  return {
+  const sort = get("sort");
+  const order = get("order");
+  const f: DatasetFilter = {
     tab: get("tab") === "uncategorized" ? "uncategorized" : "categorized",
     label: isDatasetLabel(get("label")?.toUpperCase()) ? get("label")?.toUpperCase() : "",
     q: (get("q") ?? "").trim().slice(0, 200),
     source: Number(get("source")) || undefined,
     year: /^\d{4}$/.test(get("year") ?? "") ? get("year") : "",
     archived: archived === "yes" || archived === "no" ? archived : "",
+    sort: isDatasetSort(sort) ? sort : "date",
+    order: order === "asc" || order === "desc" ? order : undefined,
     page: Number(get("page")) || 1,
+    pageSize: Number(get("pageSize")) || undefined,
   };
+  return { ...f, ...datasetSortOf(f) };
 }

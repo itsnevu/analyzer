@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAdmin } from "@/lib/admin-log";
 import { isAdmin } from "@/lib/admin-articles";
 import { addStopwords, countStopwords, isSettingLang, listStopwords } from "@/lib/settings";
 
@@ -31,5 +32,6 @@ export async function POST(req: Request) {
       : [];
   if (!words.length) return NextResponse.json({ error: "No words given." }, { status: 422 });
   const added = addStopwords(body.lang, words.slice(0, 5000));
+  logAdmin(req, "settings.stopwords", body.lang, `${added} added`);
   return NextResponse.json({ ok: true, added, counts: countStopwords() });
 }

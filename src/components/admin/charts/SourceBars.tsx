@@ -7,15 +7,20 @@ export interface SourceBar {
   unlabeled: number;
 }
 
-/** Horizontal bars, labeled rows first and unlabeled rows after a 2px gap. */
-export function SourceBars({ rows }: { rows: SourceBar[] }) {
+const DEFAULT_LEGEND = { labeled: "Labeled", unlabeled: "Unlabeled" };
+
+/**
+ * Horizontal bars, labeled rows first and unlabeled rows after a 2px gap.
+ * `legend` renames the two series for other splits (e.g. "With full text" / "Link only").
+ */
+export function SourceBars({ rows, legend = DEFAULT_LEGEND }: { rows: SourceBar[]; legend?: { labeled: string; unlabeled: string } }) {
   const max = Math.max(...rows.map((r) => r.labeled + r.unlabeled), 1);
   return (
     <div>
       <Legend
         items={[
-          { label: "Labeled", color: CHART.brand },
-          { label: "Unlabeled", color: CHART.neutral },
+          { label: legend.labeled, color: CHART.brand },
+          { label: legend.unlabeled, color: CHART.neutral },
         ]}
       />
       <ul className="mt-3 space-y-1">
@@ -25,7 +30,7 @@ export function SourceBars({ rows }: { rows: SourceBar[] }) {
             <li
               key={r.name}
               className="grid grid-cols-[minmax(0,9.5rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-surface-sunken"
-              title={`${r.name}: ${fmt(r.labeled)} labeled, ${fmt(r.unlabeled)} unlabeled`}
+              title={`${r.name}: ${fmt(r.labeled)} ${legend.labeled.toLowerCase()}, ${fmt(r.unlabeled)} ${legend.unlabeled.toLowerCase()}`}
             >
               <span className="truncate text-xs text-ink-muted">
                 {r.name}
@@ -65,7 +70,7 @@ export function SourceBars({ rows }: { rows: SourceBar[] }) {
         })}
       </ul>
       <TableView
-        head={["Source", "Labeled", "Unlabeled", "Total"]}
+        head={["Source", legend.labeled, legend.unlabeled, "Total"]}
         rows={rows.map((r) => [r.name, r.labeled, r.unlabeled, r.labeled + r.unlabeled])}
       />
     </div>

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAdmin } from "@/lib/admin-log";
 import { isAdmin } from "@/lib/admin-articles";
 import { deleteSource, getCrawlQueue, getSourceAdmin, normalizeSourceInput, saveSource } from "@/lib/sources-admin";
 
@@ -34,15 +35,17 @@ export async function PUT(req: Request, { params }: Params) {
   const input = normalizeSourceInput(body);
   if (!input) return NextResponse.json({ error: "A site URL is required." }, { status: 422 });
   saveSource(input, id);
+  logAdmin(req, "source.update", String(id), `${input.url}${input.active ? "" : " (inactive)"}`);
   return NextResponse.json({ ok: true, source: getSourceAdmin(id) });
 }
 
 /** Removes a source added here; legacy rows stay (set them inactive instead). */
-export async function DELETE(_req: Request, { params }: Params) {
+export async function DELETE(req: Request, { params }: Params) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const id = await idOf(params);
   const result = id ? deleteSource(id) : "missing";
   if (result === "missing") return NextResponse.json({ error: "Not found." }, { status: 404 });
   if (result === "legacy") return NextResponse.json({ error: "Legacy sources cannot be deleted. Set the source inactive instead." }, { status: 409 });
+  logAdmin(req, "source.delete", String(id));
   return NextResponse.json({ ok: true });
 }

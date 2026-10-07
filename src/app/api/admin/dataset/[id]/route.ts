@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAdmin } from "@/lib/admin-log";
 import { isAdmin } from "@/lib/admin-articles";
 import { getDatasetItem, isDatasetLabel, setDatasetLabel } from "@/lib/dataset-admin";
 
@@ -21,5 +22,6 @@ export async function PATCH(req: Request, { params }: Params) {
   const raw = typeof body.label === "string" ? body.label.trim().toUpperCase() : null;
   if (raw && !isDatasetLabel(raw)) return NextResponse.json({ error: "Unknown label." }, { status: 422 });
   if (!setDatasetLabel(id, raw && isDatasetLabel(raw) ? raw : null)) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  logAdmin(req, "dataset.relabel", String(id), raw ? `label ${raw}` : "back to the imported label");
   return NextResponse.json({ ok: true, item: getDatasetItem(id) });
 }

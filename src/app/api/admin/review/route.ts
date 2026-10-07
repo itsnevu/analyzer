@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAdmin } from "@/lib/admin-log";
 import { isAdmin } from "@/lib/admin-articles";
 import { isReviewAction, listReviewQueue, reviewArticle } from "@/lib/review";
 
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
 
   const done = await reviewArticle(slug, body.action);
   if (!done) return NextResponse.json({ error: "No such article." }, { status: 404 });
+  logAdmin(req, "review", slug, body.action);
   const { total } = await listReviewQueue(1);
   return NextResponse.json({ ok: true, action: body.action, remaining: total });
 }

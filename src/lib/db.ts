@@ -10,7 +10,7 @@ import { DatabaseSync } from "node:sqlite";
 const DB_FILE = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "hoax.db");
 
 /** Bump when migrate() changes, so a hot-reloaded dev server re-runs it on the open connection. */
-const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 // Reuse one connection across dev hot reloads.
 const globalForDb = globalThis as unknown as {
@@ -130,6 +130,20 @@ function migrate(db: DatabaseSync): void {
     );
     CREATE INDEX IF NOT EXISTS idx_usage_kind ON usage_log (kind, at);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_usage_legacy ON usage_log (legacyId) WHERE legacyId IS NOT NULL;
+  `);
+
+  // What an admin did in the panel (see ./admin-log); kept apart from the research log.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS admin_log (
+      id     INTEGER PRIMARY KEY AUTOINCREMENT,
+      at     TEXT NOT NULL,
+      action TEXT NOT NULL,
+      target TEXT NOT NULL DEFAULT '',
+      detail TEXT NOT NULL DEFAULT '',
+      ip     TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_admin_log_at ON admin_log (at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_admin_log_action ON admin_log (action, at DESC);
   `);
 
   db.exec(`

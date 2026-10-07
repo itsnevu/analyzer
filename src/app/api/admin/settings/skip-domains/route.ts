@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAdmin } from "@/lib/admin-log";
 import { isAdmin } from "@/lib/admin-articles";
 import { addSkipDomain, listSkipDomains } from "@/lib/settings";
 
@@ -26,5 +27,6 @@ export async function POST(req: Request) {
     const exists = listSkipDomains().some((d) => d.domain === domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, ""));
     return NextResponse.json({ error: exists ? "That domain is already on the list." : "That is not a valid hostname." }, { status: exists ? 409 : 422 });
   }
+  logAdmin(req, "settings.skip-domains", domain.trim(), "added");
   return NextResponse.json({ ok: true, domains: listSkipDomains() });
 }

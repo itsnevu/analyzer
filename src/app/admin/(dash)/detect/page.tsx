@@ -4,7 +4,12 @@ import { countStopwords } from "@/lib/settings";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Detection lab" };
 
-export default async function DetectLabPage() {
+type Params = Record<string, string | string[] | undefined>;
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+
+/** `?text=` prefills the box (the "needs attention" queue and the reports inbox link here); nothing runs until Process is pressed. */
+export default async function DetectLabPage({ searchParams }: { searchParams: Promise<Params> }) {
+  const initialText = one((await searchParams).text).slice(0, 20_000);
   const stopwords = countStopwords();
   const modelConfigured = Boolean(process.env.MODEL_API_URL);
 
@@ -19,7 +24,7 @@ export default async function DetectLabPage() {
           the research log.
         </p>
       </div>
-      <DetectLab stopwords={stopwords} modelConfigured={modelConfigured} />
+      <DetectLab stopwords={stopwords} modelConfigured={modelConfigured} initialText={initialText} />
     </div>
   );
 }

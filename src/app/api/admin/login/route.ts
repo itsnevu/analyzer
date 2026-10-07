@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logAdmin } from "@/lib/admin-log";
 import { authConfigProblem, checkPassword, createSession, SESSION_COOKIE, SESSION_MAX_AGE } from "@/lib/auth";
 import { clientIp, isBlocked, reset, take, tooMany } from "@/lib/rate-limit";
 
@@ -46,5 +47,6 @@ export async function POST(req: Request) {
     path: "/",
     maxAge: SESSION_MAX_AGE,
   });
+  logAdmin(req, "login");
   return res;
 }

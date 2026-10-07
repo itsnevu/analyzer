@@ -5,6 +5,7 @@ import { HowItWorks } from "@/components/home/HowItWorks";
 import { ExampleResult } from "@/components/home/ExampleResult";
 import { Tips } from "@/components/home/Tips";
 import { RecentPosts } from "@/components/home/RecentPosts";
+import { PopularPosts } from "@/components/home/PopularPosts";
 import { Faq } from "@/components/home/Faq";
 import { CtaBand } from "@/components/home/CtaBand";
 import { Reveal } from "@/components/ui/Reveal";
@@ -28,6 +29,7 @@ export default async function HomePage() {
       <SourcesMarquee sources={sources} />
       <Reveal><Stats items={items} /></Reveal>
       <Reveal><RecentPosts articles={recent.items} total={stats.total} /></Reveal>
+      <Reveal><PopularPosts /></Reveal>
       <Reveal><HowItWorks /></Reveal>
       <Reveal><ExampleResult /></Reveal>
       <Reveal><Tips /></Reveal>

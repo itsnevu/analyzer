@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArticleLayout } from "@/components/article/ArticleLayout";
 import { findSimilarArticles, getArticleBySlug } from "@/lib/articles";
+import { breadcrumbJsonLd, claimReviewJsonLd, hasOwnText, serializeJsonLd } from "@/lib/structured-data";
 import { VERDICT_META } from "@/lib/verdict";
 
 export const dynamic = "force-dynamic";
@@ -41,5 +42,16 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
   if (!article) notFound();
 
   const related = await findSimilarArticles(`${article.title}\n${article.narration.slice(0, 400)}`, 4, article.slug);
-  return <ArticleLayout article={article} related={related} />;
+  return (
+    <>
+      {/* Structured data for search engines; link-only entries are not indexed, so they carry none. */}
+      {hasOwnText(article) && (
+        <>
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(claimReviewJsonLd(article)) }} />
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd(article)) }} />
+        </>
+      )}
+      <ArticleLayout article={article} related={related} />
+    </>
+  );
 }

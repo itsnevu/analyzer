@@ -16,6 +16,7 @@ export function Footer() {
       links: [
         { label: t("footer.link.detector"), href: "/detector" },
         { label: t("footer.link.blog"), href: "/blog" },
+        { label: "Statistics", href: "/stats" },
         { label: t("footer.link.report"), href: "/report" },
         { label: t("footer.link.disclaimer"), href: "/disclaimer" },
         { label: "Privacy", href: "/privacy" },

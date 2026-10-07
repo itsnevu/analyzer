@@ -45,19 +45,69 @@ export interface StopwordRow {
   origin: "legacy" | "site";
 }
 
-export function listStopwords(lang: SettingLang, q = "", page = 1, pageSize = 100): { items: StopwordRow[]; total: number; page: number; pages: number } {
+export type StopwordSort = "word" | "origin";
+
+/** Extra choices for listStopwords: which origin, and the order (words A–Z by default). */
+export interface StopwordListOptions {
+  origin?: "" | "legacy" | "site";
+  sort?: StopwordSort;
+  order?: "asc" | "desc";
+}
+
+export function listStopwords(
+  lang: SettingLang,
+  q = "",
+  page = 1,
+  pageSize = 100,
+  opts: StopwordListOptions = {},
+): { items: StopwordRow[]; total: number; page: number; pages: number; pageSize: number } {
   const db = panelDb();
-  const like = `%${normalizeWord(q)}%`;
-  const where = q ? "WHERE lang = ? AND word LIKE ?" : "WHERE lang = ?";
-  const args = q ? [lang, like] : [lang];
-  const { n: total } = db.prepare(`SELECT COUNT(*) AS n FROM stopwords ${where}`).get(...args) as { n: number };
-  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const where = ["lang = ?"];
+  const args: string[] = [lang];
+  if (q) {
+    where.push("word LIKE ?");
+    args.push(`%${normalizeWord(q)}%`);
+  }
+  if (opts.origin === "legacy" || opts.origin === "site") {
+    where.push("origin = ?");
+    args.push(opts.origin);
+  }
+  const sql = `WHERE ${where.join(" AND ")}`;
+  const dir = opts.order === "desc" ? "DESC" : "ASC";
+  const order = opts.sort === "origin" ? `ORDER BY origin ${dir}, word` : `ORDER BY word ${dir}`;
+  const size = Math.min(Math.max(pageSize, 1), 1000);
+  const { n: total } = db.prepare(`SELECT COUNT(*) AS n FROM stopwords ${sql}`).get(...args) as { n: number };
+  const pages = Math.max(1, Math.ceil(total / size));
   const current = Math.min(Math.max(page, 1), pages);
   // node:sqlite rows have a null prototype, which React refuses to pass to client components; spread them.
-  const items = (db
-    .prepare(`SELECT id, lang, word, origin FROM stopwords ${where} ORDER BY word LIMIT ? OFFSET ?`)
-    .all(...args, pageSize, (current - 1) * pageSize) as unknown as StopwordRow[]).map((r) => ({ ...r }));
-  return { items, total, page: current, pages };
+  const items = (
+    db.prepare(`SELECT id, lang, word, origin FROM stopwords ${sql} ${order} LIMIT ? OFFSET ?`).all(...args, size, (current - 1) * size) as unknown as StopwordRow[]
+  ).map((r) => ({ ...r }));
+  return { items, total, page: current, pages, pageSize: size };
+}
+
+export interface StopwordFilter extends StopwordListOptions {
+  lang: SettingLang;
+  q: string;
+  page: number;
+  pageSize: number;
+}
+
+/** Reads the stopword grid's state from query parameters: ?lang=id&q=&origin=&sort=word&order=asc&page=1&pageSize=100 */
+export function stopwordFilterFrom(get: (key: string) => string | undefined): StopwordFilter {
+  const lang = get("lang");
+  const origin = get("origin");
+  const sort = get("sort");
+  const order = get("order");
+  return {
+    lang: isSettingLang(lang) ? lang : "id",
+    q: (get("q") ?? "").trim().slice(0, 60),
+    origin: origin === "legacy" || origin === "site" ? origin : "",
+    sort: sort === "origin" ? "origin" : "word",
+    order: order === "desc" ? "desc" : "asc",
+    page: Number(get("page")) || 1,
+    pageSize: Number(get("pageSize")) || 100,
+  };
 }
 
 export function countStopwords(): Record<SettingLang, number> {

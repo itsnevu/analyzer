@@ -113,6 +113,9 @@ export const DICT: Record<string, string> = {
   "contact.emailLabel": "Email",
   "contact.researchLabel": "Research",
   "contact.researchBody": "Text-mining and machine learning for Indonesian & English hoax detection.",
+  "stats.eyebrow": "Statistics",
+  "stats.title": "The archive in numbers.",
+  "stats.intro": "How many fact-checks the archive holds, who published them, what they found, and how often the detector is used. Live from the database, refreshed every ten minutes.",
 };
 
 /* ---- Structured / list content ----------------------------------------- */
@@ -120,6 +123,7 @@ export const NAV: { href: string; label: string }[] = [
   { href: "/", label: "Home" },
   { href: "/detector", label: "Detector" },
   { href: "/blog", label: "Blog" },
+  { href: "/stats", label: "Stats" },
   { href: "/report", label: "Report" },
   { href: "/about", label: "About" },
 ];

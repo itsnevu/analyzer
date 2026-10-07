@@ -60,6 +60,20 @@ In production the admin login refuses to work until `ADMIN_PASSWORD` (10+
 characters) and `AUTH_SECRET` (32+ characters) are set, so a forgotten setup
 cannot leave the panel open with a default password.
 
+### Two-factor login (optional)
+
+```bash
+npm run setup -- --totp
+```
+
+This writes a new `ADMIN_TOTP_SECRET` to `.env.local` and prints the secret,
+its `otpauth://` URL and a QR code. Scan the code (or type the secret) into an
+authenticator app such as Google Authenticator, Aegis or 1Password, then restart
+the server. From then on the login page asks for the app's 6-digit code after
+the password; a wrong code counts as a failed login. Keep a copy of the secret
+somewhere safe. If the phone is lost, `npm run setup -- --no-totp` on the server
+(and a restart) turns it off again; running `--totp` again replaces the secret.
+
 ## 4. Build and try it
 
 ```bash
@@ -114,6 +128,30 @@ curl -fsS --max-time 10 http://127.0.0.1:3000/api/health >/dev/null || pm2 resta
 restarts the site when it stops answering. `model` tells you whether the
 an external model is wired up (`external`), the site's own classifier answers (`baseline`) or nothing has been trained yet (`heuristic`), and
 `fts` whether this Node build has full-text search.
+
+## Option: Docker
+
+Instead of steps 4 and 5 (Node and pm2 on the server), the site can run in a
+container. It needs Docker with Compose and the project files (step 2).
+
+```bash
+npm run setup                  # or copy .env.local.example to .env.local and fill it in
+sudo chown -R 1000:1000 data   # the container runs as uid 1000 and writes to ./data
+docker compose up -d --build
+docker compose exec app npm run train:baseline   # once, like step 4
+docker compose exec app npm run prepare:ipdb     # optional: network names in the research log
+```
+
+`docker-compose.yml` reads `.env.local`, keeps the database, uploads, model and
+backups in `./data` (mounted at `/app/data`), restarts the container unless you
+stop it, and publishes port 3000 on `127.0.0.1` only, so the HTTPS proxy in
+step 6 works unchanged. The image runs the Next.js standalone server
+(`node server.js`, built with `NEXT_OUTPUT=standalone`; the normal build and
+`npm start` are unaffected) and checks `/api/health` itself
+(`docker compose ps` shows `healthy`). `npm run db:backup` also works with
+`docker compose exec app`. To update: `git pull`, then
+`docker compose up -d --build`. Other maintenance scripts (imports, Common
+Crawl) need the full project and run on the host with `npm ci` as usual.
 
 ## 6. HTTPS and the domain
 

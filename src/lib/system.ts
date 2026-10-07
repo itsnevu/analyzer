@@ -263,7 +263,7 @@ export function ipdbDate(name: string | null | undefined): string | null {
 }
 
 export function filesInfo(): FilesInfo {
-  const ocrDir = path.join(process.cwd(), "public", "ocr");
+  const ocrDir = path.join(/* turbopackIgnore: true */ process.cwd(), "public", "ocr");
   let languages: string[] = [];
   try {
     languages = fs
@@ -291,7 +291,7 @@ export function filesInfo(): FilesInfo {
   return {
     ocr: { dir: ocrDir, present: ocrPresent, languages },
     model: { path: modelPath, present: modelBytes !== null, bytes: modelBytes, trainedAt: info?.trainedAt ?? null, docs: info?.docs ?? null },
-    ipdb: { dir: ipDir, file: ipFile, date: ipdbDate(ipFile), bytes: ipFile ? sizeOf(path.join(ipDir, ipFile)) : null },
+    ipdb: { dir: ipDir, file: ipFile, date: ipdbDate(ipFile), bytes: ipFile ? sizeOf(path.join(/* turbopackIgnore: true */ ipDir, ipFile)) : null },
   };
 }
 

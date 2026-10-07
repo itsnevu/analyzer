@@ -12,7 +12,7 @@ import sharp from "sharp";
  * Server-only.
  */
 
-const ROOT = path.join(path.dirname(process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "hoax.db")), "uploads");
+const ROOT = path.join(path.dirname(process.env.DATABASE_PATH ?? path.join(/* turbopackIgnore: true */ process.cwd(), "data", "hoax.db")), "uploads");
 const PUBLIC_DIR = path.join(ROOT, "public");
 const REPORTS_DIR = path.join(ROOT, "reports");
 

@@ -13,8 +13,7 @@ export default async function ReviewPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <span className="eyebrow">Content</span>
-          <h1 className="mt-2 font-display text-2xl font-bold">Review queue ({formatCount(queue.total)})</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">Review queue ({formatCount(queue.total)})</h1>
           <p className="mt-1 max-w-3xl text-sm text-ink-muted">
             Articles imported without a verdict from their publisher. Pick one to publish the article, keep it hidden for later, or delete
             it. Keyboard: <kbd className="rounded border border-hairline px-1 font-mono text-xs">1</kbd> hoax,{" "}

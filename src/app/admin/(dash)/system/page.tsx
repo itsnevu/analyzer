@@ -75,8 +75,7 @@ export default function SystemPage() {
   return (
     <div className="space-y-4">
       <div className="neu p-6">
-        <span className="eyebrow">Settings</span>
-        <h1 className="mt-2 font-display text-2xl font-bold">System</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">System</h1>
         <p className="mt-2 max-w-3xl text-sm text-ink-muted">
           The server as it is right now: runtime, database, backups, which optional features are configured (never their secrets) and the
           data files the site needs. Maintenance actions run in place and are written to the activity log.

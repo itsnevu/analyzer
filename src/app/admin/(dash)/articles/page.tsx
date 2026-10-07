@@ -1,11 +1,8 @@
 import Link from "next/link";
-import { ADMIN_PAGE_SIZES, adminArticleFilterFrom, getArticleStats, getArticleYears, getSourceCounts, listArticles } from "@/lib/articles";
-import { ArticlesFilters } from "@/components/admin/ArticlesFilters";
+import { adminArticleFilterFrom, getArticleStats, getArticleYears, getSourceCounts, listArticles } from "@/lib/articles";
 import { filterQuery } from "@/lib/admin-article-query";
 import { ArticlesTable } from "@/components/admin/ArticlesTable";
-import { Pagination } from "@/components/ui/Pagination";
-import { formatCount } from "@/lib/sources";
-import { clsx } from "@/lib/clsx";
+import { AdminPageHeader, AdminTab } from "@/components/admin/AdminPage";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Articles" };
@@ -28,51 +25,32 @@ export default async function AdminArticlesPage({ searchParams }: { searchParams
     { key: "public", label: "Published", count: stats.total },
     { key: "hidden", label: "Hidden", count: stats.hidden },
   ] as const;
-  const first = result.total ? (result.page - 1) * result.pageSize + 1 : 0;
-  const last = Math.min(result.page * result.pageSize, result.total);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <span className="eyebrow">Content</span>
-          <h1 className="mt-2 font-display text-2xl font-bold">Articles ({formatCount(stats.total + stats.hidden)})</h1>
-        </div>
-        <Link href="/admin/articles/new" className="btn-primary px-5 py-2.5 text-sm">
-          + Add Article
-        </Link>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1">
-        {tabs.map((t) => (
-          <Link
-            key={t.key}
-            href={href({ visibility: t.key, page: 1 })}
-            aria-current={visibility === t.key ? "page" : undefined}
-            className={clsx(
-              "rounded-full px-3.5 py-2 text-sm font-medium transition-colors",
-              visibility === t.key ? "bg-ink text-surface-raised" : "text-ink-muted hover:bg-surface-sunken hover:text-ink",
-            )}
-          >
-            {t.label} <span className="opacity-70">({formatCount(t.count)})</span>
+    <div>
+      <AdminPageHeader
+        title="Articles"
+        count={stats.total + stats.hidden}
+        description="The fact-check archive: published and hidden entries, with bulk publish, hide, verdict and delete for the selected rows."
+        actions={
+          <Link href="/admin/articles/new" className="btn-primary px-5 py-2.5 text-sm">
+            + Add article
           </Link>
+        }
+        tabs={tabs.map((t) => (
+          <AdminTab key={t.key} href={href({ visibility: t.key })} active={visibility === t.key} count={t.count}>
+            {t.label}
+          </AdminTab>
         ))}
-      </div>
-
-      <ArticlesFilters filter={filter} options={{ sources, years, pageSizes: ADMIN_PAGE_SIZES }} />
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-ink-muted" role="status">
-          View {formatCount(first)}–{formatCount(last)} of {formatCount(result.total)}
-          {result.total !== stats.total + stats.hidden && " matching"}
-        </p>
-        <a href={`/api/admin/articles/export?${filterQuery(filter)}`} className="neu-btn px-4 py-2 text-sm">
-          Export CSV ({formatCount(result.total)})
-        </a>
-      </div>
-
-      <ArticlesTable articles={result.items} />
-      <Pagination page={result.page} pages={result.pages} hrefFor={(p) => href({ page: p })} />
+      />
+      <ArticlesTable
+        articles={result.items}
+        sources={sources}
+        years={years}
+        paging={{ page: result.page, pages: result.pages, total: result.total, pageSize: result.pageSize }}
+        sort={filter.sort ? { key: filter.sort, order: filter.order ?? (filter.sort === "title" ? "asc" : "desc") } : undefined}
+        exportHref={`/api/admin/articles/export?${filterQuery(filter)}`}
+      />
     </div>
   );
 }

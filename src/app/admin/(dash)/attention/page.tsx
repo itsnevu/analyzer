@@ -21,8 +21,7 @@ export default async function AttentionPage({ searchParams }: { searchParams: Pr
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <span className="eyebrow">Detector</span>
-          <h1 className="mt-2 font-display text-2xl font-bold">Needs attention</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">Needs attention</h1>
           <p className="mt-1 max-w-3xl text-sm text-ink-muted">
             Claims people checked that the archive could not answer, so the missing fact-check can be written, plus the matches that look
             wrong.

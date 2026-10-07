@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      # The IP-to-network database (~9 MB download) only adds network names to
+      # the research log; the site builds and runs without it.
+      SKIP_IPDB: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The screenshot reader's files (copied from node_modules, plus ~4 MB of
+      # language data downloaded by scripts/prepare-ocr.ts before the build).
+      - name: Cache OCR files
+        uses: actions/cache@v4
+        with:
+          path: public/ocr
+          key: ocr-${{ hashFiles('scripts/prepare-ocr.ts', 'package-lock.json') }}
+
+      - name: Lint
+        run: npm run lint
+
+      # next-env.d.ts and the route types are generated (and git-ignored), so
+      # create them without a full build before type checking.
+      - name: Type check
+        run: |
+          npx next typegen
+          npx tsc --noEmit
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build

@@ -23,8 +23,7 @@ export default async function ResearchPage({ searchParams }: { searchParams: Pro
   return (
     <div className="space-y-4">
       <div className="neu p-6">
-        <p className="eyebrow">Research</p>
-        <h1 className="font-display text-3xl font-bold">How the site is used</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">How the site is used</h1>
         <p className="mt-2 max-w-3xl text-sm text-ink-muted">
           Every visit, check, report and self-reported role, with network and device. &quot;Legacy&quot; rows are the old panel&apos;s search log
           (April 2019 – February 2024). Networks are looked up from today&apos;s registry, so old addresses may have changed owner.

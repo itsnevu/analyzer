@@ -69,7 +69,7 @@ const MODEL_VERSION = 1;
 
 /** Where the model lives; data/ is git-ignored. */
 export function baselineModelPath(): string {
-  return process.env.BASELINE_MODEL_PATH || path.join(process.cwd(), "data", "models", "baseline.json");
+  return process.env.BASELINE_MODEL_PATH || path.join(/* turbopackIgnore: true */ process.cwd(), "data", "models", "baseline.json");
 }
 
 /* ---------------------------------------------------------------- text */

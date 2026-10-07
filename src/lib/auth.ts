@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { isTotpSecret, verifyTotp } from "@/lib/totp";
 
 /**
  * Single-admin auth: a shared password (ADMIN_PASSWORD) grants a signed,
@@ -84,4 +85,33 @@ export function checkPassword(input: string): boolean {
   const a = crypto.createHash("sha256").update(input).digest();
   const b = crypto.createHash("sha256").update(password()).digest();
   return crypto.timingSafeEqual(a, b);
+}
+
+// --- Optional second factor: a TOTP code from an authenticator app ---
+
+/** Base32 TOTP secret from ADMIN_TOTP_SECRET, or null when two-factor login is off (or the value is unusable). */
+function totpSecret(): string | null {
+  const secret = (process.env.ADMIN_TOTP_SECRET ?? "").replace(/[\s-]/g, "").toUpperCase();
+  return secret && isTotpSecret(secret) ? secret : null;
+}
+
+/** True when ADMIN_TOTP_SECRET holds a valid base32 secret, so login also asks for a 6-digit code. */
+export function totpEnabled(): boolean {
+  return totpSecret() !== null;
+}
+
+// The newest time step a code was accepted for. A code is only accepted for a
+// later step, so an observed code cannot be replayed within its window
+// (RFC 6238 section 5.2). In memory: a restart forgets it, which at most lets
+// the last code be reused once within its ~90 seconds.
+let lastTotpStep = -1;
+
+/** True when the code matches the current 30-second step (or one either side) and is newer than the last accepted code. */
+export function checkTotp(code: string): boolean {
+  const secret = totpSecret();
+  if (!secret || typeof code !== "string") return false;
+  const step = verifyTotp(secret, code);
+  if (step === null || step <= lastTotpStep) return false;
+  lastTotpStep = step;
+  return true;
 }

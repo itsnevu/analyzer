@@ -40,8 +40,7 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
   return (
     <div className="space-y-4">
       <div>
-        <span className="eyebrow">Inbox</span>
-        <h1 className="mt-2 font-display text-2xl font-bold">
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">
           Reports ({formatCount(counts.total)})
           {counts.unread > 0 && <span className="ml-2 align-middle text-sm font-medium text-verdict-hoax">{counts.unread} unread</span>}
         </h1>

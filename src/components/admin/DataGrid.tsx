@@ -23,7 +23,7 @@ export type GridFilter =
 export interface GridColumn<Row> {
   key: string;
   header: React.ReactNode;
-  /** CSS width or min-width, e.g. "160px" or "minmax(240px,1fr)"; defaults to auto */
+  /** CSS width of the column, e.g. "160px" (applied as width and min-width); defaults to auto */
   width?: string;
   align?: "left" | "right" | "center";
   sortable?: boolean;

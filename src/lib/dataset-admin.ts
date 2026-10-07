@@ -203,13 +203,13 @@ export function* datasetCsv(f: DatasetFilter): Generator<string> {
 /* ------------------------------------------------------- add to archive */
 
 // The panel's grid exports hold the article text the dataset table leaves out.
-const EXPORT_DIR = process.env.LEGACY_PANEL_DIR ?? path.join(process.cwd(), "data", "legacy-panel", "panel");
+const EXPORT_DIR = process.env.LEGACY_PANEL_DIR ?? path.join(/* turbopackIgnore: true */ process.cwd(), "data", "legacy-panel", "panel");
 const EXPORT_FILES = ["hoax-master-data-categorized.json", "hoax-master-data-uncategorized.json"];
 
 /** The raw export row for a dataset id, or null when the export files are not on this machine. */
 function readExportRow(id: number): DatasetRow | null {
   for (const file of EXPORT_FILES) {
-    const full = path.join(EXPORT_DIR, file);
+    const full = path.join(/* turbopackIgnore: true */ EXPORT_DIR, file);
     if (!fs.existsSync(full)) continue;
     const rows = (JSON.parse(fs.readFileSync(full, "utf8")) as { rows?: DatasetRow[] }).rows ?? [];
     const row = rows.find((r) => Number(r.id) === id);

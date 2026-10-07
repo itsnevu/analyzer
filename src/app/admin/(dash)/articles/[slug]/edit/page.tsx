@@ -15,7 +15,7 @@ export default async function EditArticlePage({ params }: { params: Promise<{ sl
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Link href="/admin/articles" className="text-sm text-ink-muted hover:text-ink">← Articles</Link>
-          <h1 className="mt-2 font-display text-2xl font-bold">Edit Article</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">Edit Article</h1>
         </div>
         {article.published && (
           <Link href={`/blog/${article.slug}`} target="_blank" className="neu-btn px-4 py-2 text-sm">

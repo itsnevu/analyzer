@@ -8,6 +8,9 @@ import { LogoMark } from "@/components/ui/Logo";
 export function LoginForm({ notice, disabled }: { notice?: string; disabled?: boolean }) {
   const router = useRouter();
   const [password, setPassword] = useState("");
+  // Shown once the server says the password was right and a two-factor code is needed.
+  const [needsCode, setNeedsCode] = useState(false);
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,14 +22,22 @@ export function LoginForm({ notice, disabled }: { notice?: string; disabled?: bo
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+        body: JSON.stringify(needsCode ? { password, code } : { password }),
       });
       const data = await res.json();
+      if (data.needsCode) {
+        setNeedsCode(true);
+        setError(null);
+        setLoading(false);
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Login failed.");
       router.push("/admin");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
+      // A used or wrong code is no good for a second try; the next one comes from the app.
+      if (needsCode) setCode("");
       setLoading(false);
     }
   }
@@ -51,7 +62,8 @@ export function LoginForm({ notice, disabled }: { notice?: string; disabled?: bo
             <span className="mb-1.5 block text-xs font-medium text-ink-muted">Password</span>
             <input
               type="password"
-              autoFocus
+              autoFocus={!needsCode}
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
@@ -59,8 +71,31 @@ export function LoginForm({ notice, disabled }: { notice?: string; disabled?: bo
             />
           </label>
 
+          {needsCode && (
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-ink-muted">Authenticator code</span>
+              <input
+                type="text"
+                autoFocus
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9 ]*"
+                maxLength={7}
+                required
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, ""))}
+                placeholder="123456"
+                aria-describedby="totp-hint"
+                className="w-full rounded-lg border border-hairline bg-surface-sunken px-4 py-3 text-center font-mono text-lg tracking-[0.3em] text-ink outline-none focus:ring-2 focus:ring-brand/30"
+              />
+              <span id="totp-hint" className="mt-1.5 block text-xs text-ink-faint">
+                The 6-digit code from your authenticator app.
+              </span>
+            </label>
+          )}
+
           <button type="submit" disabled={loading || disabled} className="btn-primary w-full py-3 disabled:opacity-50">
-            {loading ? "Checking…" : "Sign in"}
+            {loading ? "Checking…" : needsCode ? "Verify and sign in" : "Sign in"}
           </button>
 
           {error && (

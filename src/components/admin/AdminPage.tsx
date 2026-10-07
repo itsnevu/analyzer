@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { clsx } from "@/lib/clsx";
 
 /**
@@ -43,7 +44,7 @@ export function AdminPageHeader({
 /** A tab-style chip for the header's `tabs` slot; pass `active` for the current one. */
 export function AdminTab({ active, children, href, count }: { active: boolean; children: React.ReactNode; href: string; count?: number }) {
   return (
-    <a
+    <Link
       href={href}
       aria-current={active ? "page" : undefined}
       className={clsx(
@@ -53,7 +54,7 @@ export function AdminTab({ active, children, href, count }: { active: boolean; c
     >
       {children}
       {count !== undefined && <span className={clsx("font-mono text-[11px] tabular-nums", active ? "text-surface-raised/70" : "text-ink-faint")}>{count.toLocaleString("en-US")}</span>}
-    </a>
+    </Link>
   );
 }
 
@@ -70,9 +71,9 @@ export function StatTile({ label, value, note, tone, href }: { label: string; va
   );
   const cls = "neu relative block p-4 pl-5";
   return href ? (
-    <a href={href} className={clsx(cls, "transition-colors hover:bg-surface-sunken")}>
+    <Link href={href} className={clsx(cls, "transition-colors hover:bg-surface-sunken")}>
       {inner}
-    </a>
+    </Link>
   ) : (
     <div className={cls}>{inner}</div>
   );

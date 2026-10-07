@@ -22,12 +22,17 @@ Requires **Node 22.13+**: the database uses the built-in `node:sqlite` module.
 `npm run dev` and `npm run build` first run `prepare:ocr`, which puts the
 screenshot reader under `public/ocr/` (downloads ~4 MB of language data once).
 
+To run it in a container instead, `docker compose up -d --build` (see
+[DEPLOY.md](DEPLOY.md), "Option: Docker"). GitHub Actions
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs lint, type check,
+tests and a production build on every push and pull request.
+
 ## Commands
 
 | Command | What it does |
 |---------|--------------|
 | `npm run dev` / `build` / `start` | Develop, build, serve |
-| `npm run setup` | Creates `.env.local` with a strong admin password and session secret |
+| `npm run setup` | Creates `.env.local` with a strong admin password and session secret (`-- --totp` turns on two-factor login, `-- --no-totp` off) |
 | `npm test` | Unit tests (vitest, `tests/`) |
 | `npm run lint` | ESLint 9 with `eslint-config-next` |
 | `npm run db:backup` | Consistent copy of the database to `data/backup/` |
@@ -47,13 +52,14 @@ screenshot reader under `public/ocr/` (downloads ~4 MB of language data once).
 | `/blog/[slug]` | One fact-check: claim, findings, sources, references, related fact-checks, share image |
 | `/report` | Report a hoax, a wrong result or an article error (optional screenshot); returns a report number |
 | `/contact`, `/about`, `/disclaimer`, `/offline` | Contact form; archive and training-data figures; terms; offline page for the installed app |
-| `/feed.xml`, `/api/health` | RSS feed of the newest fact-checks; health check for uptime monitors |
-| `/admin` | Dashboard: article counts, which engine answers checks, the training dataset, searches, links to every tool below |
-| `/admin/articles`, `/admin/reports` | Articles (search, hidden drafts, image upload); reports inbox (status, unread, replies) |
+| `/stats` | The archive in numbers: per year and verdict, per publisher, language, text coverage, detector use per month |
+| `/feed.xml`, `/api/health`, `/api/suggest` | RSS feed of the newest fact-checks; health check for uptime monitors; search suggestions |
+| `/admin` | Dashboard: article counts, the last 7 days (checks, visits, engines, archive coverage, top matches), which engine answers, the training dataset, searches |
+| `/admin/articles`, `/admin/reports` | Articles (filters, sorting, bulk publish / hide / verdict / delete, CSV); reports inbox (filters, notes, resolve with an article, closest archive matches) |
 | `/admin/detect`, `/admin/model` | Detection lab (six similarity algorithms); model status, ping, train, try |
-| `/admin/extract`, `/admin/review` | Turn a page or message into a draft article; give hidden entries a verdict |
+| `/admin/extract`, `/admin/review`, `/admin/attention` | Turn a page or message into a draft article; give hidden entries a verdict; claims the archive could not answer |
 | `/admin/dataset`, `/admin/sources`, `/admin/searches`, `/admin/research` | The old detector's dataset and source sites; the search log; the research log with IPs |
-| `/admin/settings` | Stopwords per language, HTML entity replacements, skipped domains |
+| `/admin/settings`, `/admin/system`, `/admin/activity` | Stopwords, HTML entity replacements, skipped domains; database, backups and maintenance; the log of changes made in the panel |
 
 ## How a check works
 
@@ -136,8 +142,31 @@ location data and stored in `data/uploads/`.
 
 ## Admin panel
 
-The sidebar follows the old panel's menus (DATA HOAX, HOAX SETTING, …) with the
-new site's names, grouped as Detector, Content, Data and Settings.
+The panel keeps the old control panel's layout, a dark side rail with the menu
+grouped as Detector, Content, Data and Settings, and modernises it: the rail
+collapses to icons (and becomes a drawer on phones), a sticky top bar shows the
+breadcrumb, badges count unread reports, hidden entries and open "needs
+attention" claims, and **Ctrl+K** opens a palette that jumps to any page or
+straight to an article. List pages share one data grid in the spirit of the old
+jqGrid tables: a filter row under the headers, sortable columns, zebra rows,
+row selection and a pager with "View a–b of N", with every state in the URL.
+
+**Dashboard.** Archive totals by verdict, the last 7 days from the research
+log (checks, visits, reports, browsers, checks per day for 30 days, which
+engine answered, how many checks the archive could answer, the fact-checks it
+answered with most), the detector engine's status, the old detector's training
+dataset and the search history.
+
+**Needs attention** (`/admin/attention`) groups the claims people checked that
+the archive had no fact-check for (near-duplicates merged), most checked first,
+with "create draft" and "open in lab" buttons; two more tabs list archive
+matches that disagree with the model and checks the model was unsure about.
+**System** (`/admin/system`) shows the runtime, database, backups (with "back
+up now"), configuration without secrets and data files, and runs maintenance:
+purge expired IPs, rebuild the search index, optimize the database.
+**Activity log** (`/admin/activity`) records every change made in the panel
+(articles, review, dataset, settings, sources, training, reports, logins, bulk
+and system actions) with filters and CSV export.
 
 **Detector tools.** *Detection lab* (`/admin/detect`) scores a text or a link
 against the archive with a chosen algorithm (the public detector's BM25 +
@@ -175,10 +204,19 @@ the skip list of domains the detector and the extract tool refuse to fetch. All
 of these are filled by `npm run import:panel`, which can be re-run without
 losing what was added in the admin panel.
 
+**Public extras.** Every article page with its own text carries schema.org
+`ClaimReview` and `BreadcrumbList` JSON-LD, so search engines can show the
+verdict as a fact-check. The home page and the archive show the fact-checks
+opened most in the last 30 days (the newest ones while the visit log is thin),
+and the navbar search box suggests matching fact-checks as you type.
+
 ## Security
 
 - Admin login refuses the development defaults in production; `npm run setup`
   generates strong values. Five wrong passwords pause login for 15 minutes.
+- Optional two-factor login: `npm run setup -- --totp` sets `ADMIN_TOTP_SECRET`
+  and prints a QR code for an authenticator app; login then also asks for the
+  6-digit code (each code works once; wrong codes count as failed logins).
 - Per-address rate limits on the detector, links, reports and the public API.
 - Content-Security-Policy and related headers ([`next.config.mjs`](next.config.mjs)).
 - The legacy site's `/adminpanel/` is open to anyone; lock it before switching

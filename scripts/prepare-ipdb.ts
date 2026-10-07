@@ -3,6 +3,8 @@
  * and builds data/ip2asn-YYYYMMDD.db, used to name the network behind an IP
  * address in the research log. Runs before `dev` and `build`; skips when the
  * newest copy is under 30 days old (`-- --force` to refresh). Never fails the build.
+ * SKIP_IPDB=1 skips it entirely (CI and image builds: the site runs without the
+ * file and only leaves network names out of the research log).
  */
 
 import fs from "node:fs";
@@ -10,6 +12,11 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { DatabaseSync } from "node:sqlite";
 import { IPDB_DIR, ipToBytes } from "../src/lib/ip-asn.ts";
+
+if (process.env.SKIP_IPDB === "1") {
+  console.log("[prepare-ipdb] skipped (SKIP_IPDB=1)");
+  process.exit(0);
+}
 
 const URL = process.env.IP2ASN_URL ?? "https://iptoasn.com/data/ip2asn-combined.tsv.gz";
 const dir = IPDB_DIR();

@@ -32,8 +32,7 @@ export default function ModelPage() {
   return (
     <div className="space-y-4">
       <div className="neu p-6">
-        <p className="eyebrow">Detector</p>
-        <h1 className="font-display text-3xl font-bold">Model</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">Model</h1>
         <p className="mt-2 max-w-3xl text-sm text-ink-muted">
           A public check is answered by the first engine below that is available. Only the keyword heuristic is marked as demo mode on the
           public page; whenever the external model did not answer, a matching archived fact-check overrides the verdict.

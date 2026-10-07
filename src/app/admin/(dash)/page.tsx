@@ -12,6 +12,8 @@ import { ClassCards } from "@/components/admin/charts/ClassCards";
 import { MonthlyColumns } from "@/components/admin/charts/MonthlyColumns";
 import { SourceBars } from "@/components/admin/charts/SourceBars";
 import { StackedColumns } from "@/components/admin/charts/StackedColumns";
+import { AdminPageHeader, StatTile } from "@/components/admin/AdminPage";
+import { DashboardWeek } from "@/components/admin/DashboardWeek";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +25,7 @@ const TOOLS = [
   { href: "/admin/detect", label: "Detection lab", note: "Score a text against the archive with BM25, Levenshtein, Damerau, Smith–Waterman, Jaccard or cosine." },
   { href: "/admin/extract", label: "Extract from a page", note: "Turn a fact-check page or a forwarded message into a draft article." },
   { href: "/admin/review", label: "Review queue", note: "Give the hidden entries a verdict, one at a time." },
+  { href: "/admin/attention", label: "Needs attention", note: "Claims people checked that the archive could not answer yet." },
   { href: "/admin/dataset", label: "Dataset", note: "The old detector's 17k labeled and unlabeled rows; relabel or add to the archive." },
   { href: "/admin/sources", label: "Sources", note: "The 23 sites the old crawler collected from, with counts." },
   { href: "/admin/searches", label: "Searches", note: "Every text submitted to the detector, old panel included." },
@@ -58,13 +61,14 @@ function Card({ title, subtitle, className = "", children }: { title: string; su
 
 export default async function AdminDashboard() {
   const [stats, recent, reports] = await Promise.all([getArticleStats(), listArticles({ visibility: "all", pageSize: 6 }), getAllReports()]);
-  const tiles = [
-    { label: "Published articles", value: stats.total, href: "/admin/articles?visibility=public" },
-    { label: "Hoax", value: stats.hoax, href: "/admin/articles?visibility=public" },
-    { label: "Misleading", value: stats.misleading, href: "/admin/articles?visibility=public" },
-    { label: "Credible", value: stats.valid, href: "/admin/articles?visibility=public" },
-    { label: "Hidden, needs review", value: stats.hidden, href: "/admin/articles?visibility=hidden" },
-    { label: "Reports received", value: reports.length, href: "/admin/reports" },
+  const unread = reports.filter((r) => !r.readAt).length;
+  const tiles: { label: string; value: number; href: string; tone?: "valid" | "warn" | "hoax" | "brand"; note?: string }[] = [
+    { label: "Published articles", value: stats.total, href: "/admin/articles?visibility=public", tone: "brand", note: `${formatCount(stats.sources)} publishers` },
+    { label: "Hoax", value: stats.hoax, href: "/admin/articles?visibility=public&verdict=hoax", tone: "hoax" },
+    { label: "Misleading", value: stats.misleading, href: "/admin/articles?visibility=public&verdict=misleading", tone: "warn" },
+    { label: "Credible", value: stats.valid, href: "/admin/articles?visibility=public&verdict=valid", tone: "valid" },
+    { label: "Hidden, needs review", value: stats.hidden, href: "/admin/review", tone: stats.hidden ? "warn" : undefined },
+    { label: "Reports received", value: reports.length, href: "/admin/reports", note: unread ? `${formatCount(unread)} unread` : undefined },
   ];
 
   const model = modelStatus();
@@ -104,29 +108,32 @@ export default async function AdminDashboard() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <span className="eyebrow">Dashboard</span>
-          <h1 className="mt-2 font-display text-2xl font-bold">Overview</h1>
-        </div>
-        <Link href="/admin/articles/new" className="btn-primary px-5 py-2.5 text-sm">
-          + Add Article
-        </Link>
-      </div>
+      <AdminPageHeader
+        className="mb-0"
+        title="Dashboard"
+        description="The archive, the detector and what visitors did with them, at a glance."
+        actions={
+          <>
+            <Link href="/admin/detect" className="neu-btn px-4 py-2.5 text-sm">
+              Detection lab
+            </Link>
+            <Link href="/admin/articles/new" className="btn-primary px-5 py-2.5 text-sm">
+              + Add article
+            </Link>
+          </>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         {tiles.map((s) => (
-          <Link key={s.label} href={s.href} className="neu p-4 transition-colors hover:bg-surface-sunken">
-            <div className="text-2xl font-semibold tracking-tight">{formatCount(s.value)}</div>
-            <div className="mt-1 text-xs text-ink-muted">{s.label}</div>
-          </Link>
+          <StatTile key={s.label} label={s.label} value={formatCount(s.value)} href={s.href} tone={s.tone} note={s.note} />
         ))}
       </div>
 
       <div className="grid gap-3 lg:grid-cols-5">
         <Card title="Detector engine" subtitle="Which engine answers public checks right now" className="lg:col-span-2">
           <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: model.engine === "external" ? "var(--valid)" : model.engine === "baseline" ? "var(--warn)" : "var(--hoax)" }} aria-hidden />
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: model.engine === "heuristic" ? "var(--warn)" : "var(--valid)" }} aria-hidden />
             <span className="text-lg font-semibold">{ENGINE_NAME[model.engine]}</span>
           </div>
           <dl className="mt-3 space-y-1.5 text-sm">
@@ -166,6 +173,8 @@ export default async function AdminDashboard() {
           </p>
         </Card>
       </div>
+
+      <DashboardWeek />
 
       <Section
         eyebrow="Legacy detector"

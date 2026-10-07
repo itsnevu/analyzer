@@ -32,6 +32,14 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The Docker image builds with NEXT_OUTPUT=standalone (a self-contained
+  // .next/standalone/server.js). Left unset, the build stays the usual one that
+  // `next start` (pm2, ecosystem.config.cjs) runs without warnings.
+  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" } : {}),
+  // Some server code reads files by computed paths, so the tracer would copy the
+  // whole project into the standalone output; the site's data (database, backups,
+  // research log, model) must never be part of a build.
+  outputFileTracingExcludes: { "**": ["./data/**/*", "./.git/**/*", "./tests/**/*"] },
   reactStrictMode: true,
   poweredByHeader: false,
   async headers() {

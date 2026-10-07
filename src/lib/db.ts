@@ -7,7 +7,7 @@ import { DatabaseSync } from "node:sqlite";
  * with DATABASE_PATH). Server-only — never import into a client component.
  */
 
-const DB_FILE = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "hoax.db");
+const DB_FILE = process.env.DATABASE_PATH ?? path.join(/* turbopackIgnore: true */ process.cwd(), "data", "hoax.db");
 
 /** Bump when migrate() changes, so a hot-reloaded dev server re-runs it on the open connection. */
 export const SCHEMA_VERSION = 6;

@@ -38,8 +38,7 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
   return (
     <div className="space-y-4">
       <div className="neu p-6">
-        <span className="eyebrow">Settings</span>
-        <h1 className="mt-2 font-display text-2xl font-bold">Activity log ({formatCount(result.total)})</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">Activity log ({formatCount(result.total)})</h1>
         <p className="mt-2 max-w-3xl text-sm text-ink-muted">
           What was done in this panel and from which address: logins, article edits and bulk actions, review decisions, dataset and settings
           changes, model training, report status changes and the maintenance actions on the{" "}

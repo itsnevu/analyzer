@@ -1,0 +1,20 @@
+# Installed and built inside the image.
+node_modules
+.next
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Site data and secrets never go into the image: mount ./data, pass .env.local at run time.
+data
+.env*
+
+# Not needed to build.
+.git
+.github
+.vscode
+.claude
+coverage
+*.log
+Dockerfile
+.dockerignore
+docker-compose.yml

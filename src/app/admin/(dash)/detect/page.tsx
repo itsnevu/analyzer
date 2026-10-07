@@ -6,7 +6,7 @@ export const metadata = { title: "Detection lab" };
 
 export default async function DetectLabPage() {
   const stopwords = countStopwords();
-  const modelConfigured = Boolean(process.env.RAG_FUSION_API_URL);
+  const modelConfigured = Boolean(process.env.MODEL_API_URL);
 
   return (
     <div className="space-y-4">

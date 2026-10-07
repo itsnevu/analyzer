@@ -8,18 +8,18 @@ export const metadata = { title: "Model" };
 const ENGINES: { key: "external" | "baseline" | "heuristic"; name: string; what: string }[] = [
   {
     key: "external",
-    name: "External model",
-    what: "The trained RAG Fusion service, reached over HTTP when RAG_FUSION_API_URL is set. Its verdict is final; an archive match is only listed next to it.",
+    name: "External model (optional)",
+    what: "Any HTTP service that follows the contract in src/lib/detect.ts, reached when MODEL_API_URL is set. Its verdict is final; an archive match is only listed next to it.",
   },
   {
     key: "baseline",
-    name: "Baseline classifier",
-    what: "Logistic regression over the words and word pairs of the archive's fact-checks, trained here. Used when no external model is configured. A matching archived fact-check still overrides its verdict.",
+    name: "Trained classifier",
+    what: "The site's own detection model: logistic regression over the words and word pairs of the archive's fact-checks, trained here. A matching archived fact-check still overrides its verdict.",
   },
   {
     key: "heuristic",
     name: "Keyword heuristic",
-    what: "A fixed list of clickbait and credibility phrases plus shouting and exclamation marks. The last resort when there is no model file, or when the baseline knows none of the words in a text.",
+    what: "A fixed list of clickbait and credibility phrases plus shouting and exclamation marks. Only used before a classifier has been trained, or when the classifier knows none of the words in a text; marked as demo mode on the public page.",
   },
 ];
 
@@ -35,8 +35,8 @@ export default function ModelPage() {
         <p className="eyebrow">Detector</p>
         <h1 className="font-display text-3xl font-bold">Model</h1>
         <p className="mt-2 max-w-3xl text-sm text-ink-muted">
-          A public check is answered by the first engine below that is available. Results from the baseline and the heuristic are marked as demo
-          mode on the public page; results from the external model are not.
+          A public check is answered by the first engine below that is available. Only the keyword heuristic is marked as demo mode on the
+          public page; whenever the external model did not answer, a matching archived fact-check overrides the verdict.
         </p>
         <ol className="mt-5 grid gap-3 md:grid-cols-3">
           {ENGINES.map((e, i) => {

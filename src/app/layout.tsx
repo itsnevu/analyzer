@@ -32,7 +32,7 @@ const jsonLd = {
   applicationCategory: "SecurityApplication",
   operatingSystem: "Web",
   description:
-    "Hoax detection and analysis for Indonesian & English text, built on text-mining, machine learning, and RAG Fusion.",
+    "Hoax detection and analysis for Indonesian & English text, built on text-mining, machine learning and an archive of fact-checks.",
   inLanguage: ["id", "en"],
   offers: { "@type": "Offer", price: "0", priceCurrency: "IDR" },
 };
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     template: "%s · Hoax Detection & Analyzer",
   },
   description:
-    "Analyze Indonesian & English hoax news with text-mining, machine learning, and RAG Fusion. Paste the text, get a verdict and an explanation.",
+    "Analyze Indonesian & English hoax news with text-mining, machine learning and thousands of fact-checks. Paste the text, get a verdict and an explanation.",
   metadataBase: new URL(SITE_URL),
   applicationName: "Hoax Analyzer",
   appleWebApp: { capable: true, title: "Hoax Analyzer", statusBarStyle: "default" },
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Hoax Detection & Analyzer",
     description:
-      "RAG Fusion-based hoax detection and analysis for Indonesian & English.",
+      "Hoax detection and analysis for Indonesian & English, backed by thousands of fact-checks.",
     type: "website",
     images: [{ url: "/og.jpg", width: 1200, height: 675 }],
   },
@@ -69,7 +69,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Hoax Detection & Analyzer",
     description:
-      "RAG Fusion-based hoax detection and analysis for Indonesian & English.",
+      "Hoax detection and analysis for Indonesian & English, backed by thousands of fact-checks.",
     images: ["/og.jpg"],
   },
 };

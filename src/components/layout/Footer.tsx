@@ -25,7 +25,6 @@ export function Footer() {
     {
       title: t("footer.col.research"),
       links: [
-        { label: t("footer.link.ragfusion"), href: "https://rag-fusion.streamlit.app/" },
         { label: t("footer.link.about"), href: "/about" },
         { label: t("footer.link.method"), href: "/#how" },
       ],

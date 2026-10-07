@@ -191,7 +191,7 @@ export function DetectLab({ stopwords, modelConfigured }: { stopwords: Record<st
           <button type="submit" disabled={busy || !text.trim()} className="btn-primary px-6 py-3 text-sm disabled:opacity-50">
             {busy ? "Scoring…" : "Process"}
           </button>
-          {!modelConfigured && <span className="text-xs text-ink-faint">No detection model is configured (RAG_FUSION_API_URL), so the verdict card shows demo mode.</span>}
+          {!modelConfigured && <span className="text-xs text-ink-faint">No external model is configured, so the verdict card shows the site&apos;s own classifier (see Model).</span>}
         </div>
 
         {history.length > 0 && (
@@ -324,7 +324,7 @@ function Results({ result }: { result: LabResult }) {
             <Chip label="Engine" value={d.model} />
             <Chip label="Hoax probability" value={pct(d.hoaxProbability)} />
             <Chip label="Confidence" value={pct(d.confidence)} />
-            <Chip label="Mode" value={d.simulated ? "demo" : "model"} />
+            <Chip label="Mode" value={d.simulated ? "demo" : d.engine} />
           </div>
         </div>
         <div className="space-y-3 border-t border-hairline px-6 py-4 text-sm">

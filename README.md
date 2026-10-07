@@ -63,24 +63,23 @@ screenshot reader under `public/ocr/` (downloads ~4 MB of language data once).
    leaves the device ([`src/lib/ocr.ts`](src/lib/ocr.ts)).
 2. **Archive match.** The text's rare words are matched against every fact-check
    with SQLite full-text search ([`findSimilarArticles`](src/lib/articles.ts)).
-3. **Verdict.** From the trained model when `RAG_FUSION_API_URL` is set. Its
-   request/response contract is documented at the top of
-   [`src/lib/detect.ts`](src/lib/detect.ts); a model that is down, slow or out of
-   contract makes the site fall back to demo mode, visibly. In demo mode the top
-   archive match decides; a text with no match goes to the baseline classifier
-   below, or to a keyword heuristic when no baseline has been trained.
+3. **Verdict.** The top archive match decides when there is one. Otherwise the
+   site's own classifier (below) scores the text, or a keyword heuristic does
+   until a classifier has been trained; only the heuristic is shown as demo
+   mode. An external model over HTTP can be plugged in with `MODEL_API_URL`
+   (contract at the top of [`src/lib/detect.ts`](src/lib/detect.ts)); its
+   verdict is then final, and if it is down, slow or out of contract the local
+   engines answer and the result says so.
 
-**Baseline classifier.** When no external model is configured, demo-mode
-verdicts come from multinomial logistic regression over TF-IDF words and word
+**The classifier.** Multinomial logistic regression over TF-IDF words and word
 pairs of the published fact-checks (the title without its tag plus the claim
 narration), trained with `npm run train:baseline` into `data/models/baseline.json`
 (about 2 MB, under two seconds; also from the admin Model page). On a stratified
 10% holdout it reaches 74% accuracy and 0.60 macro-F1 (hoax F1 0.84, credible
 0.62, misleading 0.35). It learns which claims fact-checkers have debunked or
 confirmed, not whether a statement is true, so topics the archive only ever
-debunked read as hoax-prone; a matching archived fact-check always overrides it,
-and every result stays marked as demo mode until the RAG Fusion model is
-connected. Function words and verdict words (hoaks, salah, fakta, …) are never
+debunked read as hoax-prone; that is why a matching archived fact-check always
+overrides it. Function words and verdict words (hoaks, salah, fakta, …) are never
 features, so the label cannot leak in from the fact-check wording
 ([`src/lib/baseline.ts`](src/lib/baseline.ts)).
 

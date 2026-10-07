@@ -116,14 +116,14 @@ export function ModelPanel({ initialStatus, initialInfo }: { initialStatus: Mode
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="font-display text-lg font-bold">External model</h2>
-              <p className="mt-0.5 text-xs text-ink-faint">RAG Fusion over HTTP, see the contract in src/lib/detect.ts</p>
+              <p className="mt-0.5 text-xs text-ink-faint">Optional: any HTTP service that follows the contract in src/lib/detect.ts</p>
             </div>
             <span className={clsx("rounded-full px-2.5 py-0.5 text-[11px] font-semibold", ext.configured ? "bg-verdict-valid/10 text-verdict-valid" : "bg-surface-sunken text-ink-faint")}>
               {ext.configured ? "configured" : "not configured"}
             </span>
           </div>
           <dl className="mt-4 space-y-1.5 text-sm">
-            <Row label="Host" value={ext.host ?? <span className="text-ink-faint">RAG_FUSION_API_URL is empty</span>} />
+            <Row label="Host" value={ext.host ?? <span className="text-ink-faint">MODEL_API_URL is empty</span>} />
             <Row label="Timeout" value={`${n(ext.timeoutMs)} ms`} />
             <Row label="API key" value={<span className="text-ink-faint">never shown here</span>} />
           </dl>
@@ -131,7 +131,7 @@ export function ModelPanel({ initialStatus, initialInfo }: { initialStatus: Mode
             <button onClick={doPing} disabled={!ext.configured || pinging} className="neu-btn px-4 py-2 text-sm disabled:opacity-50">
               {pinging ? <><Spinner /> Pinging…</> : "Ping"}
             </button>
-            {!ext.configured && <span className="text-xs text-ink-faint">Set RAG_FUSION_API_URL in .env and restart to connect one.</span>}
+            {!ext.configured && <span className="text-xs text-ink-faint">Set MODEL_API_URL in .env and restart to connect one.</span>}
           </div>
           {pingError && <p className="mt-3 text-sm text-verdict-hoax">{pingError}</p>}
           {ping && (
@@ -231,7 +231,7 @@ export function ModelPanel({ initialStatus, initialInfo }: { initialStatus: Mode
             </div>
           ) : (
             <p className="mt-4 text-sm text-ink-muted">
-              There is no model file yet, so the keyword heuristic answers demo-mode checks. Train one from the published fact-checks; it takes a
+              There is no model file yet, so public checks fall back to the keyword heuristic and are marked as demo mode. Train one from the published fact-checks; it takes a
               second or two.
             </p>
           )}

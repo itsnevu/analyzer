@@ -14,12 +14,13 @@ export const runtime = "nodejs";
 const MAX_CHARS = 20_000;
 
 /**
- * Demo mode only: a claim that was already fact-checked is judged by that fact-check
- * instead of the keyword heuristic. A real model's verdict is always kept as it is.
+ * A claim that was already fact-checked is judged by that fact-check instead of
+ * the local engines (classifier or heuristic). An external model's verdict is
+ * always kept as it is.
  */
 function withArchiveVerdict(result: DetectionResult, related: ArticleListItem[]): DetectionResult {
   const top = related[0];
-  if (!result.simulated || !top) return result;
+  if (result.engine === "external" || !top) return result;
   const p = result.hoaxProbability;
   const hoaxProbability =
     top.verdict === "hoax" ? Math.max(p, 0.85) : top.verdict === "misleading" ? Math.min(Math.max(p, 0.55), 0.7) : Math.min(p, 0.25);
@@ -122,7 +123,7 @@ export async function POST(req: Request) {
     }
     const checkId = log({
       url: link ?? "", pageTitle: source?.title ?? "", lang: final.language, verdict: final.verdict,
-      probability: final.hoaxProbability, engine: final.simulated ? "demo" : "model", matches: related.length, topMatch: related[0]?.slug ?? "",
+      probability: final.hoaxProbability, engine: final.engine, matches: related.length, topMatch: related[0]?.slug ?? "",
     });
     return NextResponse.json({ ...final, related, checkId, ...(source ? { source } : {}) });
   } catch (err) {

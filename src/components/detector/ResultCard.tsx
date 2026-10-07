@@ -158,11 +158,11 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
             </div>
           )}
 
-          {result.simulated && (
+          {(result.simulated || result.fallbackReason) && (
             <div className="mt-5 rounded-xl border border-verdict-warn/30 bg-verdict-warn/10 px-4 py-3 text-xs leading-relaxed text-ink-muted">
-              <strong className="text-verdict-warn">{t("res.demoTag")}</strong>{" "}
+              <strong className="text-verdict-warn">{result.fallbackReason ? "Fallback." : t("res.demoTag")}</strong>{" "}
               {result.fallbackReason
-                ? `The detection model is unavailable right now (${result.fallbackReason}), so this verdict comes from matching the fact-check archive and a simple keyword heuristic.`
+                ? `The configured detection model is unavailable right now (${result.fallbackReason}), so the site's own classifier and the fact-check archive answered instead.`
                 : t("res.demoNote")}
             </div>
           )}

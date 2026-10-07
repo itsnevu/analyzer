@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 const LANG_NAME: Record<string, string> = { id: "Indonesian", en: "English", ms: "Malay" };
 const LABEL_NAME: Record<string, string> = { EDUKASI: "Education", KLARIFIKASI: "Clarification", UNKNOWN: "Unknown" };
 const TOP_SOURCES = 10;
-const ENGINE_NAME = { external: "RAG Fusion model", baseline: "Baseline classifier (demo mode)", heuristic: "Keyword heuristic (demo mode)" } as const;
+const ENGINE_NAME = { external: "External model", baseline: "Trained classifier", heuristic: "Keyword heuristic (demo mode)" } as const;
 const TOOLS = [
   { href: "/admin/detect", label: "Detection lab", note: "Score a text against the archive with BM25, Levenshtein, Damerau, Smith–Waterman, Jaccard or cosine." },
   { href: "/admin/extract", label: "Extract from a page", note: "Turn a fact-check page or a forwarded message into a draft article." },
@@ -131,11 +131,11 @@ export default async function AdminDashboard() {
           </div>
           <dl className="mt-3 space-y-1.5 text-sm">
             <div className="flex justify-between gap-3 border-b border-hairline pb-1.5">
-              <dt className="text-ink-muted">RAG Fusion model</dt>
+              <dt className="text-ink-muted">External model (optional)</dt>
               <dd className="truncate">{model.external.configured ? model.external.host : "not configured"}</dd>
             </div>
             <div className="flex justify-between gap-3 border-b border-hairline pb-1.5">
-              <dt className="text-ink-muted">Baseline classifier</dt>
+              <dt className="text-ink-muted">Trained classifier</dt>
               <dd>{model.baseline ? `${Math.round(model.baseline.accuracy * 100)}% accuracy, F1 ${model.baseline.macroF1.toFixed(2)}` : "not trained"}</dd>
             </div>
             {model.baseline && (

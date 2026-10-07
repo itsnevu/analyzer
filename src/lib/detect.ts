@@ -1,11 +1,17 @@
 /**
- * Hoax detection: the seam between the site and the trained model.
+ * Hoax detection. Three engines, tried in this order:
  *
- * Model contract (any HTTP service, e.g. FastAPI in front of the RAG Fusion
- * pipeline; set RAG_FUSION_API_URL):
+ *   1. an optional external model over HTTP (MODEL_API_URL), for a service
+ *      trained elsewhere;
+ *   2. the classifier trained on the archive (./baseline, `npm run train:baseline`),
+ *      the site's own detection model;
+ *   3. a keyword heuristic, only until a classifier has been trained; its results
+ *      are marked `simulated` and shown as demo mode.
  *
- *   POST <RAG_FUSION_API_URL>   Content-Type: application/json
- *   Authorization: Bearer <RAG_FUSION_API_KEY>        (only when that is set)
+ * External model contract (any HTTP service; set MODEL_API_URL):
+ *
+ *   POST <MODEL_API_URL>   Content-Type: application/json
+ *   Authorization: Bearer <MODEL_API_KEY>        (only when that is set)
  *   body     { "text": string, "lang": "id" | "en" }
  *   response {
  *     "verdict": "hoax" | "misleading" | "valid",     required
@@ -16,16 +22,13 @@
  *     "model"?: string, "language"?: "id" | "en"
  *   }
  *
- * The response is validated; a model that is down, slow (RAG_FUSION_TIMEOUT_MS,
- * default 15 s) or answers out of contract never breaks the page: the site
- * falls back to demo mode and says why. Streamlit apps (rag-fusion.streamlit.app)
- * do not expose such an API and need a small HTTP wrapper.
+ * The response is validated; an external model that is down, slow
+ * (MODEL_TIMEOUT_MS, default 15 s) or answers out of contract never breaks the
+ * page: the local engines answer instead and the result says why.
  *
- * Demo mode (no external model, or one that failed) is answered by the baseline
- * classifier trained on the archive (./baseline, `npm run train:baseline`) when
- * its model file exists, and by a keyword heuristic otherwise. Both are marked
- * `simulated`, so the public page shows the demo note and a matching archived
- * fact-check still overrides the verdict (see app/api/detect/route.ts).
+ * Whenever the external model did not answer, a matching archived fact-check
+ * overrides the verdict (see app/api/detect/route.ts): the archive is the most
+ * reliable source the site has.
  */
 
 import { detectLanguage, type Lang } from "./language";
@@ -33,6 +36,9 @@ import { predictBaseline, type BaselinePrediction } from "./baseline";
 import type { ArticleListItem } from "./data";
 
 export type Verdict = "valid" | "misleading" | "hoax";
+
+/** Which engine produced a result; see the header. */
+export type Engine = "external" | "baseline" | "heuristic";
 
 export interface Reference {
   title: string;
@@ -61,9 +67,10 @@ export interface DetectionResult {
   /** markers that influenced the score, shown as a breakdown in the UI */
   signals: DetectionSignal[];
   model: string;
-  /** true when produced by the local stub, false when a real backend answered */
+  engine: Engine;
+  /** true only for the keyword heuristic, i.e. when no classifier has been trained; shown as demo mode */
   simulated: boolean;
-  /** set when a model is configured but could not be used, so demo mode answered instead */
+  /** set when an external model is configured but could not be used, so a local engine answered instead */
   fallbackReason?: string;
   /** Row in the research log, so a role given afterwards can label this check. */
   checkId?: number | null;
@@ -113,17 +120,18 @@ export function parseModelResponse(data: unknown, lang: Lang, langConf: number):
     explanation: str(d.explanation, 4000),
     references,
     signals,
-    model: str(d.model, 80) || "rag-fusion",
+    model: str(d.model, 80) || "external-model",
+    engine: "external",
     simulated: false,
   };
 }
 
-const modelTimeoutMs = () => Number(process.env.RAG_FUSION_TIMEOUT_MS) || 15_000;
+const modelTimeoutMs = () => Number(process.env.MODEL_TIMEOUT_MS) || 15_000;
 
 /** The request the contract above describes; the key goes in the header only when set. */
 function modelRequest(text: string, lang: Lang): RequestInit {
   const headers: Record<string, string> = { "Content-Type": "application/json", Accept: "application/json" };
-  if (process.env.RAG_FUSION_API_KEY) headers.Authorization = `Bearer ${process.env.RAG_FUSION_API_KEY}`;
+  if (process.env.MODEL_API_KEY) headers.Authorization = `Bearer ${process.env.MODEL_API_KEY}`;
   return { method: "POST", headers, body: JSON.stringify({ text, lang }), cache: "no-store", signal: AbortSignal.timeout(modelTimeoutMs()) };
 }
 
@@ -161,8 +169,8 @@ const PING_TEXT = "Pesan berantai: vaksin mengandung chip yang bisa melacak loka
  * back, for the admin Model page. Never throws and never exposes the key.
  */
 export async function pingModel(text = PING_TEXT): Promise<PingResult> {
-  const url = process.env.RAG_FUSION_API_URL;
-  if (!url) return { reachable: false, status: null, latencyMs: null, contract: false, error: "RAG_FUSION_API_URL is not set" };
+  const url = process.env.MODEL_API_URL;
+  if (!url) return { reachable: false, status: null, latencyMs: null, contract: false, error: "MODEL_API_URL is not set" };
   const started = performance.now();
   const latencyMs = () => Math.round(performance.now() - started);
   let res: Response;
@@ -188,21 +196,21 @@ export async function runDetection(rawText: string): Promise<DetectionResult> {
   const text = rawText.trim();
   const { lang, confidence: langConf } = detectLanguage(text);
 
-  const url = process.env.RAG_FUSION_API_URL;
+  const url = process.env.MODEL_API_URL;
   if (url) {
     try {
       return await askModel(url, text, lang, langConf);
     } catch (err) {
       const reason = err instanceof Error && err.name === "TimeoutError" ? "the model took too long to answer" : err instanceof Error ? err.message : "the model could not be reached";
-      console.error("[detect] model unavailable, using demo mode:", reason);
-      return { ...simulateDetection(text, lang, langConf), fallbackReason: reason };
+      console.error("[detect] external model unavailable, using the local engine:", reason);
+      return { ...localDetection(text, lang, langConf), fallbackReason: reason };
     }
   }
 
-  return simulateDetection(text, lang, langConf);
+  return localDetection(text, lang, langConf);
 }
 
-/** Markers any text can show, whichever demo engine answers: shouting, stacked exclamation marks, a one-liner. */
+/** Markers any text can show, whichever local engine answers: shouting, stacked exclamation marks, a one-liner. */
 function surfaceSignals(text: string): { signals: DetectionSignal[]; score: number } {
   const signals: DetectionSignal[] = [];
   let score = 0;
@@ -215,12 +223,12 @@ function surfaceSignals(text: string): { signals: DetectionSignal[]; score: numb
 const categoryOf = (v: Verdict) => (v === "hoax" ? "Disinformation" : v === "misleading" ? "Misinformation" : "Verified");
 
 /**
- * Demo mode: the baseline classifier when its model file exists (see
- * ./baseline), otherwise a transparent, deterministic keyword stub that scores
- * a handful of well-known clickbait / hoax signals so the UI is demonstrable
- * without any model at all.
+ * The local engines: the classifier trained on the archive when its model file
+ * exists (see ./baseline), otherwise a transparent, deterministic keyword stub
+ * that scores a handful of well-known clickbait / hoax signals so the UI works
+ * before any model has been trained.
  */
-function simulateDetection(
+function localDetection(
   text: string,
   lang: Lang,
   langConf: number,
@@ -271,13 +279,14 @@ function simulateDetection(
     references: SAMPLE_REFERENCES,
     signals,
     model: "local-heuristic-stub",
+    engine: "heuristic",
     simulated: true,
   };
 }
 
 const VERDICT_PHRASE: Record<Verdict, string> = { hoax: "a hoax", misleading: "misleading", valid: "credible" };
 
-/** The baseline's answer in the shape of a detection, with its strongest cues as signals. */
+/** The trained classifier's answer in the shape of a detection, with its strongest cues as signals. */
 function baselineDetection(p: BaselinePrediction, surface: DetectionSignal[], lang: Lang, langConf: number): DetectionResult {
   const pct = (v: number) => `${Math.round(v * 100)}%`;
   const quoted = (kind: "risk" | "trust") => p.topFeatures.filter((f) => f.kind === kind).slice(0, 4).map((f) => `“${f.token}”`);
@@ -285,7 +294,7 @@ function baselineDetection(p: BaselinePrediction, surface: DetectionSignal[], la
   const trust = quoted("trust");
   const cues: DetectionSignal[] = p.topFeatures.slice(0, 6).map((f) => ({ label: `${f.token.includes(" ") ? "phrase" : "word"}: ${f.token}`, kind: f.kind }));
   const explanation =
-    `A baseline classifier trained on the fact-check archive read this text as ${VERDICT_PHRASE[p.verdict]} ` +
+    `The detection model, trained on thousands of published fact-checks, read this text as ${VERDICT_PHRASE[p.verdict]} ` +
     `(hoax ${pct(p.probabilities.hoax)}, misleading ${pct(p.probabilities.misleading)}, credible ${pct(p.probabilities.valid)}). ` +
     "It weighs the wording against claims that fact-checkers have debunked or confirmed; it does not verify facts." +
     (risk.length ? ` Strongest cues toward hoax: ${risk.join(", ")}.` : "") +
@@ -302,7 +311,8 @@ function baselineDetection(p: BaselinePrediction, surface: DetectionSignal[], la
     references: SAMPLE_REFERENCES,
     signals: [...cues, ...surface],
     model: p.model,
-    simulated: true,
+    engine: "baseline",
+    simulated: false,
   };
 }
 

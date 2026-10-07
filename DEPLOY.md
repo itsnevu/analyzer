@@ -51,7 +51,7 @@ npm run setup
 once, so write it down) and a random session secret. Open `.env.local` and check:
 
 - `SITE_URL`: the public address, e.g. `https://syyhoaxanalyzer.com`.
-- Optional: `RAG_FUSION_API_URL` for the trained model (see section 8),
+- Optional: `MODEL_API_URL` for an external detection model (see section 9),
   `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` or `SMTP_URL` +
   `REPORT_NOTIFY_EMAIL` to be told about new reports. `.env.local.example`
   explains each setting.
@@ -69,8 +69,9 @@ npm start -- -H 127.0.0.1
 
 Open `http://127.0.0.1:3000` on the server. Stop it with Ctrl+C.
 
-Then train the baseline classifier once, so demo mode gives real verdicts until
-the trained model is connected (`data/models/` is not copied with Git):
+Then train the detection classifier once; until that is done the detector only
+has a keyword heuristic and says "demo mode" (`data/models/` is not copied with
+Git):
 
 ```bash
 npm run train:baseline
@@ -99,7 +100,7 @@ address to get around the rate limits.
 ### Health check
 
 `GET /api/health` answers `200` with `{"ok":true, "time", "uptimeSeconds",
-"version", "db":{"ok":true,"articles":N,"published":N}, "model":"external"|"demo",
+"version", "db":{"ok":true,"articles":N,"published":N}, "model":"external"|"baseline"|"heuristic",
 "fts":true|false}` and `503` with `"ok":false` when the database does not
 answer. It needs no login, runs one aggregate query and is never cached, so it
 is safe to poll every minute. Point your uptime monitor (Cloudflare Health
@@ -111,7 +112,7 @@ curl -fsS --max-time 10 http://127.0.0.1:3000/api/health >/dev/null || pm2 resta
 ```
 
 restarts the site when it stops answering. `model` tells you whether the
-trained model is wired up (`external`) or demo mode is answering (`demo`), and
+an external model is wired up (`external`), the site's own classifier answers (`baseline`) or nothing has been trained yet (`heuristic`), and
 `fts` whether this Node build has full-text search.
 
 ## 6. HTTPS and the domain
@@ -173,14 +174,16 @@ To restore: stop the site (`pm2 stop hoax-analyzer`), copy a backup to
 `data/hoax.db`, delete `data/hoax.db-wal` and `data/hoax.db-shm` if present, and
 start it again.
 
-## 9. Connecting the trained model
+## 9. Connecting an external model (optional)
 
-Run the model as an HTTP service (e.g. FastAPI) on the same machine, then set
-`RAG_FUSION_API_URL=http://127.0.0.1:8000/detect` in `.env.local` and restart.
+The site's own classifier (section 4) needs nothing more. If you later want a
+model trained elsewhere to answer instead, run it as an HTTP service (e.g.
+FastAPI) on the same machine, then set
+`MODEL_API_URL=http://127.0.0.1:8000/detect` in `.env.local` and restart.
 The request and response format is documented at the top of
-[`src/lib/detect.ts`](src/lib/detect.ts). If the model is slow, down, or answers
-in the wrong format, the site keeps working in demo mode and says so on the
-result. The admin **Model** page shows which engine is answering, pings the
+[`src/lib/detect.ts`](src/lib/detect.ts). If that model is slow, down, or
+answers in the wrong format, the site's own classifier answers and the result
+says so. The admin **Model** page shows which engine is answering, pings the
 model and reports whether its answer matches the contract.
 
 ## Troubleshooting

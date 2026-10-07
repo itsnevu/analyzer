@@ -12,6 +12,6 @@ export const dynamic = "force-dynamic";
  */
 export async function POST() {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!process.env.RAG_FUSION_API_URL) return NextResponse.json({ error: "No external model is configured (RAG_FUSION_API_URL is empty)." }, { status: 409 });
+  if (!process.env.MODEL_API_URL) return NextResponse.json({ error: "No external model is configured (MODEL_API_URL is empty)." }, { status: 409 });
   return NextResponse.json(await pingModel());
 }

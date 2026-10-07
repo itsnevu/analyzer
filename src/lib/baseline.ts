@@ -1,8 +1,8 @@
 /**
- * Baseline hoax classifier: multinomial logistic regression over TF-IDF
+ * The site's hoax classifier: multinomial logistic regression over TF-IDF
  * unigrams and bigrams, trained on the published fact-checks in the archive.
- * It answers public checks in demo mode while the owner's RAG Fusion model is
- * not connected (see ./detect), and is meant to be honest rather than clever.
+ * It answers public checks unless an external model is configured (see
+ * ./detect), and is meant to be honest rather than clever.
  *
  * Training text is what a user would paste, the claim, not the debunk: the
  * title without its leading tag ("[SALAH] …", "[HOAKS] …", "(KLARIFIKASI) …")
@@ -601,7 +601,7 @@ export interface ModelStatus {
 
 /** Engine order: external model, then the baseline, then the keyword heuristic. */
 export function modelStatus(): ModelStatus {
-  const url = process.env.RAG_FUSION_API_URL || "";
+  const url = process.env.MODEL_API_URL || "";
   let host: string | null = null;
   if (url) {
     try {
@@ -614,7 +614,7 @@ export function modelStatus(): ModelStatus {
   const m = loaded?.model;
   return {
     engine: url ? "external" : m ? "baseline" : "heuristic",
-    external: { configured: !!url, host, timeoutMs: Number(process.env.RAG_FUSION_TIMEOUT_MS) || 15_000 },
+    external: { configured: !!url, host, timeoutMs: Number(process.env.MODEL_TIMEOUT_MS) || 15_000 },
     baseline: m
       ? { available: true, trainedAt: m.trainedAt, docs: m.docs, features: m.features, accuracy: m.accuracy, macroF1: m.macroF1, textVariant: m.textVariant }
       : null,

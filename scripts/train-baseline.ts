@@ -1,7 +1,7 @@
 /**
  * Trains the baseline hoax classifier (src/lib/baseline.ts) on the published
- * fact-checks and writes data/models/baseline.json, which the detector uses in
- * demo mode when no external model is configured.
+ * fact-checks and writes data/models/baseline.json, which the detector uses
+ * for every public check unless an external model is configured.
  *
  *   npm run train:baseline                          train, print the metrics, write the model
  *   npm run train:baseline -- --dry                 train and print the metrics, write nothing

@@ -8,7 +8,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hoax-baseline-"));
 process.env.DATABASE_PATH = path.join(dir, "test.db");
 const MODEL = path.join(dir, "models", "baseline.json");
 process.env.BASELINE_MODEL_PATH = MODEL;
-process.env.RAG_FUSION_API_URL = "";
+process.env.MODEL_API_URL = "";
 
 const baseline = await import("@/lib/baseline");
 const { getDb } = await import("@/lib/db");
@@ -130,15 +130,16 @@ describe("training and prediction", () => {
     expect(baseline.predictBaseline("zzzz qqqq xxxx")).toBeNull();
   });
 
-  it("answers public checks through runDetection as a simulated result", async () => {
+  it("answers public checks through runDetection as the trained engine, not demo mode", async () => {
     const r = await runDetection("Vaksin mengandung chip magnet pelacak, sebarkan ke grup keluarga sebelum dihapus!!!");
-    expect(r.simulated).toBe(true);
+    expect(r.simulated).toBe(false);
+    expect(r.engine).toBe("baseline");
     expect(r.fallbackReason).toBeUndefined();
     expect(r.model).toBe("baseline-lr");
     expect(r.verdict).toBe("hoax");
     expect(r.signals.some((s) => s.label.startsWith("word: "))).toBe(true);
     expect(r.signals.some((s) => s.label === "excessive exclamation marks")).toBe(true);
-    expect(r.explanation).toMatch(/baseline classifier/);
+    expect(r.explanation).toMatch(/detection model, trained on/);
     expect(r.category).toBe("Disinformation");
   });
 
@@ -170,8 +171,8 @@ describe("model file and status", () => {
   });
 
   it("puts the external model first when one is configured", () => {
-    vi.stubEnv("RAG_FUSION_API_URL", "http://model.test:8000/detect");
-    vi.stubEnv("RAG_FUSION_TIMEOUT_MS", "2500");
+    vi.stubEnv("MODEL_API_URL", "http://model.test:8000/detect");
+    vi.stubEnv("MODEL_TIMEOUT_MS", "2500");
     const s = baseline.modelStatus();
     expect(s.engine).toBe("external");
     expect(s.external).toEqual({ configured: true, host: "model.test:8000", timeoutMs: 2500 });

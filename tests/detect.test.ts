@@ -32,7 +32,7 @@ describe("runDetection", () => {
   });
 
   it("uses demo mode when no model is configured", async () => {
-    vi.stubEnv("RAG_FUSION_API_URL", "");
+    vi.stubEnv("MODEL_API_URL", "");
     const r = await runDetection("VIRAL!! SEBARKAN sebelum dihapus, dokter tidak mau kamu tahu rahasia ini!!!");
     expect(r.simulated).toBe(true);
     expect(r.fallbackReason).toBeUndefined();
@@ -41,8 +41,8 @@ describe("runDetection", () => {
   });
 
   it("uses the model's answer when it follows the contract", async () => {
-    vi.stubEnv("RAG_FUSION_API_URL", "http://model.test/detect");
-    vi.stubEnv("RAG_FUSION_API_KEY", "secret");
+    vi.stubEnv("MODEL_API_URL", "http://model.test/detect");
+    vi.stubEnv("MODEL_API_KEY", "secret");
     const fetchMock = vi.fn(async () => Response.json({ verdict: "valid", hoaxProbability: 0.1, model: "test-model" }));
     vi.stubGlobal("fetch", fetchMock);
     const r = await runDetection("Menurut data resmi Kementerian Kesehatan, kasus menurun.");
@@ -56,7 +56,7 @@ describe("runDetection", () => {
     ["an answer out of contract", async () => Response.json({ verdict: "unsure" }), /expected format/],
     ["a network failure", async () => { throw new TypeError("fetch failed"); }, /fetch failed/],
   ])("falls back to demo mode on %s", async (_name, impl, reason) => {
-    vi.stubEnv("RAG_FUSION_API_URL", "http://model.test/detect");
+    vi.stubEnv("MODEL_API_URL", "http://model.test/detect");
     vi.stubGlobal("fetch", vi.fn(impl));
     const r = await runDetection("Pesan berantai tentang vaksin yang perlu dicek kebenarannya.");
     expect(r.simulated).toBe(true);
@@ -71,13 +71,13 @@ describe("pingModel", () => {
   });
 
   it("says when nothing is configured", async () => {
-    vi.stubEnv("RAG_FUSION_API_URL", "");
+    vi.stubEnv("MODEL_API_URL", "");
     expect(await pingModel()).toMatchObject({ reachable: false, contract: false, status: null });
   });
 
   it("reports a contract-following answer with its latency", async () => {
-    vi.stubEnv("RAG_FUSION_API_URL", "http://model.test/detect");
-    vi.stubEnv("RAG_FUSION_API_KEY", "secret");
+    vi.stubEnv("MODEL_API_URL", "http://model.test/detect");
+    vi.stubEnv("MODEL_API_KEY", "secret");
     const fetchMock = vi.fn(async () => Response.json({ verdict: "hoax", hoaxProbability: 0.9, model: "m1" }));
     vi.stubGlobal("fetch", fetchMock);
     const r = await pingModel();
@@ -91,7 +91,7 @@ describe("pingModel", () => {
     ["an answer out of contract", async () => Response.json({ verdict: "unsure" }), { reachable: true, status: 200, contract: false }],
     ["a network failure", async () => { throw new TypeError("fetch failed"); }, { reachable: false, status: null, contract: false, error: "fetch failed" }],
   ])("reports %s", async (_name, impl, expected) => {
-    vi.stubEnv("RAG_FUSION_API_URL", "http://model.test/detect");
+    vi.stubEnv("MODEL_API_URL", "http://model.test/detect");
     vi.stubGlobal("fetch", vi.fn(impl));
     expect(await pingModel()).toMatchObject(expected);
   });

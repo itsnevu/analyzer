@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getArticleStats } from "@/lib/articles";
 import { hasFts } from "@/lib/db";
+import { modelStatus } from "@/lib/baseline";
 import pkg from "../../../../package.json";
 
 export const runtime = "nodejs";
@@ -16,7 +17,8 @@ export async function GET() {
     time: new Date().toISOString(),
     uptimeSeconds: Math.round(process.uptime()),
     version: pkg.version,
-    model: process.env.RAG_FUSION_API_URL ? "external" : "demo",
+    // "external" | "baseline" (the trained classifier) | "heuristic" (nothing trained yet)
+    model: modelStatus().engine,
   };
   const headers = { "Cache-Control": "no-store" };
   try {

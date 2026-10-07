@@ -151,9 +151,9 @@ export default async function AboutPage() {
               <Link href="/detector" className="btn-primary px-6 py-3 text-sm">
                 {DICT["about.tryDetector"]}
               </Link>
-              <a href="https://rag-fusion.streamlit.app/" target="_blank" rel="noopener noreferrer" className="neu-btn px-6 py-3 text-sm font-medium">
-                RAG Fusion (Streamlit) ↗
-              </a>
+              <Link href="/blog" className="neu-btn px-6 py-3 text-sm font-medium">
+                Browse the archive →
+              </Link>
             </div>
           </div>
 

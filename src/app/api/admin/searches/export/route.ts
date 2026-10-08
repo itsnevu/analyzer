@@ -1,12 +1,14 @@
 import { isAdmin } from "@/lib/admin-articles";
 import { searchesCsv, searchFilterFrom } from "@/lib/searches";
+import { adminTFromRequest } from "@/lib/admin-lang";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** The filtered search log as CSV; admins only. No IP addresses are in this table. */
 export async function GET(req: Request) {
-  if (!(await isAdmin())) return new Response("Unauthorized", { status: 401 });
+  const t = adminTFromRequest(req);
+  if (!(await isAdmin())) return new Response(t("Unauthorized"), { status: 401 });
   const p = new URL(req.url).searchParams;
   const rows = searchesCsv(searchFilterFrom((k) => p.get(k) ?? undefined));
   const encoder = new TextEncoder();

@@ -32,7 +32,6 @@ const hidden = (slug: string, title: string, extra: Partial<Article> = {}): Arti
 });
 
 beforeAll(async () => {
-  await store.listArticles(); // seeds the built-in examples, all published
   await store.saveArticle(hidden("debat-1", "Cek Fakta: Klaim Jokowi soal Impor Jagung", { date: "2019-02-17" }));
   await store.saveArticle(hidden("debat-2", "Cek Fakta: Klaim Prabowo soal Lahan", { date: "2019-02-18", narration: "" }));
   await store.saveArticle(hidden("debat-3", "Cek Fakta: Klaim soal Unicorn", { date: "2019-02-19" }));

@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { Verdict } from "@/lib/detect";
 import { clsx } from "@/lib/clsx";
+import { useI18n } from "@/lib/i18n";
 import { formatDate, sourceName } from "@/lib/sources";
 import { VERDICT_META } from "@/lib/verdict";
+import { rich } from "@/components/ui/Rich";
 
 /** One row of /api/suggest. */
 export interface Suggestion {
@@ -40,6 +42,7 @@ export function SearchIcon({ className }: { className?: string }) {
  */
 export function SearchAutocomplete({ id, className, onDone }: { id: string; className?: string; onDone?: () => void }) {
   const router = useRouter();
+  const { t, lang } = useI18n();
   const [q, setQ] = useState("");
   const [items, setItems] = useState<Suggestion[]>([]);
   const [open, setOpen] = useState(false);
@@ -142,7 +145,7 @@ export function SearchAutocomplete({ id, className, onDone }: { id: string; clas
       className={clsx("relative", className)}
     >
       <label className="sr-only" htmlFor={id}>
-        Search the fact-check archive
+        {t("Search the fact-check archive")}
       </label>
       <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
       <input
@@ -159,7 +162,7 @@ export function SearchAutocomplete({ id, className, onDone }: { id: string; clas
         onBlur={() => {
           blurTimer.current = window.setTimeout(close, BLUR_DELAY_MS);
         }}
-        placeholder="Search fact-checks…"
+        placeholder={t("Search fact-checks…")}
         autoComplete="off"
         role="combobox"
         aria-autocomplete="list"
@@ -173,14 +176,14 @@ export function SearchAutocomplete({ id, className, onDone }: { id: string; clas
         <ul
           id={listId}
           role="listbox"
-          aria-label="Suggested fact-checks"
+          aria-label={t("Suggested fact-checks")}
           // Keeps focus in the input while an option is clicked.
           onMouseDown={(e) => e.preventDefault()}
           className="absolute right-0 top-full z-50 mt-2 w-full min-w-[min(22rem,calc(100vw-3rem))] overflow-hidden rounded-xl border border-hairline bg-surface-raised p-1 shadow-neu-lg"
         >
           {items.map((s, i) => {
             const meta = VERDICT_META[s.verdict];
-            const sub = [s.sourceSite && sourceName(s.sourceSite), formatDate(s.date)].filter(Boolean).join(" · ");
+            const sub = [s.sourceSite && sourceName(s.sourceSite), formatDate(s.date, "short", lang)].filter(Boolean).join(" · ");
             return (
               <li key={s.slug} role="none">
                 <Link
@@ -199,7 +202,7 @@ export function SearchAutocomplete({ id, className, onDone }: { id: string; clas
                   <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full" style={{ background: meta.color }} aria-hidden />
                   <span className="min-w-0">
                     <span className="block truncate font-medium text-ink">{s.title}</span>
-                    <span className="block truncate text-xs text-ink-faint">{[meta.labelEn, sub].filter(Boolean).join(" · ")}</span>
+                    <span className="block truncate text-xs text-ink-faint">{[t(meta.labelEn), sub].filter(Boolean).join(" · ")}</span>
                   </span>
                 </Link>
               </li>
@@ -220,7 +223,8 @@ export function SearchAutocomplete({ id, className, onDone }: { id: string; clas
             >
               <SearchIcon className="h-3.5 w-3.5 shrink-0" />
               <span className="truncate">
-                Search the archive for <span className="font-medium text-ink">“{term}”</span>
+                {/* The term goes in after the tags are read, so typed text is never taken for markup. */}
+                {rich(t("Search the archive for <q>“{term}”</q>"), { q: (s) => <span className="font-medium text-ink">{s.replace("{term}", term)}</span> })}
               </span>
             </button>
           </li>

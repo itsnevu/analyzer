@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { forgetBrowser } from "@/lib/usage-client";
+import { useI18n } from "@/lib/i18n";
 
 const read = () => {
   try {
@@ -15,11 +16,12 @@ const read = () => {
 export function ForgetBrowser() {
   const stored = useSyncExternalStore(() => () => {}, read, () => "");
   const [cleared, setCleared] = useState(false);
+  const { t } = useI18n();
   const id = cleared ? "" : stored;
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl bg-surface-sunken p-3 text-xs">
       <span>
-        Browser ID: <code className="font-mono">{id || "none"}</code>
+        {t("Browser ID:")} <code className="font-mono">{id || t("none")}</code>
       </span>
       {id && (
         <button
@@ -30,7 +32,7 @@ export function ForgetBrowser() {
           }}
           className="neu-btn px-3 py-1.5"
         >
-          Forget this browser
+          {t("Forget this browser")}
         </button>
       )}
     </div>

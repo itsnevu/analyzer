@@ -29,8 +29,8 @@ export function Tips() {
               <span className="grid h-11 w-11 place-items-center rounded-xl bg-surface-sunken text-brand shadow-neu-inset-sm transition-colors group-hover:text-brand-to">
                 <TipIcon name={tip.icon} />
               </span>
-              <h3 className="mt-4 font-display text-base font-bold">{tip.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-ink-muted">{tip.body}</p>
+              <h3 className="mt-4 font-display text-base font-bold">{t(tip.title)}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-muted">{t(tip.body)}</p>
             </div>
           </Reveal>
         ))}

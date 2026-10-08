@@ -7,8 +7,10 @@ import type { Article, ArticleListItem } from "@/lib/data";
 import { slugify } from "@/lib/slug";
 import { clsx } from "@/lib/clsx";
 import { LANGUAGE_NAME, formatDate, sourceName } from "@/lib/sources";
+import { adminLocale, formatAdminNumber, type AdminLang, type AdminT } from "@/lib/admin-lang";
 import { VERDICT_META } from "@/lib/verdict";
 import { CoverPlaceholder, VerdictBadge } from "@/components/article/ArticleCard";
+import { useAdminT } from "./AdminLang";
 import { useToast } from "./Toast";
 
 const IMAGE_OPTIONS = [
@@ -21,9 +23,9 @@ const IMAGE_OPTIONS = [
 
 const field =
   "w-full rounded-lg border border-hairline bg-surface-sunken px-3.5 py-2.5 text-sm text-ink outline-none focus:ring-2 focus:ring-brand/30";
-const labelCls = "mb-1.5 block text-xs font-medium text-ink-muted";
+const labelCls = "mb-1.5 block text-sm font-medium text-ink-muted";
 const pill =
-  "whitespace-nowrap rounded-full border border-hairline px-3 py-1 text-xs font-medium transition-colors hover:border-ink disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40";
+  "whitespace-nowrap rounded-full border border-hairline px-3 py-1.5 text-sm font-medium transition-colors hover:border-ink disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40";
 
 /** A summary longer than this no longer fits the card and the search snippet. */
 const SUMMARY_LIMIT = 300;
@@ -107,9 +109,9 @@ function removeStored(key: string): void {
   }
 }
 
-const stampLabel = (iso: string) => {
+const stampLabel = (iso: string, t: AdminT, lang: AdminLang) => {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "earlier" : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return Number.isNaN(d.getTime()) ? t("earlier") : d.toLocaleString(adminLocale(lang), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
 /* ----------------------------------------------------------- the form */
@@ -129,6 +131,7 @@ type Similar =
 export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" | "edit" }) {
   const router = useRouter();
   const toast = useToast();
+  const { t, lang } = useAdminT();
   const formRef = useRef<HTMLFormElement>(null);
 
   const [start] = useState<Draft>(() => (initial ? toDraft(initial) : emptyDraft()));
@@ -179,7 +182,7 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
       const url = new URL(a.href, window.location.href);
       if (url.origin !== window.location.origin) return; // a full page load; beforeunload asks
       if (url.pathname === window.location.pathname && url.search === window.location.search) return;
-      if (!window.confirm("You have unsaved changes. Leave this page? The draft stays in this browser.")) {
+      if (!window.confirm(t("You have changes that are not saved yet. Leave this page? A copy stays in this browser."))) {
         e.preventDefault();
         e.stopPropagation();
       }
@@ -190,7 +193,7 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
       window.removeEventListener("beforeunload", onBeforeUnload);
       window.removeEventListener("click", onClick, true);
     };
-  }, [dirty]);
+  }, [dirty, t]);
 
   // Ctrl/Cmd+S saves, wherever the focus is.
   useEffect(() => {
@@ -221,10 +224,10 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
       body.set("file", file);
       const res = await fetch("/api/admin/uploads", { method: "POST", body });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Upload failed.");
+      if (!res.ok) throw new Error(json.error ?? t("The upload did not work."));
       set("image", json.url);
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Upload failed.");
+      setUploadError(err instanceof Error ? err.message : t("The upload did not work."));
     } finally {
       setUploading(false);
     }
@@ -246,7 +249,7 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
         body: sent,
       });
       const json = (await res.json().catch(() => ({}))) as { article?: Article; error?: string };
-      if (!res.ok || !json.article) throw new Error(json.error ?? "Failed to save.");
+      if (!res.ok || !json.article) throw new Error(json.error ?? t("Could not save."));
       const saved = toDraft(json.article);
       const savedText = serialize(saved);
       const wasNew = savedSlug === null;
@@ -261,7 +264,7 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
       removeStored(`${DRAFT_PREFIX}${saved.slug}`);
       toast({
         tone: "success",
-        text: wasNew ? (saved.published ? `Published “${saved.title}”.` : `Saved “${saved.title}” as a hidden draft.`) : "Changes saved.",
+        text: wasNew ? (saved.published ? t("Published “{title}”.", { title: saved.title }) : t("Saved “{title}” as a hidden draft.", { title: saved.title })) : t("Changes saved."),
       });
       if (close) {
         router.push("/admin/articles");
@@ -272,9 +275,9 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
         router.refresh();
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Something went wrong.";
+      const message = err instanceof Error ? err.message : t("Something went wrong.");
       setError(message);
-      toast({ tone: "error", text: `Not saved: ${message}` });
+      toast({ tone: "error", text: t("Not saved: {message}", { message }) });
     } finally {
       setSaving(false);
     }
@@ -282,24 +285,24 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
 
   async function remove() {
     if (savedSlug === null || deleting) return;
-    if (!window.confirm(`Delete “${d.title || savedSlug}”? This cannot be undone.`)) return;
+    if (!window.confirm(t("Delete “{title}”? This cannot be undone.", { title: d.title || savedSlug }))) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/admin/articles/${encodeURIComponent(savedSlug)}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       removeStored(storageKey);
       setBaseline(current);
-      toast({ tone: "success", text: "Article deleted." });
+      toast({ tone: "success", text: t("Article deleted.") });
       router.push("/admin/articles");
       router.refresh();
     } catch {
-      toast({ tone: "error", text: "Failed to delete the article." });
+      toast({ tone: "error", text: t("Could not delete the article.") });
       setDeleting(false);
     }
   }
 
   function cancel() {
-    if (dirty && !window.confirm("Leave without saving? The draft stays in this browser.")) return;
+    if (dirty && !window.confirm(t("Leave without saving? A copy stays in this browser."))) return;
     router.push("/admin/articles");
   }
 
@@ -318,7 +321,7 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
   async function findSimilar() {
     const text = [d.title, d.narration, d.summaryId, d.summaryEn, d.explanation.slice(0, 600)].filter(Boolean).join("\n").slice(0, 1500);
     if (text.trim().length < 8) {
-      setSimilar({ status: "error", error: "Write a title or the claim first." });
+      setSimilar({ status: "error", error: t("Write a title or the claim first.") });
       return;
     }
     setSimilar({ status: "loading" });
@@ -327,15 +330,15 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
       if (savedSlug) q.set("exclude", savedSlug);
       const res = await fetch(`/api/admin/articles/similar?${q}`);
       const json = (await res.json().catch(() => ({}))) as { items?: ArticleListItem[]; error?: string };
-      if (!res.ok) throw new Error(json.error ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(json.error ?? t("The search did not work."));
       setSimilar({ status: "done", items: json.items ?? [] });
     } catch (err) {
-      setSimilar({ status: "error", error: err instanceof Error ? err.message : "The search failed." });
+      setSimilar({ status: "error", error: err instanceof Error ? err.message : t("The search did not work.") });
     }
   }
 
   const isNew = savedSlug === null;
-  const saveLabel = saving ? "Saving…" : isNew ? (d.published ? "Publish" : "Save draft") : "Save changes";
+  const saveLabel = saving ? t("Saving…") : isNew ? (d.published ? t("Publish") : t("Save draft")) : t("Save changes");
 
   return (
     <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,400px)]">
@@ -343,29 +346,33 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
         {offer && (
           <div role="status" className="neu flex flex-wrap items-center gap-3 border border-brand/30 bg-brand/5 p-4 text-sm">
             <span className="min-w-0 flex-1">
-              <span className="font-medium">An unsaved draft of this article is kept in this browser.</span>
-              <span className="block text-xs text-ink-muted">{offer.draft.title ? `“${offer.draft.title}”, ` : ""}last edited {stampLabel(offer.at)}.</span>
+              <span className="font-medium">{t("This browser kept a copy of this article that was never saved.")}</span>
+              <span className="block text-xs text-ink-muted">
+                {offer.draft.title
+                  ? t("“{title}”, last changed {when}.", { title: offer.draft.title, when: stampLabel(offer.at, t, lang) })
+                  : t("Last changed {when}.", { when: stampLabel(offer.at, t, lang) })}
+              </span>
             </span>
-            <button type="button" onClick={restore} className="btn-primary px-4 py-2 text-xs">
-              Restore draft from {stampLabel(offer.at)}
+            <button type="button" onClick={restore} className="btn-primary px-4 py-2 text-sm">
+              {t("Bring back the copy from {when}", { when: stampLabel(offer.at, t, lang) })}
             </button>
-            <button type="button" onClick={discardOffer} className="neu-btn px-4 py-2 text-xs">
-              Discard
+            <button type="button" onClick={discardOffer} className="neu-btn px-4 py-2 text-sm">
+              {t("Throw away")}
             </button>
           </div>
         )}
 
         <div className="neu flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <label className="flex items-center gap-3 text-sm">
-            <input type="checkbox" checked={d.published} onChange={(e) => set("published", e.target.checked)} className="h-4 w-4 accent-brand" />
+            <input type="checkbox" checked={d.published} onChange={(e) => set("published", e.target.checked)} className="h-5 w-5 accent-brand" />
             <span>
-              <span className="font-medium">Visible on the site</span>
-              <span className="block text-xs text-ink-faint">Untick to keep it as a hidden draft.</span>
+              <span className="font-medium">{t("Show on the site")}</span>
+              <span className="block text-xs text-ink-faint">{t("Untick to keep it hidden as a draft.")}</span>
             </span>
           </label>
           {initial?.sourceSite && (
             <span className="text-xs text-ink-faint">
-              Imported from <span className="font-medium text-ink-muted">{initial.sourceSite}</span>
+              {t("Imported from")} <span className="font-medium text-ink-muted">{initial.sourceSite}</span>
             </span>
           )}
         </div>
@@ -373,14 +380,14 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
         <div className="neu space-y-4 p-6">
           <div>
             <label htmlFor="article-title" className={labelCls}>
-              Title *
+              {t("Title *")}
             </label>
-            <input id="article-title" required value={d.title} onChange={(e) => set("title", e.target.value)} className={field} placeholder="Fact-check article title" />
+            <input id="article-title" required value={d.title} onChange={(e) => set("title", e.target.value)} className={field} placeholder={t("Title of the fact-check")} />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className={labelCls}>Slug (URL)</span>
+              <span className={labelCls}>{t("Web address (slug)")}</span>
               <input
                 value={d.slug}
                 onChange={(e) => {
@@ -388,51 +395,51 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
                   set("slug", slugify(e.target.value));
                 }}
                 className={clsx(field, "font-mono text-xs")}
-                placeholder="auto-from-title"
+                placeholder={t("made-from-the-title")}
               />
               <span className="mt-1 block text-xs text-ink-faint">/blog/{d.slug || "…"}</span>
             </label>
             <label className="block">
-              <span className={labelCls}>Date</span>
+              <span className={labelCls}>{t("Date")}</span>
               <input type="date" value={d.date} onChange={(e) => set("date", e.target.value)} className={field} />
             </label>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
             <label className="block">
-              <span className={labelCls}>Language</span>
+              <span className={labelCls}>{t("Language")}</span>
               <select value={d.lang} onChange={(e) => set("lang", e.target.value)} className={field}>
-                <option value="id">Indonesian</option>
-                <option value="en">English</option>
+                <option value="id">{t("Indonesian")}</option>
+                <option value="en">{t("English")}</option>
               </select>
             </label>
             <label className="block">
-              <span className={labelCls}>Verdict</span>
+              <span className={labelCls}>{t("Verdict")}</span>
               <select value={d.verdict} onChange={(e) => set("verdict", e.target.value)} className={field}>
-                <option value="hoax">Hoax</option>
-                <option value="misleading">Misleading</option>
-                <option value="valid">Credible</option>
+                <option value="hoax">{t("Hoax")}</option>
+                <option value="misleading">{t("Misleading")}</option>
+                <option value="valid">{t("Credible")}</option>
               </select>
             </label>
             <label className="block">
-              <span className={labelCls}>Category</span>
-              <input value={d.category} onChange={(e) => set("category", e.target.value)} className={field} placeholder="Misinformation" />
+              <span className={labelCls}>{t("Category")}</span>
+              <input value={d.category} onChange={(e) => set("category", e.target.value)} className={field} placeholder={t("Misinformation")} />
             </label>
           </div>
 
           <div>
-            <span className={labelCls}>Cover image</span>
+            <span className={labelCls}>{t("Cover image")}</span>
             <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 list="img-opts"
                 value={d.image}
                 onChange={(e) => set("image", e.target.value)}
-                placeholder="Empty = a plain cover in the verdict's colour"
-                aria-label="Cover image URL"
+                placeholder={t("Leave empty for a plain cover in the verdict colour")}
+                aria-label={t("Cover image link")}
                 className={clsx(field, "font-mono text-xs")}
               />
               <label className={clsx("neu-btn shrink-0 cursor-pointer px-4 py-2.5 text-center text-sm", uploading && "pointer-events-none opacity-50")}>
-                {uploading ? "Uploading…" : "Upload image"}
+                {uploading ? t("Uploading…") : t("Upload image")}
                 <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="sr-only" onChange={(e) => void upload(e.target.files?.[0])} />
               </label>
             </div>
@@ -448,47 +455,47 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
         <div className="neu space-y-4 p-6">
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className="mb-1.5 flex items-baseline justify-between gap-2 text-xs font-medium text-ink-muted">
-                <span>Summary (Indonesian)</span>
+              <span className="mb-1.5 flex items-baseline justify-between gap-2 text-sm font-medium text-ink-muted">
+                <span>{t("Short summary (Indonesian)")}</span>
                 <Counter value={d.summaryId} limit={SUMMARY_LIMIT} />
               </span>
               <textarea rows={3} value={d.summaryId} onChange={(e) => set("summaryId", e.target.value)} className={clsx(field, "resize-y")} />
             </label>
             <label className="block">
-              <span className="mb-1.5 flex items-baseline justify-between gap-2 text-xs font-medium text-ink-muted">
-                <span>Summary (English)</span>
+              <span className="mb-1.5 flex items-baseline justify-between gap-2 text-sm font-medium text-ink-muted">
+                <span>{t("Short summary (English)")}</span>
                 <Counter value={d.summaryEn} limit={SUMMARY_LIMIT} />
               </span>
               <textarea rows={3} value={d.summaryEn} onChange={(e) => set("summaryEn", e.target.value)} className={clsx(field, "resize-y")} />
             </label>
           </div>
           <label className="block">
-            <span className={labelCls}>Narration (original claim)</span>
+            <span className={labelCls}>{t("The claim (as it was spread)")}</span>
             <input value={d.narration} onChange={(e) => set("narration", e.target.value)} className={field} />
           </label>
 
           <SimilarPanel similar={similar} onFind={findSimilar} />
 
           <label className="block">
-            <span className={labelCls}>Source</span>
+            <span className={labelCls}>{t("Where the claim was spread")}</span>
             <textarea rows={2} value={d.source} onChange={(e) => set("source", e.target.value)} className={clsx(field, "resize-y")} />
           </label>
           <label className="block">
-            <span className={labelCls}>Explanation</span>
+            <span className={labelCls}>{t("Explanation (what the fact-check found)")}</span>
             <textarea rows={6} value={d.explanation} onChange={(e) => set("explanation", e.target.value)} className={clsx(field, "resize-y")} />
           </label>
           <label className="block">
-            <span className={labelCls}>Reference</span>
+            <span className={labelCls}>{t("References")}</span>
             <textarea rows={2} value={d.reference} onChange={(e) => set("reference", e.target.value)} className={clsx(field, "resize-y")} />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="block">
-              <span className={labelCls}>Original source link (optional)</span>
-              <input value={d.originalUrl} onChange={(e) => set("originalUrl", e.target.value)} className={clsx(field, "font-mono text-xs")} placeholder="https://…" />
+              <span className={labelCls}>{t("Link to the original fact-check (optional)")}</span>
+              <input value={d.originalUrl} onChange={(e) => set("originalUrl", e.target.value)} className={clsx(field, "font-mono text-xs")} placeholder={"https://…"} />
             </label>
             <label className="block">
-              <span className={labelCls}>Fact-check publisher site (optional)</span>
-              <input value={d.sourceSite} onChange={(e) => set("sourceSite", e.target.value)} className={clsx(field, "font-mono text-xs")} placeholder="turnbackhoax.id" />
+              <span className={labelCls}>{t("Website that published the fact-check (optional)")}</span>
+              <input value={d.sourceSite} onChange={(e) => set("sourceSite", e.target.value)} className={clsx(field, "font-mono text-xs")} placeholder={"turnbackhoax.id"} />
             </label>
           </div>
         </div>
@@ -501,37 +508,37 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
             {saveLabel}
           </button>
           <button type="submit" data-close="1" disabled={saving || deleting} className="neu-btn px-4 py-2.5 text-sm disabled:opacity-50">
-            Save and close
+            {t("Save and close")}
           </button>
           <button type="button" onClick={cancel} className="px-3 py-2.5 text-sm text-ink-muted hover:text-ink">
-            Cancel
+            {t("Cancel")}
           </button>
           <span className="ml-auto flex flex-wrap items-center gap-2">
             {dirty ? (
-              <span role="status" className="inline-flex items-center gap-1.5 rounded-full bg-verdict-warn/10 px-2.5 py-1 text-xs font-medium text-verdict-warn" title="A copy is kept in this browser until you save">
+              <span role="status" className="inline-flex items-center gap-1.5 rounded-full bg-verdict-warn/10 px-2.5 py-1 text-sm font-medium text-verdict-warn" title={t("This browser keeps a copy until you save")}>
                 <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-verdict-warn" />
-                Unsaved changes
+                {t("Not saved yet")}
               </span>
             ) : (
               !isNew && (
-                <span role="status" className="inline-flex items-center gap-1.5 rounded-full bg-verdict-valid/10 px-2.5 py-1 text-xs font-medium text-verdict-valid">
-                  <span aria-hidden>✓</span> Saved
+                <span role="status" className="inline-flex items-center gap-1.5 rounded-full bg-verdict-valid/10 px-2.5 py-1 text-sm font-medium text-verdict-valid">
+                  <span aria-hidden>✓</span> {t("Saved")}
                 </span>
               )
             )}
-            <kbd className="hidden rounded border border-hairline px-1.5 font-mono text-[10px] text-ink-faint sm:inline" title="Save with Ctrl+S or ⌘S">
+            <kbd className="hidden rounded border border-hairline px-1.5 font-mono text-[10px] text-ink-faint sm:inline" title={t("Save with Ctrl+S or ⌘S")}>
               Ctrl S
             </kbd>
             {!isNew && (
               <button type="button" onClick={remove} disabled={deleting || saving} className={clsx(pill, "text-verdict-hoax hover:border-verdict-hoax/40 hover:bg-verdict-hoax/10")}>
-                {deleting ? "Deleting…" : "Delete"}
+                {deleting ? t("Deleting…") : t("Delete")}
               </button>
             )}
           </span>
         </div>
       </form>
 
-      <aside className="min-w-0 xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto" aria-label="Live preview">
+      <aside className="min-w-0 xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto" aria-label={t("Preview")}>
         <ArticlePreview d={d} />
       </aside>
     </div>
@@ -539,29 +546,44 @@ export function ArticleForm({ initial, mode }: { initial?: Article; mode: "new" 
 }
 
 function Counter({ value, limit }: { value: string; limit: number }) {
+  const { t, lang } = useAdminT();
   const n = value.trim().length;
   return (
-    <span className={clsx("font-mono text-[11px] tabular-nums", n > limit ? "font-semibold text-verdict-warn" : "text-ink-faint")} title={n > limit ? `Over the ${limit}-character guide` : undefined}>
-      {n.toLocaleString("en-US")} / {limit}
+    <span
+      className={clsx("font-mono text-xs tabular-nums", n > limit ? "font-semibold text-verdict-warn" : "text-ink-faint")}
+      title={n > limit ? t("Longer than the suggested {limit} characters", { limit }) : undefined}
+    >
+      {formatAdminNumber(n, lang)} / {formatAdminNumber(limit, lang)}
     </span>
   );
 }
 
+/** "2019-04-06" → "Apr 6, 2019" / "6 Apr 2019"; "" or junk → "". */
+function dayLabel(date: string, lang: AdminLang): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "";
+  const d = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(adminLocale(lang), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 function SimilarPanel({ similar, onFind }: { similar: Similar; onFind: () => void }) {
+  const { t, lang } = useAdminT();
   return (
     <div className="rounded-xl border border-dashed border-hairline p-3">
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={onFind} disabled={similar.status === "loading"} className={pill}>
-          {similar.status === "loading" ? "Searching…" : "Find similar in archive"}
+          {similar.status === "loading" ? t("Searching…") : t("Is this already in the archive?")}
         </button>
-        <span className="text-xs text-ink-faint">Checks the title, claim and summaries against published fact-checks, to catch duplicates.</span>
+        <span className="text-xs text-ink-faint">{t("Looks for published fact-checks about the same claim, so you do not write it twice.")}</span>
       </div>
-      {similar.status === "error" && <p className="mt-2 text-xs text-verdict-hoax">{similar.error}</p>}
-      {similar.status === "done" && similar.items.length === 0 && <p className="mt-2 text-xs text-verdict-valid">No similar published article found.</p>}
+      {similar.status === "error" && <p className="mt-2 text-sm text-verdict-hoax">{similar.error}</p>}
+      {similar.status === "done" && similar.items.length === 0 && <p className="mt-2 text-sm text-verdict-valid">{t("Nothing similar found. Good to go.")}</p>}
       {similar.status === "done" && similar.items.length > 0 && (
         <div className="mt-3">
-          <p className="text-xs font-medium text-verdict-warn">
-            {similar.items.length === 1 ? "1 published article looks like the same claim." : `${similar.items.length} published articles look like the same claim.`} Check before saving.
+          <p className="text-sm font-medium text-verdict-warn">
+            {similar.items.length === 1
+              ? t("1 published article looks like the same claim. Please check it before saving.")
+              : t("{n} published articles look like the same claim. Please check them before saving.", { n: similar.items.length })}
           </p>
           <ul className="mt-2 divide-y divide-hairline">
             {similar.items.map((a) => (
@@ -570,16 +592,14 @@ function SimilarPanel({ similar, onFind }: { similar: Similar; onFind: () => voi
                 <span className="min-w-0 flex-1">
                   <span className="line-clamp-2 font-medium">{a.title}</span>
                   <span className="block text-xs text-ink-faint">
-                    {VERDICT_META[a.verdict].labelEn}
-                    {a.date ? ` · ${formatDate(a.date)}` : ""}
-                    {a.sourceSite ? ` · ${sourceName(a.sourceSite)}` : ""}
+                    {[t(VERDICT_META[a.verdict].label), a.date ? dayLabel(a.date, lang) : "", a.sourceSite ? sourceName(a.sourceSite) : ""].filter(Boolean).join(" · ")}
                   </span>
                 </span>
-                <Link href={`/admin/articles/${a.slug}/edit`} target="_blank" className="text-xs text-brand hover:underline">
-                  Edit ↗
+                <Link href={`/admin/articles/${a.slug}/edit`} target="_blank" className="py-1 text-sm text-brand hover:underline">
+                  {t("Edit ↗")}
                 </Link>
-                <Link href={`/blog/${a.slug}`} target="_blank" className="text-xs text-ink-muted hover:text-ink">
-                  View ↗
+                <Link href={`/blog/${a.slug}`} target="_blank" className="py-1 text-sm text-ink-muted hover:text-ink">
+                  {t("View ↗")}
                 </Link>
               </li>
             ))}
@@ -592,13 +612,19 @@ function SimilarPanel({ similar, onFind }: { similar: Similar; onFind: () => voi
 
 /* --------------------------------------------------------- live preview */
 
+/**
+ * The public card and the top of the public article page, in the chosen
+ * language (the panel and the site share one EN/ID setting).
+ */
 function ArticlePreview({ d }: { d: Draft }) {
+  const { t, lang: uiLang } = useAdminT();
   const verdict: Article["verdict"] = d.verdict === "hoax" || d.verdict === "valid" ? d.verdict : "misleading";
   const lang: Article["lang"] = d.lang === "en" ? "en" : "id";
   const meta = VERDICT_META[verdict];
-  const title = d.title.trim() || "Untitled article";
+  const title = d.title.trim() || t("Untitled article");
   const summary = d.summaryEn.trim() || d.summaryId.trim();
-  const date = formatDate(d.date);
+  const date = formatDate(d.date, "short", uiLang);
+  const longDate = formatDate(d.date, "long", uiLang);
   const site = d.sourceSite.trim();
   const preSection = (label: string, text: string, tone?: string, italic?: boolean) =>
     text.trim() ? (
@@ -610,9 +636,12 @@ function ArticlePreview({ d }: { d: Draft }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted">Live preview</h2>
-        {!d.published && <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">hidden draft</span>}
+      <div>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-ink">{t("Preview")}</h2>
+          {!d.published && <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">{t("Hidden draft")}</span>}
+        </div>
+        <p className="mt-0.5 text-xs text-ink-faint">{t("How visitors will see it.")}</p>
       </div>
 
       {/* The card as the archive and the home page show it. */}
@@ -629,12 +658,12 @@ function ArticlePreview({ d }: { d: Draft }) {
             <VerdictBadge verdict={verdict} />
           </div>
           <span className="absolute right-3 top-3 rounded-md bg-black/40 px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-white/80 backdrop-blur">
-            {LANGUAGE_NAME[lang]}
+            {t(LANGUAGE_NAME[lang])}
           </span>
         </div>
         <div className="flex flex-1 flex-col p-5">
           <h3 className={clsx("font-display text-base font-bold leading-snug text-balance", !d.title.trim() && "text-ink-faint")}>{title}</h3>
-          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink-muted">{summary || <span className="text-ink-faint">No summary yet.</span>}</p>
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink-muted">{summary || <span className="text-ink-faint">{t("No summary yet.")}</span>}</p>
           <div className="mt-4 flex items-center justify-between gap-3 border-t border-hairline pt-4 text-xs text-ink-faint">
             <span className="truncate">{site ? sourceName(site) : d.category}</span>
             {date && <span className="shrink-0">{date}</span>}
@@ -647,12 +676,12 @@ function ArticlePreview({ d }: { d: Draft }) {
         <div className="flex flex-wrap items-center gap-1.5">
           <VerdictBadge verdict={verdict} />
           {d.category && d.category !== meta.labelEn && <span className="rounded-md bg-surface-sunken px-2 py-0.5 text-[11px] font-medium text-ink-muted">{d.category}</span>}
-          {formatDate(d.date, "long") && <span className="text-[11px] text-ink-faint">{formatDate(d.date, "long")}</span>}
+          {longDate && <span className="text-[11px] text-ink-faint">{longDate}</span>}
         </div>
         <h3 className={clsx("font-display text-xl font-bold leading-tight text-balance", !d.title.trim() && "text-ink-faint")}>{title}</h3>
         {site && (
           <p className="text-xs text-ink-muted">
-            Fact-check by <span className="font-medium text-ink">{sourceName(site)}</span>
+            {t("Fact-check by")} <span className="font-medium text-ink">{sourceName(site)}</span>
           </p>
         )}
         {summary && (
@@ -660,11 +689,13 @@ function ArticlePreview({ d }: { d: Draft }) {
             {summary}
           </p>
         )}
-        {preSection("The claim", d.narration, meta.color, true)}
-        {preSection("What the fact-check found", d.explanation)}
+        {preSection(t("The claim"), d.narration, meta.color, true)}
+        {preSection(t("What the fact-checkers found"), d.explanation)}
         {preSection("Where it circulated", d.source)}
         {preSection("References", d.reference)}
-        {!d.narration.trim() && !d.explanation.trim() && <p className="text-xs text-ink-faint">Without a claim or an explanation the page shows only the title and a link to the original.</p>}
+        {!d.narration.trim() && !d.explanation.trim() && (
+          <p className="text-xs text-ink-faint">{t("Without the claim or an explanation, the page shows only the title and a link to the original.")}</p>
+        )}
         <p className="border-t border-hairline pt-3 font-mono text-[11px] text-ink-faint">/blog/{d.slug || "…"}</p>
       </div>
     </div>

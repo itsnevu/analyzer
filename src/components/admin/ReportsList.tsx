@@ -8,7 +8,9 @@ import { clsx } from "@/lib/clsx";
 import type { ArticleListItem } from "@/lib/data";
 import type { Verdict } from "@/lib/detect";
 import { REPORT_STATUSES, REPORT_TYPES, reportNumber, type Report, type ReportStatus, type ReportType } from "@/lib/report-labels";
-import { formatDate, sourceName } from "@/lib/sources";
+import { sourceName } from "@/lib/sources";
+import { adminLocale, formatAdminDateTime, type AdminLang } from "@/lib/admin-lang";
+import { useAdminT } from "./AdminLang";
 
 const STATUS_STYLE: Record<ReportStatus, string> = {
   new: "bg-verdict-hoax/10 text-verdict-hoax",
@@ -40,8 +42,22 @@ function slugFrom(input: string): string {
   return (m ? m[1] : s).replace(/^\/+|\/+$/g, "");
 }
 
+/** "2019-04-06" → "Apr 6, 2019" / "6 Apr 2019"; "" or junk → "". */
+function dayLabel(date: string, lang: AdminLang): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "";
+  const d = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(adminLocale(lang), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+/** A stored "YYYY-MM-DD HH:MM:SS" UTC stamp shown in Jakarta time. */
+function stampLabel(stamp: string, lang: AdminLang): string {
+  return `${formatAdminDateTime(`${stamp.replace(" ", "T")}Z`, lang)} WIB`;
+}
+
 export function ReportsList({ reports }: { reports: Report[] }) {
   const router = useRouter();
+  const { t, lang } = useAdminT();
   const [open, setOpen] = useState<number | null>(null);
   const [items, setItems] = useState(reports);
   const [busy, setBusy] = useState<number | null>(null);
@@ -67,12 +83,12 @@ export function ReportsList({ reports }: { reports: Report[] }) {
         body: JSON.stringify(change),
       });
       const json = (await res.json().catch(() => ({}))) as { error?: string; report?: Report };
-      if (!res.ok) throw new Error(json.error ?? "The change was not saved.");
+      if (!res.ok) throw new Error(json.error ?? t("The change was not saved."));
       if (json.report) setItems((list) => list.map((r) => (r.id === id ? { ...r, ...json.report } : r)));
       router.refresh();
       return true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "The change was not saved.");
+      setError(err instanceof Error ? err.message : t("The change was not saved."));
       return false;
     }
   }
@@ -114,7 +130,7 @@ export function ReportsList({ reports }: { reports: Report[] }) {
   }
 
   async function remove(r: Report) {
-    if (!confirm(`Delete ${reportNumber(r.id)}? This cannot be undone.`)) return;
+    if (!confirm(t("Delete {number}? This cannot be undone.", { number: reportNumber(r.id) }))) return;
     setBusy(r.id);
     try {
       const res = await fetch(`/api/admin/reports/${r.id}`, { method: "DELETE" });
@@ -122,14 +138,14 @@ export function ReportsList({ reports }: { reports: Report[] }) {
       setItems((list) => list.filter((x) => x.id !== r.id));
       router.refresh();
     } catch {
-      setError("Failed to delete.");
+      setError(t("Could not delete it."));
     } finally {
       setBusy(null);
     }
   }
 
   if (items.length === 0) {
-    return <div className="neu p-10 text-center text-sm text-ink-muted">Nothing here.</div>;
+    return <div className="neu p-10 text-center text-sm text-ink-muted">{t("Nothing here.")}</div>;
   }
 
   return (
@@ -138,32 +154,39 @@ export function ReportsList({ reports }: { reports: Report[] }) {
       <ul className="space-y-3">
         {items.map((r) => {
           const isReport = r.kind === "report";
-          const title = isReport ? REPORT_TYPES[r.reportType as ReportType] ?? "Report" : r.subject || "Message";
-          const from = [r.firstName, r.lastName].filter(Boolean).join(" ") || "Anonymous";
+          const typeLabel = REPORT_TYPES[r.reportType as ReportType];
+          const title = isReport ? (typeLabel ? t(typeLabel) : t("Report")) : r.subject || t("Message");
+          const from = [r.firstName, r.lastName].filter(Boolean).join(" ") || t("Anonymous");
           const text = isReport ? r.content : r.message;
           const preview = text.replace(/\s+/g, " ");
           const expanded = open === r.id;
           const found = similar[r.id];
           const matches = Array.isArray(found) ? found : [];
+          const statusLabel = REPORT_STATUSES[r.status];
           return (
             <li key={r.id} className={clsx("neu overflow-hidden p-0", !r.readAt && "ring-1 ring-verdict-hoax/30")}>
               <button onClick={() => toggle(r)} className="flex w-full items-start gap-3 p-5 text-left" aria-expanded={expanded}>
-                <span className={clsx("mt-1.5 h-2 w-2 shrink-0 rounded-full", r.readAt ? "bg-transparent" : "bg-verdict-hoax")} aria-hidden />
+                <span
+                  className={clsx("mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full", r.readAt ? "bg-transparent" : "bg-verdict-hoax")}
+                  role={r.readAt ? undefined : "img"}
+                  aria-label={r.readAt ? undefined : t("Unread")}
+                  aria-hidden={r.readAt ? true : undefined}
+                />
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs text-ink-faint">{reportNumber(r.id)}</span>
                     <span className="font-medium">{title}</span>
-                    <span className={clsx("rounded-full px-2 py-0.5 text-[11px] font-semibold", STATUS_STYLE[r.status] ?? STATUS_STYLE.new)}>
-                      {REPORT_STATUSES[r.status] ?? r.status}
+                    <span className={clsx("rounded-full px-2 py-0.5 text-xs font-semibold", STATUS_STYLE[r.status] ?? STATUS_STYLE.new)}>
+                      {statusLabel ? t(statusLabel) : r.status}
                     </span>
-                    {r.resolvedSlug && <span className="text-xs text-ink-faint">answered by “{r.resolvedTitle || r.resolvedSlug}”</span>}
-                    {r.note && <span className="text-xs text-ink-faint">has a note</span>}
-                    {r.attachment && <span className="text-xs text-ink-faint">screenshot</span>}
+                    {r.resolvedSlug && <span className="text-xs text-ink-faint">{t("answered by “{title}”", { title: r.resolvedTitle || r.resolvedSlug })}</span>}
+                    {r.note && <span className="text-xs text-ink-faint">{t("has a note")}</span>}
+                    {r.attachment && <span className="text-xs text-ink-faint">{t("has a screenshot")}</span>}
                   </span>
                   <span className="mt-1 block truncate text-sm text-ink-muted">{preview}</span>
-                  <span className="mt-1 block text-xs text-ink-faint">
+                  <span className="mt-1 block text-xs text-ink-faint" suppressHydrationWarning>
                     {from}
-                    {r.email && ` · ${r.email}`} · {r.createdAt} UTC
+                    {r.email && ` · ${r.email}`} · {stampLabel(r.createdAt, lang)}
                   </span>
                 </span>
               </button>
@@ -173,7 +196,7 @@ export function ReportsList({ reports }: { reports: Report[] }) {
                   {isReport ? (
                     <>
                       <div>
-                        <div className="eyebrow">Reported text or link</div>
+                        <div className="eyebrow">{t("What they reported")}</div>
                         <p className="mt-2 whitespace-pre-wrap break-words rounded-lg bg-surface-sunken p-3 text-ink">{r.content}</p>
                       </div>
                       {r.reportType === "wrong-result" ? (
@@ -183,23 +206,23 @@ export function ReportsList({ reports }: { reports: Report[] }) {
                           <dl className="grid gap-2 sm:grid-cols-3">
                             {r.platform && (
                               <div>
-                                <dt className="text-xs text-ink-faint">Seen on</dt>
+                                <dt className="text-xs text-ink-faint">{t("Seen on")}</dt>
                                 <dd>{r.platform}</dd>
                               </div>
                             )}
                             {r.detectedVerdict && (
                               <div>
-                                <dt className="text-xs text-ink-faint">Detector said</dt>
+                                <dt className="text-xs text-ink-faint">{t("The detector said")}</dt>
                                 <dd>{r.detectedVerdict}</dd>
                               </div>
                             )}
                           </dl>
                         )
                       )}
-                      {r.reportType === "wrong-result" && r.platform && <p className="text-xs text-ink-faint">Seen on {r.platform}.</p>}
+                      {r.reportType === "wrong-result" && r.platform && <p className="text-xs text-ink-faint">{t("Seen on {platform}.", { platform: r.platform })}</p>}
                       {r.message && (
                         <div>
-                          <div className="eyebrow">Details</div>
+                          <div className="eyebrow">{t("Details")}</div>
                           <p className="mt-2 whitespace-pre-wrap break-words text-ink-muted">{r.message}</p>
                         </div>
                       )}
@@ -208,7 +231,7 @@ export function ReportsList({ reports }: { reports: Report[] }) {
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={`/api/admin/reports/${r.id}/attachment`}
-                            alt="Screenshot attached to the report"
+                            alt={t("Screenshot sent with the report")}
                             className="max-h-80 rounded-lg border border-hairline object-contain"
                           />
                         </a>
@@ -220,15 +243,15 @@ export function ReportsList({ reports }: { reports: Report[] }) {
 
                   <div>
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <div className="eyebrow">In the archive</div>
-                      <span className="text-xs text-ink-faint">Fact-checks that share this text&apos;s key words</span>
+                      <div className="eyebrow">{t("In the archive")}</div>
+                      <span className="text-xs text-ink-faint">{t("Fact-checks that use the same key words")}</span>
                     </div>
                     {found === "loading" || found === undefined ? (
-                      <p className="mt-2 text-xs text-ink-faint">Searching the archive…</p>
+                      <p className="mt-2 text-sm text-ink-faint">{t("Searching the archive…")}</p>
                     ) : found === "error" ? (
-                      <p className="mt-2 text-xs text-verdict-hoax">The archive could not be searched.</p>
+                      <p className="mt-2 text-sm text-verdict-hoax">{t("Could not search the archive.")}</p>
                     ) : matches.length === 0 ? (
-                      <p className="mt-2 text-xs text-ink-faint">Nothing in the archive shares this text&apos;s key words. If it is a real claim, create a draft.</p>
+                      <p className="mt-2 text-sm text-ink-faint">{t("Nothing in the archive is about this. If it is a real claim, start a draft.")}</p>
                     ) : (
                       <ul className="mt-2 space-y-2">
                         {matches.map((a) => (
@@ -239,16 +262,16 @@ export function ReportsList({ reports }: { reports: Report[] }) {
                                 {a.title}
                               </Link>
                               <span className="mt-0.5 block text-xs text-ink-faint">
-                                {[a.sourceSite && sourceName(a.sourceSite), formatDate(a.date), !a.published && "hidden"].filter(Boolean).join(" · ")}
+                                {[a.sourceSite && sourceName(a.sourceSite), dayLabel(a.date, lang), !a.published && t("Hidden")].filter(Boolean).join(" · ")}
                               </span>
                             </span>
                             <span className="flex items-center gap-2">
-                              <Link href={`/blog/${a.slug}`} target="_blank" className="text-ink-faint hover:text-ink" title="Open on the site">
+                              <Link href={`/blog/${a.slug}`} target="_blank" className="px-1 text-ink-faint hover:text-ink" title={t("View on site")} aria-label={t("View on site")}>
                                 ↗
                               </Link>
                               {r.resolvedSlug !== a.slug && (
-                                <button type="button" onClick={() => void resolve(r, a.slug)} disabled={busy === r.id} className="neu-btn px-3 py-1.5 text-xs disabled:opacity-50">
-                                  Resolve with this
+                                <button type="button" onClick={() => void resolve(r, a.slug)} disabled={busy === r.id} className="neu-btn px-3 py-1.5 text-sm disabled:opacity-50">
+                                  {t("This answers it")}
                                 </button>
                               )}
                             </span>
@@ -259,19 +282,18 @@ export function ReportsList({ reports }: { reports: Report[] }) {
                   </div>
 
                   <div>
-                    <div className="eyebrow">Resolution</div>
+                    <div className="eyebrow">{t("Answered by")}</div>
                     {r.resolvedSlug ? (
                       <p className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="text-ink-muted">Answered by</span>
                         <Link href={`/admin/articles/${r.resolvedSlug}/edit`} className="font-medium hover:text-brand">
                           {r.resolvedTitle || r.resolvedSlug}
                         </Link>
-                        {!r.resolvedTitle && <span className="text-xs text-verdict-warn">(no article has this slug any more)</span>}
-                        <Link href={`/blog/${r.resolvedSlug}`} target="_blank" className="text-ink-faint hover:text-ink" title="Open on the site">
+                        {!r.resolvedTitle && <span className="text-xs text-verdict-warn">{t("(no article has this address any more)")}</span>}
+                        <Link href={`/blog/${r.resolvedSlug}`} target="_blank" className="px-1 text-ink-faint hover:text-ink" title={t("View on site")} aria-label={t("View on site")}>
                           ↗
                         </Link>
-                        <button type="button" onClick={() => void patch(r.id, { resolvedSlug: "" })} className="text-xs text-ink-muted hover:text-ink">
-                          Clear
+                        <button type="button" onClick={() => void patch(r.id, { resolvedSlug: "" })} className="px-2 py-1 text-sm text-ink-muted hover:text-ink">
+                          {t("Remove")}
                         </button>
                       </p>
                     ) : (
@@ -285,20 +307,21 @@ export function ReportsList({ reports }: { reports: Report[] }) {
                         <input
                           value={slugInput[r.id] ?? ""}
                           onChange={(e) => setSlugInput((s) => ({ ...s, [r.id]: e.target.value }))}
-                          placeholder="Article slug or link, e.g. /blog/salah-bantuan-2-juta"
+                          placeholder={t("Article link or web address, e.g. /blog/salah-bantuan-2-juta")}
+                          aria-label={t("Article that answers this report")}
                           className={clsx(field, "max-w-md font-mono text-xs")}
                         />
-                        <button type="submit" disabled={busy === r.id || !slugFrom(slugInput[r.id] ?? "")} className="neu-btn px-3 py-1.5 text-xs disabled:opacity-50">
-                          Resolve with article
+                        <button type="submit" disabled={busy === r.id || !slugFrom(slugInput[r.id] ?? "")} className="neu-btn px-3 py-1.5 text-sm disabled:opacity-50">
+                          {t("Link this article")}
                         </button>
-                        <span className="text-xs text-ink-faint">Marks the report done.</span>
+                        <span className="text-xs text-ink-faint">{t("This also marks the report as done.")}</span>
                       </form>
                     )}
                   </div>
 
                   <div>
                     <label className="block">
-                      <span className="eyebrow">Internal note</span>
+                      <span className="eyebrow">{t("Private note")}</span>
                       <textarea
                         rows={2}
                         value={notes[r.id] ?? r.note ?? ""}
@@ -307,7 +330,7 @@ export function ReportsList({ reports }: { reports: Report[] }) {
                           setNotes((n) => ({ ...n, [r.id]: v }));
                           setNoteState((s) => ({ ...s, [r.id]: undefined }));
                         }}
-                        placeholder="What you checked, who you asked, what is left to do. Not shown to the reporter."
+                        placeholder={t("What you checked, who you asked, what is still to do. The sender never sees this.")}
                         className={clsx(field, "mt-2 resize-y")}
                       />
                     </label>
@@ -316,53 +339,53 @@ export function ReportsList({ reports }: { reports: Report[] }) {
                         type="button"
                         onClick={() => void saveNote(r)}
                         disabled={noteState[r.id] === "saving" || (notes[r.id] ?? r.note ?? "") === (r.note ?? "")}
-                        className="neu-btn px-3 py-1.5 text-xs disabled:opacity-50"
+                        className="neu-btn px-3 py-1.5 text-sm disabled:opacity-50"
                       >
-                        {noteState[r.id] === "saving" ? "Saving…" : "Save note"}
+                        {noteState[r.id] === "saving" ? t("Saving…") : t("Save note")}
                       </button>
-                      {noteState[r.id] === "saved" && <span className="text-xs text-verdict-valid">Saved.</span>}
+                      {noteState[r.id] === "saved" && <span className="text-sm text-verdict-valid">{t("Saved")}</span>}
                     </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 border-t border-hairline pt-4">
-                    <label className="flex items-center gap-2 text-xs text-ink-muted">
-                      Status
+                    <label className="flex items-center gap-2 text-sm text-ink-muted">
+                      {t("Status")}
                       <select
                         value={r.status}
                         onChange={(e) => void patch(r.id, { status: e.target.value as ReportStatus })}
-                        className="rounded-lg border border-hairline bg-surface-sunken px-2.5 py-1.5 text-xs text-ink"
+                        className="rounded-lg border border-hairline bg-surface-sunken px-2.5 py-1.5 text-sm text-ink"
                       >
                         {Object.entries(REPORT_STATUSES).map(([key, label]) => (
                           <option key={key} value={key}>
-                            {label}
+                            {t(label)}
                           </option>
                         ))}
                       </select>
                     </label>
                     {text.trim() && (
                       <>
-                        <Link href={prefill("/admin/detect", text)} className="neu-btn px-3 py-1.5 text-xs">
-                          Check in detection lab
+                        <Link href={prefill("/admin/detect", text)} className="neu-btn px-3 py-1.5 text-sm">
+                          {t("Check in detection lab")}
                         </Link>
-                        <Link href={prefill("/admin/extract", text)} className="neu-btn px-3 py-1.5 text-xs">
-                          Create draft
+                        <Link href={prefill("/admin/extract", text)} className="neu-btn px-3 py-1.5 text-sm">
+                          {t("Start a draft")}
                         </Link>
                       </>
                     )}
                     {r.email && (
-                      <a href={`mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent(`Re: ${reportNumber(r.id)} ${title}`)}`} className="neu-btn px-3 py-1.5 text-xs">
-                        Reply by email
+                      <a href={`mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent(`Re: ${reportNumber(r.id)} ${title}`)}`} className="neu-btn px-3 py-1.5 text-sm">
+                        {t("Reply by email")}
                       </a>
                     )}
-                    <button onClick={() => void patch(r.id, { read: false })} className="px-3 py-1.5 text-xs text-ink-muted hover:text-ink">
-                      Mark unread
+                    <button onClick={() => void patch(r.id, { read: false })} className="px-3 py-1.5 text-sm text-ink-muted hover:text-ink">
+                      {t("Mark as unread")}
                     </button>
                     <button
                       onClick={() => void remove(r)}
                       disabled={busy === r.id}
-                      className="ml-auto rounded-full border border-hairline px-3 py-1.5 text-xs font-medium text-verdict-hoax hover:bg-verdict-hoax/10 disabled:opacity-50"
+                      className="ml-auto rounded-full border border-hairline px-3 py-1.5 text-sm font-medium text-verdict-hoax hover:bg-verdict-hoax/10 disabled:opacity-50"
                     >
-                      {busy === r.id ? "…" : "Delete"}
+                      {busy === r.id ? "…" : t("Delete")}
                     </button>
                   </div>
                 </div>
@@ -377,30 +400,31 @@ export function ReportsList({ reports }: { reports: Report[] }) {
 
 /** A "wrong result" report: what the detector told the visitor, next to what the archive holds, so a wrong match stands out. */
 function Mismatch({ detected, best }: { detected: string; best: ArticleListItem | "loading" | undefined }) {
+  const { t } = useAdminT();
   const said = verdictOf(detected);
   const match = best && best !== "loading" ? best : undefined;
   const agree = match && said ? match.verdict === said : null;
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="neu-inset p-3">
-        <div className="eyebrow">Detector said</div>
+        <div className="eyebrow">{t("The detector said")}</div>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
           {said && <VerdictBadge verdict={said} />}
-          <span className={said ? "text-ink-muted" : "text-ink"}>{detected || "not recorded"}</span>
+          <span className={said ? "text-ink-muted" : "text-ink"}>{detected || t("not recorded")}</span>
         </div>
       </div>
       <div className="neu-inset p-3">
         <div className="flex items-baseline justify-between gap-2">
-          <div className="eyebrow">Archive&apos;s best match</div>
+          <div className="eyebrow">{t("Closest article in the archive")}</div>
           {agree !== null && (
-            <span className={clsx("rounded-full px-2 py-0.5 text-[11px] font-semibold", agree ? "bg-verdict-valid/10 text-verdict-valid" : "bg-verdict-warn/10 text-verdict-warn")}>
-              {agree ? "same verdict" : "different verdict"}
+            <span className={clsx("rounded-full px-2 py-0.5 text-xs font-semibold", agree ? "bg-verdict-valid/10 text-verdict-valid" : "bg-verdict-warn/10 text-verdict-warn")}>
+              {agree ? t("same verdict") : t("different verdict")}
             </span>
           )}
         </div>
         <div className="mt-1.5 flex flex-wrap items-start gap-2">
           {best === "loading" ? (
-            <span className="text-xs text-ink-faint">Searching…</span>
+            <span className="text-sm text-ink-faint">{t("Searching…")}</span>
           ) : match ? (
             <>
               <VerdictBadge verdict={match.verdict} className="shrink-0" />
@@ -409,7 +433,7 @@ function Mismatch({ detected, best }: { detected: string; best: ArticleListItem 
               </Link>
             </>
           ) : (
-            <span className="text-xs text-ink-faint">Nothing similar in the archive, so the engine answered alone.</span>
+            <span className="text-sm text-ink-faint">{t("Nothing similar in the archive, so the detector answered on its own.")}</span>
           )}
         </div>
       </div>

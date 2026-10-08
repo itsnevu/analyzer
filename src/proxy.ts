@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/auth";
 import { isAdminToken } from "@/lib/session-cutoff";
 import { isCrossSiteWrite } from "@/lib/request-origin";
+import { adminTFromRequest } from "@/lib/admin-lang";
 
 /**
  * A gate in front of the whole admin area. Every admin page and API route
@@ -28,7 +29,7 @@ export function proxy(request: NextRequest) {
   const path = normalize(request.nextUrl.pathname);
 
   if (isCrossSiteWrite(request)) {
-    return NextResponse.json({ error: "Requests from other sites are not accepted." }, { status: 403, headers: NO_STORE });
+    return NextResponse.json({ error: adminTFromRequest(request)("Requests from other sites are not accepted.") }, { status: 403, headers: NO_STORE });
   }
   if (OPEN.has(path)) return NextResponse.next();
 
@@ -40,7 +41,7 @@ export function proxy(request: NextRequest) {
   }
 
   if (path.startsWith("/api/")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: NO_STORE });
+    return NextResponse.json({ error: adminTFromRequest(request)("Unauthorized") }, { status: 401, headers: NO_STORE });
   }
   // A fixed target, never one taken from the request, so this cannot become an open redirect.
   const res = NextResponse.redirect(new URL("/admin/login", request.url), 307);

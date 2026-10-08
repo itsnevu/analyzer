@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { logAdmin } from "@/lib/admin-log";
 import { authConfigProblem, checkPassword, checkTotp, createSession, SESSION_COOKIE, SESSION_MAX_AGE, totpEnabled } from "@/lib/auth";
 import { limitKey, refund, reset, take, tooMany } from "@/lib/rate-limit";
+import { adminTFromRequest } from "@/lib/admin-lang";
 
 export const runtime = "nodejs";
 
@@ -10,23 +11,26 @@ export const runtime = "nodejs";
 const PER_IP = { limit: 5, windowMs: 15 * 60_000 };
 
 export async function POST(req: Request) {
+  const t = adminTFromRequest(req);
   const problem = authConfigProblem();
   if (problem) {
-    return NextResponse.json({ error: `Admin login is disabled on this server. ${problem}` }, { status: 503 });
+    return NextResponse.json({ error: t("Admin login is turned off on this server. {problem}", { problem: t(problem) }) }, { status: 503 });
   }
 
   const ipKey = `login:${limitKey(req)}`;
   // Counted before the body is read, so many slow parallel requests cannot all slip past the limit.
   const allowed = take(ipKey, PER_IP.limit, PER_IP.windowMs);
   if (!allowed.ok) {
-    return tooMany(`Too many wrong passwords. Try again in ${Math.ceil(allowed.retryAfter / 60)} minutes.`, allowed.retryAfter);
+    const minutes = Math.ceil(allowed.retryAfter / 60);
+    const message = minutes === 1 ? t("Too many wrong passwords. Try again in 1 minute.") : t("Too many wrong passwords. Try again in {n} minutes.", { n: minutes });
+    return tooMany(message, allowed.retryAfter);
   }
 
   let body: { password?: string; code?: string };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+    return NextResponse.json({ error: t("The request could not be read. Reload the page and try again.") }, { status: 400 });
   }
 
   // The attempt was counted above, so a failure only waits.
@@ -37,7 +41,7 @@ export async function POST(req: Request) {
   };
 
   if (typeof body.password !== "string" || !checkPassword(body.password)) {
-    return failed("Wrong password.");
+    return failed(t("Wrong password."));
   }
 
   if (totpEnabled()) {
@@ -45,10 +49,10 @@ export async function POST(req: Request) {
     // The password was right: ask for the code without counting a failed attempt.
     if (!code) {
       refund(ipKey);
-      return NextResponse.json({ error: "Enter the 6-digit code from your authenticator app.", needsCode: true }, { status: 401 });
+      return NextResponse.json({ error: t("Enter the 6-digit code from your authenticator app."), needsCode: true }, { status: 401 });
     }
     if (!checkTotp(code)) {
-      return failed("Wrong or expired code. Wait for the next code and try again.");
+      return failed(t("Wrong or expired code. Wait for the next code and try again."));
     }
   }
 

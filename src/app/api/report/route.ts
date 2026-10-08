@@ -6,6 +6,7 @@ import { limitKey, take, tooMany } from "@/lib/rate-limit";
 import { readClientMeta, recordUsage } from "@/lib/usage";
 import { isAdmin } from "@/lib/admin-articles";
 import { BodyTooLarge, readFormLimited, readJsonObject } from "@/lib/body-limit";
+import { siteTFromRequest } from "@/lib/site-lang";
 
 export const runtime = "nodejs";
 
@@ -30,10 +31,12 @@ function bad(error: string, status = 422) {
 }
 
 export async function POST(req: Request) {
+  // Messages follow the visitor's site language (the lang cookie).
+  const t = siteTFromRequest(req);
   const ip = limitKey(req);
   for (const [key, limit, windowMs] of [[`report:${ip}`, 5, 10 * 60_000], [`report-day:${ip}`, 30, 24 * 60 * 60_000]] as const) {
     const r = take(key, limit, windowMs);
-    if (!r.ok) return tooMany("Too many submissions from your network. Please try again later.", r.retryAfter);
+    if (!r.ok) return tooMany(t("Too many submissions from your network. Please try again later."), r.retryAfter);
   }
   const maxBody = MAX_UPLOAD_BYTES + 200_000;
 
@@ -50,16 +53,16 @@ export async function POST(req: Request) {
       fields = Object.fromEntries(Object.entries(await readJsonObject(req, 64 * 1024)).map(([k, v]) => [k, String(v ?? "")]));
     }
   } catch (err) {
-    if (err instanceof BodyTooLarge) return bad("The upload is too large.", 413);
-    return bad("Invalid form data.", 400);
+    if (err instanceof BodyTooLarge) return bad(t("The upload is too large."), 413);
+    return bad(t("Invalid form data."), 400);
   }
 
   // Bots fill every field, people never see this one.
-  if (field(fields, "website", 200)) return NextResponse.json({ ok: true, message: "Thank you." });
+  if (field(fields, "website", 200)) return NextResponse.json({ ok: true, message: t("Thank you.") });
 
   const kind = fields.kind === "report" ? "report" : "contact";
   const email = field(fields, "email", 200);
-  if (email && !EMAIL.test(email)) return bad("Invalid email format.");
+  if (email && !EMAIL.test(email)) return bad(t("Invalid email format."));
 
   let report: NewReport;
   if (kind === "contact") {
@@ -72,7 +75,7 @@ export async function POST(req: Request) {
       message: field(fields, "message", 5000),
     };
     if (!report.firstName || !email || !report.subject || !report.message) {
-      return bad("Name, email, subject, and message are required.");
+      return bad(t("Name, email, subject, and message are required."));
     }
   } else {
     const reportType = TYPES.includes(fields.reportType as ReportType) ? (fields.reportType as ReportType) : "hoax";
@@ -88,14 +91,14 @@ export async function POST(req: Request) {
       detectedVerdict: field(fields, "detectedVerdict", 40),
       subject: field(fields, "content", 120).split("\n")[0],
     };
-    if ((report.content ?? "").length < 10) return bad("Paste the message, headline or link you are reporting (at least 10 characters).");
+    if ((report.content ?? "").length < 10) return bad(t("Paste the message, headline or link you are reporting (at least {n} characters).", { n: 10 }));
   }
 
   if (screenshot) {
     try {
       report.attachment = await saveReportImage(screenshot);
     } catch (err) {
-      return bad(err instanceof UploadError ? err.message : "The screenshot could not be saved.");
+      return bad(err instanceof UploadError ? t(err.key, err.vars) : t("The screenshot could not be saved."));
     }
   }
 
@@ -104,7 +107,7 @@ export async function POST(req: Request) {
     id = await addReport(report);
   } catch (err) {
     console.error("[report] failed to save:", err);
-    return NextResponse.json({ error: "Failed to save. Please try again shortly." }, { status: 500 });
+    return NextResponse.json({ error: t("Failed to save. Please try again shortly.") }, { status: 500 });
   }
   void notifyNewReport(id, report);
   let meta = {};
@@ -122,7 +125,7 @@ export async function POST(req: Request) {
     number,
     message:
       kind === "report"
-        ? `Report ${number} received. Thank you for helping fight hoaxes.`
-        : "Message received. We'll get back to you by email.",
+        ? t("Report {number} received. Thank you for helping fight hoaxes.", { number })
+        : t("Message received. We'll get back to you by email."),
   });
 }

@@ -1,7 +1,11 @@
 /**
  * Pieces shared by the dashboard charts. No hooks here, so server components
- * (SourceBars) can use it as well as the client charts.
+ * (SourceBars) can use it as well as the client charts. The charts also serve
+ * the public /stats page, so the language is an optional prop that defaults to
+ * English.
  */
+
+import { formatAdminNumber, makeAdminT, type AdminLang } from "@/lib/admin-lang";
 
 /** Chrome colors shared by the dashboard charts: theme tokens, so the charts follow light and dark mode. */
 export const CHART = {
@@ -13,7 +17,7 @@ export const CHART = {
   brand: "var(--brand)",
 } as const;
 
-export const fmt = (n: number) => n.toLocaleString("en-US");
+export const fmt = (n: number, lang: AdminLang = "en") => formatAdminNumber(n, lang);
 
 /** Round axis ticks from 0 that cover `max` in about `count` steps. */
 export function niceTicks(max: number, count = 4): number[] {
@@ -78,10 +82,11 @@ export function Tooltip({ x, width, title, rows }: { x: number; width: number; t
 }
 
 /** Every chart's accessible twin: the same numbers as a plain table. */
-export function TableView({ head, rows }: { head: string[]; rows: (string | number)[][] }) {
+export function TableView({ head, rows, lang = "en" }: { head: string[]; rows: (string | number)[][]; lang?: AdminLang }) {
+  const t = makeAdminT(lang);
   return (
     <details className="mt-3">
-      <summary className="cursor-pointer select-none text-xs text-ink-muted hover:text-ink">View as table</summary>
+      <summary className="cursor-pointer select-none text-xs text-ink-muted hover:text-ink">{t("View as table")}</summary>
       <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-hairline">
         <table className="w-full text-left text-xs">
           <thead className="sticky top-0 bg-surface-sunken text-ink-muted">
@@ -98,7 +103,7 @@ export function TableView({ head, rows }: { head: string[]; rows: (string | numb
               <tr key={String(r[0])}>
                 {r.map((c, i) => (
                   <td key={i} className={`px-3 py-1.5 ${i ? "text-right tabular-nums" : ""}`}>
-                    {typeof c === "number" ? fmt(c) : c}
+                    {typeof c === "number" ? fmt(c, lang) : c}
                   </td>
                 ))}
               </tr>

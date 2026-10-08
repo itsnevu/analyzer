@@ -4,6 +4,7 @@ import { runDetection, type DetectionResult } from "./detect";
 import { asSingleUrl, readPage } from "./fetch-page";
 import { detectLanguage } from "./language";
 import { getStopwords, isSettingLang, isSkippedDomain, skipListFilter, type SettingLang } from "./settings";
+import { MessageError } from "./message-error";
 import { idfFrom, isMethod, scorePair, sharedWords, tokenizeWords, type Idf, type Method } from "./similarity";
 
 /**
@@ -15,7 +16,7 @@ import { idfFrom, isMethod, scorePair, sharedWords, tokenizeWords, type Idf, typ
  * must not show up in the research log or the search statistics.
  */
 
-export class LabError extends Error {}
+export class LabError extends MessageError {}
 
 export const LAB_LIMITS = [10, 25, 50] as const;
 const MAX_CHARS = 20_000;
@@ -197,14 +198,14 @@ export async function runLab(req: LabRequest): Promise<LabResult> {
     } catch {
       throw new LabError("That is not a valid link.");
     }
-    if (isSkippedDomain(host)) throw new LabError(`${host} is on the skip list (Settings → Skipped domains), so its pages are not read.`);
+    if (isSkippedDomain(host)) throw new LabError("{host} is on the skip list (Settings → Skipped domains), so its pages are not read.", { host });
     const page = await readPage(link, skipListFilter);
     text = page.text;
     source = { url: page.url, title: page.title };
     timings.read = performance.now() - t0;
   }
   if (text.length < 15) throw new LabError("Enter at least 15 characters, or one link.");
-  if (text.length > MAX_CHARS) throw new LabError(`Paste at most ${MAX_CHARS.toLocaleString("en-US")} characters.`);
+  if (text.length > MAX_CHARS) throw new LabError("Paste at most {max} characters.", { max: MAX_CHARS });
 
   // The detector runs while the archive is scored; its time is measured on its own.
   const detectionStart = performance.now();

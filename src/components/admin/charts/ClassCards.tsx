@@ -1,4 +1,5 @@
 import { CLASS_META, type DatasetClass } from "@/lib/dataset-classes";
+import { adminLocale, makeAdminT, type AdminLang } from "@/lib/admin-lang";
 import { fmt } from "./chart-kit";
 
 const ORDER: DatasetClass[] = ["HOAX", "DISINFORMATION", "INFORMATION", "FACT"];
@@ -11,7 +12,8 @@ const ICONS: Record<DatasetClass, React.ReactNode> = {
 };
 
 /** One card per class of the legacy detector's dataset, with its share of the labeled rows. */
-export function ClassCards({ byClass, labeled }: { byClass: Record<DatasetClass, number>; labeled: number }) {
+export function ClassCards({ byClass, labeled, lang = "en" }: { byClass: Record<DatasetClass, number>; labeled: number; lang?: AdminLang }) {
+  const t = makeAdminT(lang);
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       {ORDER.map((key) => {
@@ -20,7 +22,7 @@ export function ClassCards({ byClass, labeled }: { byClass: Record<DatasetClass,
         return (
           <div key={key} className="neu flex flex-col gap-3 p-4">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm text-ink-muted">{label}</span>
+              <span className="text-sm text-ink-muted">{t(label)}</span>
               <span className="grid h-8 w-8 place-items-center rounded-lg" style={{ background: `${color}1f`, color }}>
                 <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   {ICONS[key]}
@@ -28,8 +30,8 @@ export function ClassCards({ byClass, labeled }: { byClass: Record<DatasetClass,
               </span>
             </div>
             <div>
-              <div className="text-3xl font-semibold tracking-tight">{fmt(byClass[key])}</div>
-              <div className="mt-0.5 text-xs text-ink-faint">{share.toFixed(1)}% of labeled rows</div>
+              <div className="text-3xl font-semibold tracking-tight">{fmt(byClass[key], lang)}</div>
+              <div className="mt-0.5 text-xs text-ink-faint">{t("{share}% of the labeled rows", { share: share.toLocaleString(adminLocale(lang), { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })}</div>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full" style={{ background: `${color}26` }} aria-hidden>
               <div className="h-full rounded-full" style={{ width: `${share}%`, background: color }} />

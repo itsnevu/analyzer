@@ -1,9 +1,21 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
+import { makeSiteT, parseSiteLang, SITE_LANG_COOKIE, type SiteLang } from "@/lib/site-lang";
+
+/** The language cookie, read in the browser: this screen replaces the root layout, so the language provider is not there. */
+function readLang(): SiteLang {
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${SITE_LANG_COOKIE}=([^;]*)`));
+  return parseSiteLang(match?.[1]);
+}
+const noSubscribe = () => () => {};
+
 /** Last-resort error screen, used when the root layout itself fails; so it brings its own html and styles. */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const lang = useSyncExternalStore(noSubscribe, readLang, () => "en" as SiteLang);
+  const t = makeSiteT(lang);
   return (
-    <html lang="en">
+    <html lang={lang}>
       <head>
         {/* No stylesheet is loaded here, so the two colour schemes are declared inline. */}
         <style>{`
@@ -17,9 +29,13 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       </head>
       <body>
         <div style={{ maxWidth: 420 }}>
-          <h1 style={{ fontSize: 28, margin: 0 }}>Hoax Analyzer is having trouble</h1>
-          <p>The site could not load. Please try again in a moment{error.digest ? ` (code ${error.digest})` : ""}.</p>
-          <button onClick={reset}>Try again</button>
+          <h1 style={{ fontSize: 28, margin: 0 }}>{t("Hoax Analyzer is having trouble")}</h1>
+          <p>
+            {error.digest
+              ? t("The site could not load. Please try again in a moment (code {code}).", { code: error.digest })
+              : t("The site could not load. Please try again in a moment.")}
+          </p>
+          <button onClick={reset}>{t("Try again")}</button>
         </div>
       </body>
     </html>

@@ -8,7 +8,7 @@ import { formatCount } from "@/lib/sources";
 import { useI18n } from "@/lib/i18n";
 
 export function RecentPosts({ articles, total }: { articles: ArticleListItem[]; total: number }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   return (
     <Section
@@ -23,7 +23,7 @@ export function RecentPosts({ articles, total }: { articles: ArticleListItem[]; 
       {/* Search the whole archive from the home page */}
       <form action="/blog" method="get" className="neu-inset flex flex-col gap-2 p-2 sm:flex-row sm:items-center">
         <label className="relative flex-1">
-          <span className="sr-only">Search the archive</span>
+          <span className="sr-only">{t("Search the archive")}</span>
           <svg viewBox="0 0 24 24" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <circle cx="11" cy="11" r="7" />
             <path d="m20 20-3.5-3.5" strokeLinecap="round" />
@@ -31,12 +31,12 @@ export function RecentPosts({ articles, total }: { articles: ArticleListItem[]; 
           <input
             type="search"
             name="q"
-            placeholder={`Search ${formatCount(total)} fact-checks… e.g. vaksin, KPU, undian`}
+            placeholder={t("Search {n} fact-checks… e.g. vaksin, KPU, undian", { n: formatCount(total, lang) })}
             className="w-full rounded-full bg-transparent py-3 pl-11 pr-4 text-base text-ink sm:text-sm outline-none placeholder:text-ink-faint"
           />
         </label>
         <button type="submit" className="btn-primary px-6 py-2.5 text-sm">
-          Search
+          {t("Search")}
         </button>
       </form>
 

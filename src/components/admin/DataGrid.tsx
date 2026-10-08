@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
+import { useAdminT } from "./AdminLang";
 
 /**
  * The panel's data grid, in the spirit of the old control panel's jqGrid
  * tables: a caption bar, a filter row under the headers, zebra rows, optional
  * row selection, optional row expansion (a full-width row under the open
- * one), and a footer with the pager and "View a–b of N".
+ * one), and a footer with the pager and "Showing a–b of N".
  *
  * State lives in the URL (the pages are server-rendered from searchParams):
  * typing in a filter rewrites the query string after a short pause, sorting and
@@ -88,7 +89,7 @@ export function DataGrid<Row>({
   onSelectedChange,
   toolbar,
   toolbarRight,
-  emptyMessage = "Nothing matches.",
+  emptyMessage,
   dense = false,
   onNavigate,
   renderExpanded,
@@ -96,6 +97,7 @@ export function DataGrid<Row>({
   onToggleExpanded,
 }: DataGridProps<Row>) {
   const router = useRouter();
+  const { t } = useAdminT();
   const pathname = usePathname();
   const search = useSearchParams();
   const names = { ...DEFAULT_PARAMS, ...params };
@@ -182,11 +184,11 @@ export function DataGrid<Row>({
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {anyFilter && (
               <button type="button" onClick={clearFilters} className="neu-btn px-3 py-1.5 text-xs">
-                Clear filters ×
+                {t("Clear filters")} ×
               </button>
             )}
-            <button type="button" onClick={() => router.refresh()} className="neu-btn px-3 py-1.5 text-xs" title="Reload the rows">
-              ↻ Refresh
+            <button type="button" onClick={() => router.refresh()} className="neu-btn px-3 py-1.5 text-xs" title={t("Reload the rows")}>
+              ↻ {t("Refresh")}
             </button>
             {toolbarRight}
           </div>
@@ -199,14 +201,14 @@ export function DataGrid<Row>({
             <tr className="border-b border-hairline text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
               {toggleColumn && (
                 <th scope="col" className={clsx(cell, "w-8 pr-0")}>
-                  <span className="sr-only">Expand</span>
+                  <span className="sr-only">{t("Expand")}</span>
                 </th>
               )}
               {selectable && (
                 <th scope="col" className={clsx(cell, "w-9")}>
                   <input
                     type="checkbox"
-                    aria-label="Select all rows on this page"
+                    aria-label={t("Select all rows on this page")}
                     checked={allSelected}
                     ref={(el) => {
                       if (el) el.indeterminate = !allSelected && someSelected;
@@ -246,8 +248,8 @@ export function DataGrid<Row>({
                           onKeyDown={(e) => {
                             if (e.key === "Enter") setFilter(c, (e.target as HTMLInputElement).value, true);
                           }}
-                          placeholder={c.filter.placeholder ?? "Filter…"}
-                          aria-label={`Filter by ${typeof c.header === "string" ? c.header : c.key}`}
+                          placeholder={c.filter.placeholder ?? t("Filter…")}
+                          aria-label={t("Filter by {column}", { column: typeof c.header === "string" ? c.header : c.key })}
                           className="h-8 w-full rounded-md border border-hairline bg-surface-raised px-2 text-xs text-ink outline-none placeholder:text-ink-faint focus:ring-2 focus:ring-brand/30"
                         />
                       </span>
@@ -256,10 +258,10 @@ export function DataGrid<Row>({
                       <select
                         value={draft[c.key] ?? ""}
                         onChange={(e) => setFilter(c, e.target.value, true)}
-                        aria-label={`Filter by ${typeof c.header === "string" ? c.header : c.key}`}
+                        aria-label={t("Filter by {column}", { column: typeof c.header === "string" ? c.header : c.key })}
                         className="h-8 w-full rounded-md border border-hairline bg-surface-raised px-2 text-xs text-ink outline-none focus:ring-2 focus:ring-brand/30"
                       >
-                        <option value="">{c.filter.placeholder ?? "All"}</option>
+                        <option value="">{c.filter.placeholder ?? t("All")}</option>
                         {c.filter.options.map((o) => (
                           <option key={o.value} value={o.value}>
                             {o.label}
@@ -276,7 +278,7 @@ export function DataGrid<Row>({
             {rows.length === 0 && (
               <tr>
                 <td colSpan={span} className="px-4 py-10 text-center text-sm text-ink-faint">
-                  {emptyMessage}
+                  {emptyMessage ?? t("Nothing matches.")}
                 </td>
               </tr>
             )}
@@ -302,7 +304,7 @@ export function DataGrid<Row>({
                           onClick={() => onToggleExpanded?.(key)}
                           aria-expanded={isExpanded}
                           aria-controls={isExpanded ? panelId : undefined}
-                          aria-label={isExpanded ? "Collapse row" : "Expand row"}
+                          aria-label={isExpanded ? t("Collapse row") : t("Expand row")}
                           className="grid h-6 w-6 place-items-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink"
                         >
                           <span aria-hidden className={clsx("text-xs transition-transform", isExpanded && "rotate-90")}>
@@ -313,7 +315,7 @@ export function DataGrid<Row>({
                     )}
                     {selectable && (
                       <td className={cell}>
-                        <input type="checkbox" aria-label="Select row" checked={!!isSelected} onChange={() => toggleOne(key)} className="h-4 w-4 accent-brand" />
+                        <input type="checkbox" aria-label={t("Select row")} checked={!!isSelected} onChange={() => toggleOne(key)} className="h-4 w-4 accent-brand" />
                       </td>
                     )}
                     {columns.map((c) => (
@@ -339,21 +341,19 @@ export function DataGrid<Row>({
       {paging && (
         <div className="flex flex-wrap items-center gap-3 border-t border-hairline bg-surface-sunken/60 px-3 py-2 text-xs text-ink-muted">
           <div className="flex items-center gap-1">
-            <PagerLink href={href({ [names.page]: null })} disabled={paging.page <= 1} label="First page">«</PagerLink>
-            <PagerLink href={href({ [names.page]: paging.page - 1 <= 1 ? null : String(paging.page - 1) })} disabled={paging.page <= 1} label="Previous page">‹</PagerLink>
-            <span className="px-2 tabular-nums">
-              Page <span className="font-semibold text-ink">{paging.page}</span> of {paging.pages.toLocaleString("en-US")}
-            </span>
-            <PagerLink href={href({ [names.page]: String(paging.page + 1) })} disabled={paging.page >= paging.pages} label="Next page">›</PagerLink>
-            <PagerLink href={href({ [names.page]: String(paging.pages) })} disabled={paging.page >= paging.pages} label="Last page">»</PagerLink>
+            <PagerLink href={href({ [names.page]: null })} disabled={paging.page <= 1} label={t("First page")}>«</PagerLink>
+            <PagerLink href={href({ [names.page]: paging.page - 1 <= 1 ? null : String(paging.page - 1) })} disabled={paging.page <= 1} label={t("Previous page")}>‹</PagerLink>
+            <span className="px-2 tabular-nums">{t("Page {page} of {pages}", { page: paging.page, pages: paging.pages })}</span>
+            <PagerLink href={href({ [names.page]: String(paging.page + 1) })} disabled={paging.page >= paging.pages} label={t("Next page")}>›</PagerLink>
+            <PagerLink href={href({ [names.page]: String(paging.pages) })} disabled={paging.page >= paging.pages} label={t("Last page")}>»</PagerLink>
           </div>
           <label className="flex items-center gap-1.5">
-            <span className="sr-only">Rows per page</span>
+            <span className="sr-only">{t("Rows per page")}</span>
             <select
               value={paging.pageSize}
               onChange={(e) => navigate({ [names.pageSize]: e.target.value })}
               className="h-7 rounded-md border border-hairline bg-surface-raised px-1.5 text-xs text-ink outline-none"
-              aria-label="Rows per page"
+              aria-label={t("Rows per page")}
             >
               {pageSizes.map((n) => (
                 <option key={n} value={n}>
@@ -361,11 +361,11 @@ export function DataGrid<Row>({
                 </option>
               ))}
             </select>
-            <span>per page</span>
+            <span>{t("per page")}</span>
           </label>
-          {selectable && selected && selected.size > 0 && <span className="rounded-full bg-brand/10 px-2 py-0.5 font-medium text-brand">{selected.size} selected</span>}
+          {selectable && selected && selected.size > 0 && <span className="rounded-full bg-brand/10 px-2 py-0.5 font-medium text-brand">{t("{n} selected", { n: selected.size })}</span>}
           <span className="ml-auto tabular-nums">
-            View {first.toLocaleString("en-US")}–{last.toLocaleString("en-US")} of {paging.total.toLocaleString("en-US")}
+            {t("Showing {first}–{last} of {total}", { first, last, total: paging.total })}
           </span>
         </div>
       )}
@@ -374,7 +374,7 @@ export function DataGrid<Row>({
 }
 
 function PagerLink({ href, disabled, label, children }: { href: string; disabled: boolean; label: string; children: React.ReactNode }) {
-  const cls = "grid h-7 w-7 place-items-center rounded-md border border-hairline text-sm";
+  const cls = "grid h-8 w-8 place-items-center rounded-md border border-hairline text-sm";
   if (disabled) return <span className={clsx(cls, "text-ink-faint/50")} aria-disabled="true">{children}</span>;
   return (
     <Link href={href} aria-label={label} className={clsx(cls, "text-ink hover:bg-surface-raised")}>

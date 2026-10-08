@@ -73,7 +73,21 @@ describe("backups", () => {
   });
 
   it("writes a backup on demand and sees it in the listing", async () => {
-    await store.listArticles(); // creates and seeds the database
+    await store.saveArticle({
+      slug: "system-test",
+      title: "[SALAH] System test entry",
+      lang: "id",
+      category: "Hoax",
+      verdict: "hoax",
+      date: "2021-05-01",
+      summaryId: "",
+      summaryEn: "",
+      source: "",
+      narration: "",
+      explanation: "Explanation for the system test.",
+      reference: "",
+      image: "",
+    });
     const made = await system.runBackup();
     expect(made.name).toMatch(/^hoax-\d{8}-\d{6}\.db$/);
     expect(made.bytes).toBeGreaterThan(0);

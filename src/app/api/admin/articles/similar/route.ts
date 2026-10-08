@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { findSimilarArticles } from "@/lib/articles";
 import { isAdmin } from "@/lib/admin-articles";
+import { adminTFromRequest } from "@/lib/admin-lang";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,10 +11,11 @@ export const dynamic = "force-dynamic";
  * Published archive entries about the same claim, so the editor can warn about duplicates.
  */
 export async function GET(req: Request) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const t = adminTFromRequest(req);
+  if (!(await isAdmin())) return NextResponse.json({ error: t("Unauthorized") }, { status: 401 });
   const p = new URL(req.url).searchParams;
   const text = (p.get("text") ?? "").trim().slice(0, 4000);
-  if (text.length < 8) return NextResponse.json({ error: "Write a title or the claim first." }, { status: 400 });
+  if (text.length < 8) return NextResponse.json({ error: t("Write a title or the claim first.") }, { status: 400 });
   const exclude = (p.get("exclude") ?? "").trim() || undefined;
   const limit = Math.min(10, Math.max(1, Number.parseInt(p.get("limit") ?? "", 10) || 5));
   try {
@@ -21,6 +23,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ items: items.map((item) => ({ ...item })) });
   } catch (err) {
     console.error("[admin] similar articles failed:", err);
-    return NextResponse.json({ error: "The archive search failed." }, { status: 500 });
+    return NextResponse.json({ error: t("Searching the archive did not work. Please try again in a moment.") }, { status: 500 });
   }
 }

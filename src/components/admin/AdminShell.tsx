@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { clsx } from "@/lib/clsx";
 import { isTypingTarget, matchSequence, type SequenceState } from "@/lib/shortcuts";
+import { useAdminT } from "./AdminLang";
 import { AdminSidebar, type AdminBadges } from "./AdminSidebar";
 import { AdminTopbar } from "./AdminTopbar";
 import { CommandPalette } from "./CommandPalette";
@@ -47,6 +48,7 @@ function subscribeCollapsed(cb: () => void): () => void {
  */
 export function AdminShell({ badges, children }: { badges: AdminBadges; children: React.ReactNode }) {
   const router = useRouter();
+  const { t } = useAdminT();
   const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => false);
   const [drawer, setDrawer] = useState(false);
   const [palette, setPalette] = useState(false);
@@ -124,8 +126,8 @@ export function AdminShell({ badges, children }: { badges: AdminBadges; children
 
         {/* Phone drawer */}
         {drawer && (
-          <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
-            <button type="button" aria-label="Close menu" onClick={() => setDrawer(false)} className="absolute inset-0 bg-black/50" />
+          <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label={t("Menu")}>
+            <button type="button" aria-label={t("Close menu")} onClick={() => setDrawer(false)} className="absolute inset-0 bg-black/50" />
             <aside className="absolute inset-y-0 left-0 w-72 max-w-[85vw] bg-[var(--sidebar-bg)] shadow-neu-lg animate-fade-up">
               <AdminSidebar badges={badges} collapsed={false} onLogout={logout} onNavigate={() => setDrawer(false)} />
             </aside>

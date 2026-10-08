@@ -3,6 +3,7 @@ import http from "node:http";
 import https from "node:https";
 import net from "node:net";
 import zlib from "node:zlib";
+import { MessageError } from "./message-error";
 import { elementContents, firstElement, metaContent, removeComments, removeElements, stripTags, titleText } from "./html-scan";
 
 /**
@@ -21,7 +22,7 @@ const DEADLINE_MS = 20_000;
 const MAX_REDIRECTS = 3;
 const USER_AGENT = "Mozilla/5.0 (compatible; SYYHoaxAnalyzer/1.0; +https://syyhoaxanalyzer.com)";
 
-export class PageError extends Error {}
+export class PageError extends MessageError {}
 
 /**
  * Every address range that is not the public internet, IPv4 and IPv6 kept in
@@ -159,7 +160,7 @@ async function fetchPublic(raw: string, blockHost?: HostFilter): Promise<Fetched
       continue;
     }
     if (res.status === 401 || res.status === 403) throw new PageError("That site does not let us read the page (it may need a login).");
-    if (res.status >= 400) throw new PageError(`The page answered with an error (${res.status}).`);
+    if (res.status >= 400) throw new PageError("The page answered with an error ({status}).", { status: String(res.status) });
     const contentType = String(res.headers["content-type"] ?? "");
     if (!/text\/html|application\/xhtml|text\/plain/.test(contentType)) throw new PageError("That link is not a web page.");
     return { url: url.toString(), contentType, body: res.body };

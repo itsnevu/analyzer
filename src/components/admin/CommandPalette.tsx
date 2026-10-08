@@ -7,6 +7,7 @@ import { VERDICT_META } from "@/lib/verdict";
 import type { ArticleListItem } from "@/lib/data";
 import { ADMIN_NAV, type AdminLink } from "./admin-nav";
 import { AdminIcon } from "./AdminIcons";
+import { useAdminT } from "./AdminLang";
 
 type Item =
   | { kind: "page"; link: AdminLink; group: string }
@@ -15,7 +16,7 @@ type Item =
   | { kind: "shortcuts" };
 
 const PAGES: Item[] = ADMIN_NAV.flatMap((g) => g.links.map((link) => ({ kind: "page" as const, link, group: g.title })));
-const SHORTCUTS_WORDS = "keyboard shortcuts keys hotkeys help ?";
+const SHORTCUTS_WORDS = "keyboard shortcuts keys hotkeys help ? pintasan papan ketik tombol bantuan";
 
 /**
  * Ctrl+K: jump to any admin page or straight to an article's edit form.
@@ -23,6 +24,7 @@ const SHORTCUTS_WORDS = "keyboard shortcuts keys hotkeys help ?";
  */
 export function CommandPalette({ onClose, onShowShortcuts }: { onClose: () => void; onShowShortcuts: () => void }) {
   const router = useRouter();
+  const { t } = useAdminT();
   const [q, setQ] = useState("");
   // Articles found for the query they were fetched with; shown only while that query is still typed.
   const [found, setFound] = useState<{ q: string; items: ArticleListItem[] }>({ q: "", items: [] });
@@ -57,14 +59,21 @@ export function CommandPalette({ onClose, onShowShortcuts }: { onClose: () => vo
 
   const items = useMemo<Item[]>(() => {
     const lower = needle.toLowerCase();
-    const pages = lower ? PAGES.filter((p) => p.kind === "page" && `${p.link.label} ${p.link.hint} ${p.group}`.toLowerCase().includes(lower)) : PAGES;
+    // Matches the page names in both languages, so "artikel" and "articles" both find it.
+    const pages = lower
+      ? PAGES.filter(
+          (p) =>
+            p.kind === "page" &&
+            `${p.link.label} ${p.link.hint} ${p.group} ${t(p.link.label)} ${t(p.link.hint)} ${t(p.group)}`.toLowerCase().includes(lower),
+        )
+      : PAGES;
     const articles = found.q === needle && needle.length >= 2 ? found.items : [];
     const list: Item[] = [...pages.slice(0, lower ? 6 : 20)];
     if (!lower || SHORTCUTS_WORDS.includes(lower)) list.push({ kind: "shortcuts" });
     list.push(...articles.map((article) => ({ kind: "article" as const, article })));
     if (needle.length >= 2) list.push({ kind: "search", q: needle });
     return list;
-  }, [needle, found]);
+  }, [needle, found, t]);
 
   // The highlighted row never points past the list, whatever arrived since the last key press.
   const active = Math.min(cursor, Math.max(0, items.length - 1));
@@ -101,7 +110,7 @@ export function CommandPalette({ onClose, onShowShortcuts }: { onClose: () => vo
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Search the panel"
+        aria-label={t("Search the panel")}
         onMouseDown={(e) => e.stopPropagation()}
         className="w-full max-w-xl overflow-hidden rounded-2xl border border-hairline bg-surface-raised shadow-neu-lg"
       >
@@ -118,15 +127,15 @@ export function CommandPalette({ onClose, onShowShortcuts }: { onClose: () => vo
               setCursor(0);
             }}
             onKeyDown={onKey}
-            placeholder="Go to a page or find an article…"
-            aria-label="Search"
+            placeholder={t("Go to a page or find an article…")}
+            aria-label={t("Search")}
             aria-activedescendant={items[active] ? `cmd-${active}` : undefined}
             className="h-12 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
           />
           <kbd className="rounded border border-hairline px-1.5 font-mono text-[10px] text-ink-faint">Esc</kbd>
         </div>
         <ul role="listbox" className="max-h-[50vh] overflow-y-auto p-2">
-          {items.length === 0 && <li className="px-3 py-6 text-center text-sm text-ink-faint">Nothing matches.</li>}
+          {items.length === 0 && <li className="px-3 py-6 text-center text-sm text-ink-faint">{t("Nothing matches.")}</li>}
           {items.map((item, i) => {
             const selected = i === active;
             const row = clsx("flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm", selected ? "bg-ink text-surface-raised" : "text-ink hover:bg-surface-sunken");
@@ -134,8 +143,8 @@ export function CommandPalette({ onClose, onShowShortcuts }: { onClose: () => vo
               return (
                 <li key={`p-${item.link.href}`} id={`cmd-${i}`} role="option" aria-selected={selected} className={row} onMouseEnter={() => setActive(i)} onClick={() => go(item)}>
                   <AdminIcon name={item.link.icon} className={clsx("h-4 w-4 shrink-0", selected ? "text-surface-raised" : "text-ink-faint")} />
-                  <span className="min-w-0 flex-1 truncate">{item.link.label}</span>
-                  <span className={clsx("truncate text-xs", selected ? "text-surface-raised/70" : "text-ink-faint")}>{item.group}</span>
+                  <span className="min-w-0 flex-1 truncate">{t(item.link.label)}</span>
+                  <span className={clsx("truncate text-xs", selected ? "text-surface-raised/70" : "text-ink-faint")}>{t(item.group)}</span>
                 </li>
               );
             }
@@ -145,7 +154,7 @@ export function CommandPalette({ onClose, onShowShortcuts }: { onClose: () => vo
                 <li key={`a-${item.article.slug}`} id={`cmd-${i}`} role="option" aria-selected={selected} className={row} onMouseEnter={() => setActive(i)} onClick={() => go(item)}>
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: m.color }} aria-hidden />
                   <span className="min-w-0 flex-1 truncate">{item.article.title}</span>
-                  <span className={clsx("shrink-0 text-xs", selected ? "text-surface-raised/70" : "text-ink-faint")}>{item.article.published ? "edit" : "hidden"}</span>
+                  <span className={clsx("shrink-0 text-xs", selected ? "text-surface-raised/70" : "text-ink-faint")}>{item.article.published ? t("Edit") : t("Hidden")}</span>
                 </li>
               );
             }
@@ -155,15 +164,15 @@ export function CommandPalette({ onClose, onShowShortcuts }: { onClose: () => vo
                   <span className={clsx("grid h-4 w-4 shrink-0 place-items-center font-mono text-xs font-bold", selected ? "text-surface-raised" : "text-ink-faint")} aria-hidden>
                     ?
                   </span>
-                  <span className="min-w-0 flex-1 truncate">Keyboard shortcuts</span>
-                  <span className={clsx("truncate text-xs", selected ? "text-surface-raised/70" : "text-ink-faint")}>Help</span>
+                  <span className="min-w-0 flex-1 truncate">{t("Keyboard shortcuts")}</span>
+                  <span className={clsx("truncate text-xs", selected ? "text-surface-raised/70" : "text-ink-faint")}>{t("Help")}</span>
                 </li>
               );
             }
             return (
               <li key="s" id={`cmd-${i}`} role="option" aria-selected={selected} className={row} onMouseEnter={() => setActive(i)} onClick={() => go(item)}>
                 <AdminIcon name="search" className={clsx("h-4 w-4 shrink-0", selected ? "text-surface-raised" : "text-ink-faint")} />
-                <span className="truncate">Search all articles for “{item.q}”</span>
+                <span className="truncate">{t("Search all articles for “{q}”", { q: item.q })}</span>
               </li>
             );
           })}

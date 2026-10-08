@@ -22,7 +22,7 @@ export function Faq() {
                 className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left sm:px-6 sm:py-5"
                 aria-expanded={isOpen}
               >
-                <span className="font-medium text-ink">{item.q}</span>
+                <span className="font-medium text-ink">{t(item.q)}</span>
                 <span
                   className={clsx(
                     "grid h-7 w-7 shrink-0 place-items-center rounded-full text-ink-muted transition-transform duration-300 motion-reduce:transition-none",
@@ -39,7 +39,7 @@ export function Faq() {
                 )}
               >
                 <div className="overflow-hidden">
-                  <p className="px-5 pb-5 text-sm leading-relaxed text-ink-muted sm:px-6">{item.a}</p>
+                  <p className="px-5 pb-5 text-sm leading-relaxed text-ink-muted sm:px-6">{t(item.a)}</p>
                 </div>
               </div>
             </div>

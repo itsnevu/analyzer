@@ -1,24 +1,32 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { getReportCounts, listReports, REPORT_STATUSES, REPORT_TYPES, type ReportKind, type ReportStatus, type ReportType } from "@/lib/reports";
 import { ReportsList } from "@/components/admin/ReportsList";
-import { formatCount } from "@/lib/sources";
+import { formatAdminNumber, tk } from "@/lib/admin-lang";
+import { getAdminT } from "@/lib/admin-lang-server";
+import { AdminPageHeader } from "@/components/admin/AdminPage";
 import { clsx } from "@/lib/clsx";
 import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Reports" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getAdminT();
+  return { title: t("Reports") };
+}
 
 type Params = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 const KINDS: { key: "" | ReportKind; label: string }[] = [
-  { key: "", label: "Everything" },
-  { key: "report", label: "Hoax reports" },
-  { key: "contact", label: "Contact messages" },
+  { key: "", label: tk("Everything") },
+  { key: "report", label: tk("Hoax reports") },
+  { key: "contact", label: tk("Contact messages") },
 ];
 
 export default async function AdminReportsPage({ searchParams }: { searchParams: Promise<Params> }) {
   await requireAdmin();
+  const { t, lang } = await getAdminT();
   const sp = await searchParams;
   const kind = one(sp.kind) === "report" || one(sp.kind) === "contact" ? (one(sp.kind) as ReportKind) : undefined;
   const type = one(sp.type) in REPORT_TYPES ? (one(sp.type) as ReportType) : undefined;
@@ -37,25 +45,28 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
   };
   const chip = (active: boolean) =>
     clsx("rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors", active ? "bg-ink text-surface-raised" : "text-ink-muted hover:bg-surface-sunken hover:text-ink");
-  const count = (n: number, active: boolean) => <span className={clsx("ml-1 tabular-nums", active ? "opacity-70" : "text-ink-faint")}>{formatCount(n)}</span>;
+  const count = (n: number, active: boolean) => <span className={clsx("ml-1 tabular-nums", active ? "opacity-70" : "text-ink-faint")}>{formatAdminNumber(n, lang)}</span>;
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">
-          Reports ({formatCount(counts.total)})
-          {counts.unread > 0 && <span className="ml-2 align-middle text-sm font-medium text-verdict-hoax">{counts.unread} unread</span>}
-        </h1>
-        <p className="mt-1 max-w-3xl text-sm text-ink-muted">
-          What people reported or wrote in. Open one to see the fact-checks already in the archive about it, send it to the detection lab,
-          turn it into a draft, leave a note, or mark which article answers it.
-        </p>
-      </div>
+      <AdminPageHeader
+        className="mb-0"
+        title={t("Reports")}
+        count={counts.total}
+        description={t("Hoaxes and mistakes visitors reported, and messages they sent. Open one to see related fact-checks, leave a note, or mark it done.")}
+        actions={
+          counts.unread > 0 ? (
+            <Link href="/admin/reports?unread=1" className="rounded-full bg-verdict-hoax/10 px-3.5 py-1.5 text-sm font-medium text-verdict-hoax hover:bg-verdict-hoax/20">
+              {t("{n} unread", { n: counts.unread })}
+            </Link>
+          ) : undefined
+        }
+      />
 
       <div className="neu flex flex-wrap items-center gap-1 p-2">
         {KINDS.map((k) => (
           <Link key={k.key} href={href({ kind: k.key })} className={chip((kind ?? "") === k.key)}>
-            {k.label}
+            {t(k.label)}
           </Link>
         ))}
         {kind !== "contact" && (
@@ -63,7 +74,7 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
             <span className="mx-1 hidden h-5 w-px bg-hairline sm:block" />
             {(Object.keys(REPORT_TYPES) as ReportType[]).map((key) => (
               <Link key={key} href={href({ type: type === key ? "" : key, kind: kind ?? "report" })} className={chip(type === key)}>
-                {REPORT_TYPES[key]}
+                {t(REPORT_TYPES[key])}
               </Link>
             ))}
           </>
@@ -72,17 +83,19 @@ export default async function AdminReportsPage({ searchParams }: { searchParams:
 
       <div className="neu flex flex-wrap items-center gap-1 p-2">
         <Link href={href({ status: "" })} className={chip(!status)}>
-          Any status{count(scoped.total, !status)}
+          {t("Any status")}
+          {count(scoped.total, !status)}
         </Link>
         {(Object.keys(REPORT_STATUSES) as ReportStatus[]).map((key) => (
           <Link key={key} href={href({ status: status === key ? "" : key })} className={chip(status === key)}>
-            {REPORT_STATUSES[key]}
+            {t(REPORT_STATUSES[key])}
             {count(scoped.byStatus[key], status === key)}
           </Link>
         ))}
         <span className="mx-1 hidden h-5 w-px bg-hairline sm:block" />
         <Link href={href({ unread: unread ? "" : "1" })} className={chip(unread)}>
-          Unread only{count(scoped.unread, unread)}
+          {t("Unread only")}
+          {count(scoped.unread, unread)}
         </Link>
       </div>
 

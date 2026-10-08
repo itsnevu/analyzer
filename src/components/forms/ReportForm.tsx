@@ -6,15 +6,20 @@ import { REPORT_DRAFT_KEY, type ReportDraft, type ReportType } from "@/lib/repor
 import { FormStatus, Honeypot, fieldClass } from "./ContactForm";
 import { clsx } from "@/lib/clsx";
 import { usageMeta } from "@/lib/usage-client";
+import { useI18n } from "@/lib/i18n";
+import { tk } from "@/lib/site-lang";
+import { rich } from "@/components/ui/Rich";
 
 const TYPES: { key: ReportType; title: string; hint: string }[] = [
-  { key: "hoax", title: "I found a possible hoax", hint: "A message, post or article you want checked." },
-  { key: "wrong-result", title: "The detector got it wrong", hint: "A result that seems incorrect." },
-  { key: "correction", title: "A fact-check needs fixing", hint: "An error in one of our archive articles." },
+  { key: "hoax", title: tk("I found a possible hoax"), hint: tk("A message, post or article you want checked.") },
+  { key: "wrong-result", title: tk("The detector got it wrong"), hint: tk("A result that seems incorrect.") },
+  { key: "correction", title: tk("A fact-check needs fixing"), hint: tk("An error in one of our archive articles.") },
 ];
-const PLATFORMS = ["WhatsApp", "Facebook", "Instagram", "TikTok", "X / Twitter", "YouTube", "Telegram", "Website", "Other"];
+/** Submitted as is (the value); only the shown name is translated. */
+const PLATFORMS = ["WhatsApp", "Facebook", "Instagram", "TikTok", "X / Twitter", "YouTube", "Telegram", tk("Website"), tk("Other")];
 
 export function ReportForm() {
+  const { t } = useI18n();
   const [type, setType] = useState<ReportType>("hoax");
   const [content, setContent] = useState("");
   const [detectedVerdict, setDetectedVerdict] = useState("");
@@ -50,7 +55,7 @@ export function ReportForm() {
     const file = data.get("screenshot");
     if (file instanceof File && file.size > 5 * 1024 * 1024) {
       setStatus("error");
-      setMsg("The screenshot is larger than 5 MB.");
+      setMsg(t("The screenshot is larger than 5 MB."));
       return;
     }
     setStatus("sending");
@@ -58,31 +63,31 @@ export function ReportForm() {
     try {
       const res = await fetch("/api/report", { method: "POST", body: data });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed to send.");
+      if (!res.ok) throw new Error(json.error ?? t("Failed to send."));
       setStatus("ok");
-      setMsg(json.message ?? "Sent.");
+      setMsg(json.message ?? t("Sent."));
       setNumber(json.number ?? "");
       form.reset();
       setContent("");
       setDetectedVerdict("");
     } catch (err) {
       setStatus("error");
-      setMsg(err instanceof Error ? err.message : "Something went wrong.");
+      setMsg(err instanceof Error ? err.message : t("Something went wrong."));
     }
   }
 
   if (status === "ok") {
     return (
       <div className="neu space-y-4 p-6 text-center sm:p-8">
-        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-faint">Report received</div>
+        <div className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-faint">{t("Report received")}</div>
         {number && <div className="font-mono text-3xl font-bold">{number}</div>}
-        <p className="text-sm text-ink-muted">{msg} Keep this number if you want to ask about it later.</p>
+        <p className="text-sm text-ink-muted">{msg} {t("Keep this number if you want to ask about it later.")}</p>
         <div className="flex flex-wrap justify-center gap-2">
           <button onClick={() => setStatus("idle")} className="neu-btn px-5 py-2.5 text-sm">
-            Send another report
+            {t("Send another report")}
           </button>
           <Link href="/detector" className="btn-primary px-5 py-2.5 text-sm">
-            Check something else
+            {t("Check something else")}
           </Link>
         </div>
       </div>
@@ -94,19 +99,19 @@ export function ReportForm() {
       <Honeypot />
 
       <fieldset>
-        <legend className="mb-2 text-xs font-medium text-ink-muted">What are you reporting? *</legend>
+        <legend className="mb-2 text-xs font-medium text-ink-muted">{t("What are you reporting?")} *</legend>
         <div className="grid gap-2 sm:grid-cols-3">
-          {TYPES.map((t) => (
+          {TYPES.map((o) => (
             <label
-              key={t.key}
+              key={o.key}
               className={clsx(
                 "cursor-pointer rounded-xl border p-3 text-sm transition-colors",
-                type === t.key ? "border-ink bg-surface-sunken" : "border-hairline hover:border-ink/40",
+                type === o.key ? "border-ink bg-surface-sunken" : "border-hairline hover:border-ink/40",
               )}
             >
-              <input type="radio" name="reportTypeChoice" value={t.key} checked={type === t.key} onChange={() => setType(t.key)} className="sr-only" />
-              <span className="block font-medium text-ink">{t.title}</span>
-              <span className="mt-0.5 block text-xs text-ink-faint">{t.hint}</span>
+              <input type="radio" name="reportTypeChoice" value={o.key} checked={type === o.key} onChange={() => setType(o.key)} className="sr-only" />
+              <span className="block font-medium text-ink">{t(o.title)}</span>
+              <span className="mt-0.5 block text-xs text-ink-faint">{t(o.hint)}</span>
             </label>
           ))}
         </div>
@@ -114,7 +119,7 @@ export function ReportForm() {
 
       <label className="block">
         <span className="mb-1.5 block text-xs font-medium text-ink-muted">
-          {type === "correction" ? "Link to the article and what is wrong *" : "The message, headline or link *"}
+          {type === "correction" ? t("Link to the article and what is wrong") : t("The message, headline or link")} *
         </span>
         <textarea
           name="content"
@@ -124,30 +129,32 @@ export function ReportForm() {
           rows={5}
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Paste it here…"
+          placeholder={t("Paste it here…")}
           className={clsx(fieldClass, "resize-y")}
         />
         {detectedVerdict && (
           <span className="mt-1 block text-xs text-ink-faint">
-            The detector rated this <strong>{detectedVerdict}</strong>. Tell us below why you think that is wrong.
+            {rich(t("The detector rated this <b>{verdict}</b>. Tell us below why you think that is wrong."), {
+              b: (s) => <strong>{s.replace("{verdict}", detectedVerdict)}</strong>,
+            })}
           </span>
         )}
       </label>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-ink-muted">Where did you see it?</span>
+          <span className="mb-1.5 block text-xs font-medium text-ink-muted">{t("Where did you see it?")}</span>
           <select name="platform" defaultValue="" className={fieldClass}>
-            <option value="">Choose…</option>
+            <option value="">{t("Choose…")}</option>
             {PLATFORMS.map((p) => (
               <option key={p} value={p}>
-                {p}
+                {t(p)}
               </option>
             ))}
           </select>
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-ink-muted">Screenshot (optional, max 5 MB)</span>
+          <span className="mb-1.5 block text-xs font-medium text-ink-muted">{t("Screenshot (optional, max 5 MB)")}</span>
           <input
             type="file"
             name="screenshot"
@@ -158,25 +165,33 @@ export function ReportForm() {
       </div>
 
       <label className="block">
-        <span className="mb-1.5 block text-xs font-medium text-ink-muted">Anything else we should know?</span>
+        <span className="mb-1.5 block text-xs font-medium text-ink-muted">{t("Anything else we should know?")}</span>
         <textarea name="message" rows={3} maxLength={5000} className={clsx(fieldClass, "resize-y")} />
       </label>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-ink-muted">Your name (optional)</span>
+          <span className="mb-1.5 block text-xs font-medium text-ink-muted">{t("Your name (optional)")}</span>
           <input name="name" maxLength={80} autoComplete="name" className={fieldClass} />
         </label>
         <label className="block">
-          <span className="mb-1.5 block text-xs font-medium text-ink-muted">Email (optional, for a reply)</span>
-          <input name="email" type="email" maxLength={200} autoComplete="email" placeholder="you@email.com" className={fieldClass} />
+          <span className="mb-1.5 block text-xs font-medium text-ink-muted">{t("Email (optional, for a reply)")}</span>
+          <input name="email" type="email" maxLength={200} autoComplete="email" placeholder={t("you@email.com")} className={fieldClass} />
         </label>
       </div>
 
       <button type="submit" disabled={status === "sending"} className="btn-primary w-full py-3.5">
-        {status === "sending" ? "Sending…" : "Send report"}
+        {status === "sending" ? t("form.sending") : t("Send report")}
       </button>
-      <p className="text-center text-xs text-ink-faint">Screenshots are re-saved without their location data. Reports are stored with your IP address and device details (<Link href="/privacy" className="underline">privacy</Link>); only the admin can see them.</p>
+      <p className="text-center text-xs text-ink-faint">
+        {rich(t("Screenshots are re-saved without their location data. Reports are stored with your IP address and device details (<link>privacy</link>); only the admin can see them."), {
+          link: (s) => (
+            <Link href="/privacy" className="underline">
+              {s}
+            </Link>
+          ),
+        })}
+      </p>
 
       <FormStatus status={status} message={msg} />
     </form>

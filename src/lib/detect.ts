@@ -34,6 +34,7 @@
 import { detectLanguage, type Lang } from "./language";
 import { predictBaseline, type BaselinePrediction } from "./baseline";
 import type { ArticleListItem } from "./data";
+import { makeSiteT, tk, type SiteVars } from "./site-lang";
 
 export type Verdict = "valid" | "misleading" | "hoax";
 
@@ -53,6 +54,26 @@ export interface DetectionSignal {
   kind: "risk" | "trust";
 }
 
+/**
+ * One sentence of an explanation the site wrote itself, as a site-language key
+ * (lib/site-lang: the English text) and its values, so the result card can show
+ * it in the visitor's language. Indonesian: lib/site-i18n/detector.ts.
+ */
+export interface ExplanationPart {
+  key: string;
+  vars?: SiteVars;
+}
+
+const english = makeSiteT("en");
+
+/** The English text of an explanation, as the `explanation` field carries it. */
+export function explanationText(parts: ExplanationPart[]): string {
+  return parts.map((p) => english(p.key, p.vars)).join(" ");
+}
+
+/** The `explanation` and `explanationParts` fields for a list of sentences. */
+export const explained = (parts: ExplanationPart[]) => ({ explanation: explanationText(parts), explanationParts: parts });
+
 export interface DetectionResult {
   verdict: Verdict;
   /** 0..1 confidence that the verdict is correct */
@@ -63,6 +84,12 @@ export interface DetectionResult {
   languageConfidence: number;
   category: string;
   explanation: string;
+  /**
+   * The explanation as translatable sentences when the site wrote it (local
+   * engines, archive match); `explanation` is their English text. Absent for an
+   * external model's own explanation, which is shown as it is.
+   */
+  explanationParts?: ExplanationPart[];
   references: Reference[];
   /** markers that influenced the score, shown as a breakdown in the UI */
   signals: DetectionSignal[];
@@ -277,7 +304,7 @@ function localDetection(
     language: lang,
     languageConfidence: langConf,
     category: categoryOf(verdict),
-    explanation: buildExplanation(verdict, hits),
+    ...explained(buildExplanation(verdict, hits)),
     references: SAMPLE_REFERENCES,
     signals,
     model: "local-heuristic-stub",
@@ -286,7 +313,12 @@ function localDetection(
   };
 }
 
-const VERDICT_PHRASE: Record<Verdict, string> = { hoax: "a hoax", misleading: "misleading", valid: "credible" };
+/** The opening sentence of the trained classifier's explanation, per verdict. */
+const BASELINE_LEAD: Record<Verdict, string> = {
+  hoax: tk("The detection model, trained on thousands of published fact-checks, read this text as a hoax (hoax {hoax}, misleading {misleading}, credible {credible})."),
+  misleading: tk("The detection model, trained on thousands of published fact-checks, read this text as misleading (hoax {hoax}, misleading {misleading}, credible {credible})."),
+  valid: tk("The detection model, trained on thousands of published fact-checks, read this text as credible (hoax {hoax}, misleading {misleading}, credible {credible})."),
+};
 
 /** The trained classifier's answer in the shape of a detection, with its strongest cues as signals. */
 function baselineDetection(p: BaselinePrediction, surface: DetectionSignal[], lang: Lang, langConf: number): DetectionResult {
@@ -295,13 +327,13 @@ function baselineDetection(p: BaselinePrediction, surface: DetectionSignal[], la
   const risk = quoted("risk");
   const trust = quoted("trust");
   const cues: DetectionSignal[] = p.topFeatures.slice(0, 6).map((f) => ({ label: `${f.token.includes(" ") ? "phrase" : "word"}: ${f.token}`, kind: f.kind }));
-  const explanation =
-    `The detection model, trained on thousands of published fact-checks, read this text as ${VERDICT_PHRASE[p.verdict]} ` +
-    `(hoax ${pct(p.probabilities.hoax)}, misleading ${pct(p.probabilities.misleading)}, credible ${pct(p.probabilities.valid)}). ` +
-    "It weighs the wording against claims that fact-checkers have debunked or confirmed; it does not verify facts." +
-    (risk.length ? ` Strongest cues toward hoax: ${risk.join(", ")}.` : "") +
-    (trust.length ? ` Toward credible: ${trust.join(", ")}.` : "") +
-    " Verify with official sources before sharing.";
+  const parts: ExplanationPart[] = [
+    { key: BASELINE_LEAD[p.verdict], vars: { hoax: pct(p.probabilities.hoax), misleading: pct(p.probabilities.misleading), credible: pct(p.probabilities.valid) } },
+    { key: tk("It weighs the wording against claims that fact-checkers have debunked or confirmed; it does not verify facts.") },
+  ];
+  if (risk.length) parts.push({ key: tk("Strongest cues toward hoax: {cues}."), vars: { cues: risk.join(", ") } });
+  if (trust.length) parts.push({ key: tk("Toward credible: {cues}."), vars: { cues: trust.join(", ") } });
+  parts.push({ key: tk("Verify with official sources before sharing.") });
   return {
     verdict: p.verdict,
     confidence: p.confidence,
@@ -309,7 +341,7 @@ function baselineDetection(p: BaselinePrediction, surface: DetectionSignal[], la
     language: lang,
     languageConfidence: langConf,
     category: categoryOf(p.verdict),
-    explanation,
+    ...explained(parts),
     references: SAMPLE_REFERENCES,
     signals: [...cues, ...surface],
     model: p.model,
@@ -318,32 +350,32 @@ function baselineDetection(p: BaselinePrediction, surface: DetectionSignal[], la
   };
 }
 
-function buildExplanation(v: Verdict, hits: number): string {
+function buildExplanation(v: Verdict, hits: number): ExplanationPart[] {
   if (v === "hoax")
-    return `The text shows ${hits} hoax-pattern markers (calls to share, absolute claims, excessive capitals) and matches known disinformation patterns in the reference base. Verify with official sources before sharing.`;
+    return [{ key: tk("The text shows {n} hoax-pattern markers (calls to share, absolute claims, excessive capitals) and matches known disinformation patterns in the reference base. Verify with official sources before sharing."), vars: { n: hits } }];
   if (v === "misleading")
-    return `The text carries some misleading markers but is not conclusive. It may be partly true yet framed in a misleading way. Check the related references below.`;
-  return `No strong hoax markers were found. The text reads like a credible source, but always cross-check for important decisions.`;
+    return [{ key: tk("The text carries some misleading markers but is not conclusive. It may be partly true yet framed in a misleading way. Check the related references below.") }];
+  return [{ key: tk("No strong hoax markers were found. The text reads like a credible source, but always cross-check for important decisions.") }];
 }
 
+/** Shown with every local-engine result; the result card shows these texts in the visitor's language. */
 const SAMPLE_REFERENCES: Reference[] = [
   {
-    title: "Guide to Fighting Hoaxes, turnbackhoax.id",
+    title: tk("Guide to Fighting Hoaxes, turnbackhoax.id"),
     source: "MAFINDO / turnbackhoax.id",
     url: "https://turnbackhoax.id/",
-    snippet:
-      "Community fact-check database for Indonesian-language news.",
+    snippet: tk("Community fact-check database for Indonesian-language news."),
   },
   {
-    title: "Fact Check, Kominfo",
-    source: "Indonesian Ministry of Communication (Kominfo)",
+    title: tk("Fact Check, Kominfo"),
+    source: tk("Indonesian Ministry of Communication (Kominfo)"),
     url: "https://www.kominfo.go.id/",
-    snippet: "Official clarifications of hoaxes circulating in public.",
+    snippet: tk("Official clarifications of hoaxes circulating in public."),
   },
   {
-    title: "How to spot fake news, IFLA",
+    title: tk("How to spot fake news, IFLA"),
     source: "IFLA",
     url: "https://www.ifla.org/",
-    snippet: "Eight steps to evaluate the credibility of a news item.",
+    snippet: tk("Eight steps to evaluate the credibility of a news item."),
   },
 ];

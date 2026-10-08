@@ -2,6 +2,8 @@
 
 import { useLayoutEffect, useSyncExternalStore } from "react";
 import { clsx } from "@/lib/clsx";
+import { useI18n } from "@/lib/i18n";
+import { tk } from "@/lib/site-lang";
 
 /**
  * Round button cycling System → Light → Dark. The choice lives in
@@ -15,7 +17,9 @@ export type Theme = "system" | "light" | "dark";
 const KEY = "theme";
 const EVENT = "hoax-theme";
 const ORDER: Theme[] = ["system", "light", "dark"];
-const LABEL: Record<Theme, string> = { system: "System", light: "Light", dark: "Dark" };
+const LABEL: Record<Theme, string> = { system: tk("System"), light: tk("Light"), dark: tk("Dark") };
+/** The same names inside a sentence ("switch to dark"). */
+const LABEL_LOWER: Record<Theme, string> = { system: tk("system"), light: tk("light"), dark: tk("dark") };
 /** Must match --surface in globals.css and viewport.themeColor in the root layout. */
 const BAR_COLOR = { light: "#faf9f6", dark: "#171716" } as const;
 
@@ -88,6 +92,7 @@ function Icon({ theme, className }: { theme: Theme; className?: string }) {
 export function ThemeToggle({ className }: { className?: string }) {
   // The server knows nothing about the visitor's choice, so it renders "system" and the client catches up without a mismatch.
   const theme = useSyncExternalStore(subscribe, readStored, () => "system" as Theme);
+  const { t } = useI18n();
 
   // In development React's Strict Mode remount clears the attribute the inline script set; put it back before paint.
   useLayoutEffect(() => {
@@ -99,8 +104,8 @@ export function ThemeToggle({ className }: { className?: string }) {
     <button
       type="button"
       onClick={() => setTheme(next)}
-      aria-label={`Theme: ${LABEL[theme]}. Switch to ${LABEL[next].toLowerCase()}`}
-      title={`Theme: ${LABEL[theme]} (click for ${LABEL[next].toLowerCase()})`}
+      aria-label={t("Theme: {current}. Switch to {next}", { current: t(LABEL[theme]), next: t(LABEL_LOWER[next]) })}
+      title={t("Theme: {current} (click for {next})", { current: t(LABEL[theme]), next: t(LABEL_LOWER[next]) })}
       className={clsx("neu-btn h-10 w-10 place-items-center", className ?? "grid")}
     >
       <Icon theme={theme} className="h-[18px] w-[18px]" />

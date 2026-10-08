@@ -1,12 +1,17 @@
-"use client";
-
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ContactForm } from "@/components/forms/ContactForm";
-import { useI18n } from "@/lib/i18n";
+import { getSiteT } from "@/lib/site-lang-server";
+import { rich } from "@/components/ui/Rich";
 
-export default function ContactPage() {
-  const { t } = useI18n();
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getSiteT();
+  return { title: t("contact.eyebrow") };
+}
+
+export default async function ContactPage() {
+  const { t } = await getSiteT();
   return (
     <>
       <PageHeader eyebrowKey="contact.eyebrow" titleKey="contact.title" introKey="contact.intro" />
@@ -31,11 +36,13 @@ export default function ContactPage() {
               <p className="mt-3 text-sm text-ink-muted">{t("contact.researchBody")}</p>
             </div>
             <div className="neu-inset p-6 text-sm text-ink-muted">
-              Want to report a hoax or a wrong result? Use the{" "}
-              <Link href="/report" className="text-brand-to hover:underline">
-                report form
-              </Link>
-              ; it gives you a report number.
+              {rich(t("Want to report a hoax or a wrong result? Use the <link>report form</link>; it gives you a report number."), {
+                link: (s) => (
+                  <Link href="/report" className="text-brand-to hover:underline">
+                    {s}
+                  </Link>
+                ),
+              })}
             </div>
           </div>
           <ContactForm />

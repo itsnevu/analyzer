@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { formatCount, sourceName } from "@/lib/sources";
 import { Section } from "@/components/ui/Section";
+import { useI18n } from "@/lib/i18n";
 
 export interface SourceCount {
   site: string;
@@ -10,6 +11,7 @@ export interface SourceCount {
 }
 
 function Row({ sources }: { sources: SourceCount[] }) {
+  const { lang } = useI18n();
   return (
     <div className="flex shrink-0 items-center gap-10 px-5">
       {sources.map((s) => (
@@ -19,7 +21,7 @@ function Row({ sources }: { sources: SourceCount[] }) {
           className="flex items-baseline gap-2 whitespace-nowrap text-sm font-semibold uppercase tracking-wider text-ink-faint transition-colors hover:text-ink"
         >
           {sourceName(s.site)}
-          <span className="font-mono text-[11px] font-medium normal-case tracking-normal text-ink-faint/80">{formatCount(s.count)}</span>
+          <span className="font-mono text-[11px] font-medium normal-case tracking-normal text-ink-faint/80">{formatCount(s.count, lang)}</span>
         </Link>
       ))}
     </div>
@@ -28,11 +30,12 @@ function Row({ sources }: { sources: SourceCount[] }) {
 
 /** The fact-checking sites the archive was collected from, with how many entries each contributed. */
 export function SourcesMarquee({ sources }: { sources: SourceCount[] }) {
+  const { t } = useI18n();
   if (sources.length === 0) return null;
   return (
     <Section tight>
       <p className="mb-4 text-center text-xs font-semibold uppercase tracking-[0.22em] text-ink-faint">
-        Archive built from these fact-checking sources
+        {t("Archive built from these fact-checking sources")}
       </p>
       <div className="neu-inset group relative overflow-hidden rounded-2xl py-5">
         {/* edge fades */}

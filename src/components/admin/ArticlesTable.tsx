@@ -6,8 +6,10 @@ import { useState } from "react";
 import type { ArticleListEntry } from "@/lib/articles";
 import type { Verdict } from "@/lib/detect";
 import { clsx } from "@/lib/clsx";
-import { LANGUAGE_NAME, formatCount, formatDate, sourceName } from "@/lib/sources";
+import { adminLocale, formatAdminNumber, type AdminLang } from "@/lib/admin-lang";
+import { LANGUAGE_NAME, sourceName } from "@/lib/sources";
 import { VERDICT_META } from "@/lib/verdict";
+import { useAdminT } from "@/components/admin/AdminLang";
 import { DataGrid, type GridColumn, type GridPaging } from "@/components/admin/DataGrid";
 import { useToast } from "@/components/admin/Toast";
 
@@ -15,18 +17,21 @@ type BulkAction = "publish" | "hide" | "delete" | "verdict";
 
 const EMPTY: ReadonlySet<string> = new Set();
 
-const field = "h-7 rounded-md border border-hairline bg-surface-raised px-2 text-xs text-ink outline-none focus:ring-2 focus:ring-brand/30";
+const field = "h-8 rounded-md border border-hairline bg-surface-raised px-2 text-sm text-ink outline-none focus:ring-2 focus:ring-brand/30";
 const pill =
-  "whitespace-nowrap rounded-full border border-hairline px-3 py-1 text-xs font-medium transition-colors hover:border-ink disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40";
+  "whitespace-nowrap rounded-full border border-hairline px-3 py-1.5 text-sm font-medium transition-colors hover:border-ink disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40";
 
-/** "2026-10-07 13:45:12" (SQLite, UTC) → "Oct 7, 2026". */
-function stampDate(stamp: string): string {
-  return formatDate(stamp.slice(0, 10)) || "—";
+/** "2019-04-06" → "Apr 6, 2019" / "6 Apr 2019"; "" or junk → "—". */
+function dayLabel(date: string, lang: AdminLang): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "—";
+  const d = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString(adminLocale(lang), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }
 
 function Chip({ children, title }: { children: React.ReactNode; title?: string }) {
   return (
-    <span title={title} className="shrink-0 rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">
+    <span title={title} className="shrink-0 rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
       {children}
     </span>
   );
@@ -53,6 +58,7 @@ export function ArticlesTable({
   exportHref: string;
 }) {
   const router = useRouter();
+  const { t, lang } = useAdminT();
   const [busy, setBusy] = useState<string | null>(null);
   const [bulkVerdict, setBulkVerdict] = useState<Verdict>("hoax");
   const toast = useToast();
@@ -66,33 +72,39 @@ export function ArticlesTable({
   const onPage = slugs.filter((s) => selected.has(s));
 
   async function remove(slug: string, title: string) {
-    if (!confirm(`Delete article "${title}"? This cannot be undone.`)) return;
+    if (!confirm(t("Delete the article “{title}”? This cannot be undone.", { title }))) return;
     setBusy(slug);
     try {
       const res = await fetch(`/api/admin/articles/${slug}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
-      toast({ tone: "success", text: `Deleted “${title}”.` });
+      toast({ tone: "success", text: t("Deleted “{title}”.", { title }) });
       router.refresh();
     } catch {
-      toast({ tone: "error", text: "Failed to delete the article." });
+      toast({ tone: "error", text: t("Could not delete the article.") });
     } finally {
       setBusy(null);
     }
   }
 
+  function question(action: BulkAction, n: number): string {
+    const verdict = t(VERDICT_META[bulkVerdict].label);
+    if (action === "delete") return n === 1 ? t("Delete 1 article? This cannot be undone.") : t("Delete {n} articles? This cannot be undone.", { n });
+    if (action === "verdict") return n === 1 ? t("Change the verdict of 1 article to “{verdict}”?", { verdict }) : t("Change the verdict of {n} articles to “{verdict}”?", { n, verdict });
+    if (action === "hide") return n === 1 ? t("Hide 1 article from the site?") : t("Hide {n} articles from the site?", { n });
+    return n === 1 ? t("Publish 1 article on the site?") : t("Publish {n} articles on the site?", { n });
+  }
+
+  function doneText(action: BulkAction, n: number): string {
+    if (action === "delete") return n === 1 ? t("1 article deleted.") : t("{n} articles deleted.", { n });
+    if (action === "hide") return n === 1 ? t("1 article hidden.") : t("{n} articles hidden.", { n });
+    if (action === "publish") return n === 1 ? t("1 article published.") : t("{n} articles published.", { n });
+    return n === 1 ? t("Verdict changed for 1 article.") : t("Verdict changed for {n} articles.", { n });
+  }
+
   async function bulk(action: BulkAction) {
     const chosen = onPage;
     if (!chosen.length || busy) return;
-    const n = chosen.length;
-    const what =
-      action === "delete"
-        ? `Delete ${n} article${n === 1 ? "" : "s"}? This cannot be undone.`
-        : action === "verdict"
-          ? `Set the verdict of ${n} article${n === 1 ? "" : "s"} to "${VERDICT_META[bulkVerdict].labelEn}"?`
-          : action === "hide"
-            ? `Hide ${n} article${n === 1 ? "" : "s"} from the public site?`
-            : `Publish ${n} article${n === 1 ? "" : "s"}?`;
-    if (!confirm(what)) return;
+    if (!confirm(question(action, chosen.length))) return;
     setBusy("bulk");
     try {
       const res = await fetch("/api/admin/articles/bulk", {
@@ -101,25 +113,26 @@ export function ArticlesTable({
         body: JSON.stringify({ slugs: chosen, action, verdict: action === "verdict" ? bulkVerdict : undefined }),
       });
       const data = (await res.json().catch(() => ({}))) as { changed?: number; error?: string };
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      const verb = action === "delete" ? "Deleted" : action === "hide" ? "Hid" : action === "publish" ? "Published" : `Set the verdict of`;
-      toast({ tone: "success", text: `${verb} ${data.changed ?? 0} article${data.changed === 1 ? "" : "s"}.` });
+      if (!res.ok) throw new Error(data.error ?? t("The action did not work."));
+      toast({ tone: "success", text: doneText(action, data.changed ?? 0) });
       setSelected(new Set());
       router.refresh();
     } catch (err) {
-      toast({ tone: "error", text: err instanceof Error && err.message ? err.message : "The action failed." });
+      toast({ tone: "error", text: err instanceof Error && err.message ? err.message : t("The action did not work.") });
     } finally {
       setBusy(null);
     }
   }
 
+  const verdictOptions = (["hoax", "misleading", "valid"] as const).map((v) => ({ value: v, label: t(VERDICT_META[v].label) }));
+
   const columns: GridColumn<ArticleListEntry>[] = [
     {
       key: "title",
-      header: "Title",
+      header: t("Title"),
       sortable: true,
       param: "q",
-      filter: { type: "text", placeholder: "Search title or text…" },
+      filter: { type: "text", placeholder: t("Search title or text…") },
       className: "min-w-[280px]",
       render: (a) => (
         <div className="min-w-0">
@@ -131,8 +144,8 @@ export function ArticlesTable({
             >
               {a.title}
             </Link>
-            {!a.published && <Chip>hidden</Chip>}
-            {!a.hasText && <Chip title="Title and verdict only; no text of its own">link-only</Chip>}
+            {!a.published && <Chip>{t("Hidden")}</Chip>}
+            {!a.hasText && <Chip title={t("Only a title and a verdict; no text of its own")}>{t("Link only")}</Chip>}
           </div>
           {a.category && <div className="truncate text-xs text-ink-faint">{a.category}</div>}
         </div>
@@ -140,106 +153,98 @@ export function ArticlesTable({
     },
     {
       key: "verdict",
-      header: "Verdict",
+      header: t("Verdict"),
       width: "120px",
-      filter: {
-        type: "select",
-        options: [
-          { value: "hoax", label: "Hoax" },
-          { value: "misleading", label: "Misleading" },
-          { value: "valid", label: "Credible" },
-        ],
-        placeholder: "Any",
-      },
+      filter: { type: "select", options: verdictOptions, placeholder: t("Any") },
       render: (a) => (
-        <span className="text-xs font-semibold" style={{ color: VERDICT_META[a.verdict].color }}>
-          {VERDICT_META[a.verdict].labelEn}
+        <span className="text-sm font-semibold" style={{ color: VERDICT_META[a.verdict].color }}>
+          {t(VERDICT_META[a.verdict].label)}
         </span>
       ),
     },
     {
       key: "lang",
-      header: "Language",
+      header: t("Language"),
       width: "120px",
       filter: {
         type: "select",
         options: [
-          { value: "id", label: "Indonesian" },
-          { value: "en", label: "English" },
+          { value: "id", label: t("Indonesian") },
+          { value: "en", label: t("English") },
         ],
-        placeholder: "Any",
+        placeholder: t("Any"),
       },
-      render: (a) => <span className="text-xs text-ink-muted">{LANGUAGE_NAME[a.lang] ?? a.lang}</span>,
+      render: (a) => <span className="text-sm text-ink-muted">{LANGUAGE_NAME[a.lang] ? t(LANGUAGE_NAME[a.lang]) : a.lang}</span>,
     },
     {
       key: "source",
-      header: "Source",
+      header: t("Source"),
       width: "160px",
       filter: {
         type: "select",
-        options: sources.map((s) => ({ value: s.site, label: `${sourceName(s.site)} (${formatCount(s.count)})` })),
-        placeholder: "All sources",
+        options: sources.map((s) => ({ value: s.site, label: `${sourceName(s.site)} (${formatAdminNumber(s.count, lang)})` })),
+        placeholder: t("All sources"),
       },
       render: (a) => (
-        <span className="block max-w-[160px] truncate text-xs text-ink-muted" title={a.sourceSite || undefined}>
-          {a.sourceSite ? sourceName(a.sourceSite) : "written here"}
+        <span className="block max-w-[160px] truncate text-sm text-ink-muted" title={a.sourceSite || undefined}>
+          {a.sourceSite ? sourceName(a.sourceSite) : t("Written here")}
         </span>
       ),
     },
     {
       key: "date",
-      header: "Date",
-      width: "120px",
+      header: t("Date"),
+      width: "125px",
       sortable: true,
       param: "year",
-      filter: { type: "select", options: years.map((y) => ({ value: y, label: y })), placeholder: "Any year" },
-      render: (a) => <span className="whitespace-nowrap text-xs text-ink-muted">{formatDate(a.date) || "—"}</span>,
+      filter: { type: "select", options: years.map((y) => ({ value: y, label: y })), placeholder: t("Any year") },
+      render: (a) => <span className="whitespace-nowrap text-sm text-ink-muted">{dayLabel(a.date, lang)}</span>,
     },
     {
       key: "updated",
-      header: "Updated",
-      width: "115px",
+      header: t("Last changed"),
+      width: "125px",
       sortable: true,
       render: (a) => (
-        <span className="whitespace-nowrap text-xs text-ink-muted" title={a.updatedAt ? `${a.updatedAt} UTC` : undefined}>
-          {a.updatedAt ? stampDate(a.updatedAt) : "—"}
+        <span className="whitespace-nowrap text-sm text-ink-muted" title={a.updatedAt ? `${a.updatedAt} UTC` : undefined}>
+          {a.updatedAt ? dayLabel(a.updatedAt.slice(0, 10), lang) : "—"}
         </span>
       ),
     },
     {
       key: "created",
-      header: "Created",
-      width: "115px",
+      header: t("Added"),
+      width: "125px",
       sortable: true,
       render: (a) => (
-        <span className="whitespace-nowrap text-xs text-ink-faint" title={a.createdAt ? `${a.createdAt} UTC` : undefined}>
-          {a.createdAt ? stampDate(a.createdAt) : "—"}
+        <span className="whitespace-nowrap text-sm text-ink-faint" title={a.createdAt ? `${a.createdAt} UTC` : undefined}>
+          {a.createdAt ? dayLabel(a.createdAt.slice(0, 10), lang) : "—"}
         </span>
       ),
     },
     {
       key: "text",
-      header: "Text",
+      header: t("Text"),
       width: "120px",
       filter: {
         type: "select",
         options: [
-          { value: "with", label: "With text" },
-          { value: "link", label: "Link-only" },
+          { value: "with", label: t("With text") },
+          { value: "link", label: t("Link only") },
         ],
-        placeholder: "Either",
+        placeholder: t("Any"),
       },
-      render: (a) => <span className="text-xs text-ink-muted">{a.hasText ? "Text" : "Link-only"}</span>,
+      render: (a) => <span className="text-sm text-ink-muted">{a.hasText ? t("Text") : t("Link only")}</span>,
     },
     {
       key: "actions",
-      header: <span className="sr-only">Actions</span>,
-      width: "150px",
+      header: <span className="sr-only">{t("Actions")}</span>,
+      width: "170px",
       align: "right",
       render: (a) => (
         <div className="flex justify-end gap-1.5">
           <Link href={`/admin/articles/${a.slug}/edit`} className={pill}>
-            Edit
+            {t("Edit")}
           </Link>
           <button
             type="button"
@@ -247,7 +252,7 @@ export function ArticlesTable({
             disabled={busy === a.slug}
             className={clsx(pill, "text-verdict-hoax hover:border-hairline hover:bg-verdict-hoax/10")}
           >
-            {busy === a.slug ? "…" : "Delete"}
+            {busy === a.slug ? "…" : t("Delete")}
           </button>
         </div>
       ),
@@ -256,36 +261,38 @@ export function ArticlesTable({
 
   const bulkBusy = busy === "bulk";
   const toolbar = (
-    <div className="flex flex-wrap items-center gap-1.5 text-xs" role="region" aria-label="Bulk actions">
+    <div className="flex flex-wrap items-center gap-1.5 text-sm" role="region" aria-label={t("Actions for the ticked rows")}>
       {onPage.length > 0 ? (
         <>
-          <span className="mr-1 font-medium text-ink">{onPage.length} selected</span>
+          <span className="mr-1 font-medium text-ink">{t("{n} ticked", { n: onPage.length })}</span>
           <button type="button" onClick={() => bulk("publish")} disabled={bulkBusy} className={pill}>
-            Publish
+            {t("Publish")}
           </button>
           <button type="button" onClick={() => bulk("hide")} disabled={bulkBusy} className={pill}>
-            Hide
+            {t("Hide")}
           </button>
           <span className="inline-flex items-center gap-1">
-            <select value={bulkVerdict} onChange={(e) => setBulkVerdict(e.target.value as Verdict)} className={field} aria-label="Verdict to set" disabled={bulkBusy}>
-              <option value="hoax">Hoax</option>
-              <option value="misleading">Misleading</option>
-              <option value="valid">Credible</option>
+            <select value={bulkVerdict} onChange={(e) => setBulkVerdict(e.target.value as Verdict)} className={field} aria-label={t("New verdict")} disabled={bulkBusy}>
+              {verdictOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
             </select>
             <button type="button" onClick={() => bulk("verdict")} disabled={bulkBusy} className={pill}>
-              Set verdict
+              {t("Change verdict")}
             </button>
           </span>
           <button type="button" onClick={() => bulk("delete")} disabled={bulkBusy} className={clsx(pill, "text-verdict-hoax hover:bg-verdict-hoax/10")}>
-            Delete
+            {t("Delete")}
           </button>
-          <button type="button" onClick={() => setSelected(new Set())} disabled={bulkBusy} className="px-2 text-ink-muted hover:text-ink">
-            Clear selection
+          <button type="button" onClick={() => setSelected(new Set())} disabled={bulkBusy} className="px-2 py-1.5 text-ink-muted hover:text-ink">
+            {t("Untick all")}
           </button>
-          {bulkBusy && <span className="text-ink-muted">Working…</span>}
+          {bulkBusy && <span className="text-ink-muted">{t("Working…")}</span>}
         </>
       ) : (
-        <span className="text-ink-faint">Select rows for bulk actions</span>
+        <span className="text-ink-faint">{t("Tick rows to change several articles at once.")}</span>
       )}
     </div>
   );
@@ -303,15 +310,15 @@ export function ArticlesTable({
       onSelectedChange={setSelected}
       toolbar={toolbar}
       toolbarRight={
-        <a href={exportHref} className="btn-primary px-3 py-1.5 text-xs">
-          Export CSV ({formatCount(paging.total)})
+        <a href={exportHref} className="btn-primary px-3 py-1.5 text-sm">
+          {t("Export CSV ({n})", { n: paging.total })}
         </a>
       }
       emptyMessage={
         <>
-          No articles match.{" "}
+          {t("No articles found.")}{" "}
           <Link href="/admin/articles/new" className="text-brand hover:underline">
-            Add one →
+            {t("Add one →")}
           </Link>
         </>
       }

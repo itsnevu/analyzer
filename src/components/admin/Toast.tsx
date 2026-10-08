@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
+import { useAdminT } from "./AdminLang";
 
 export type ToastTone = "success" | "error" | "info";
 
@@ -35,10 +36,11 @@ const MAX_VISIBLE = 4;
  * screen readers announce each message.
  */
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useAdminT();
   const [items, setItems] = useState<ToastItem[]>([]);
   const nextId = useRef(1);
 
-  const dismiss = useCallback((id: number) => setItems((list) => list.filter((t) => t.id !== id)), []);
+  const dismiss = useCallback((id: number) => setItems((list) => list.filter((item) => item.id !== id)), []);
 
   const toast = useCallback<ToastFn>(
     ({ text, tone = "info" }) => {
@@ -57,25 +59,25 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         aria-live="polite"
         className="pointer-events-none fixed inset-x-4 bottom-4 z-[60] flex flex-col items-end gap-2 sm:inset-x-auto sm:right-5 sm:w-96"
       >
-        {items.map((t) => (
+        {items.map((item) => (
           <div
-            key={t.id}
+            key={item.id}
             className={clsx(
               "pointer-events-auto flex w-full items-start gap-3 rounded-xl border bg-surface-raised px-4 py-3 text-sm text-ink shadow-neu-lg animate-fade-up",
-              t.tone === "success" ? "border-verdict-valid/40" : t.tone === "error" ? "border-verdict-hoax/40" : "border-hairline",
+              item.tone === "success" ? "border-verdict-valid/40" : item.tone === "error" ? "border-verdict-hoax/40" : "border-hairline",
             )}
           >
             <span
               aria-hidden
               className={clsx(
                 "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[11px] font-bold",
-                t.tone === "success" ? "bg-verdict-valid/15 text-verdict-valid" : t.tone === "error" ? "bg-verdict-hoax/15 text-verdict-hoax" : "bg-surface-sunken text-ink-muted",
+                item.tone === "success" ? "bg-verdict-valid/15 text-verdict-valid" : item.tone === "error" ? "bg-verdict-hoax/15 text-verdict-hoax" : "bg-surface-sunken text-ink-muted",
               )}
             >
-              {t.tone === "success" ? "✓" : t.tone === "error" ? "!" : "i"}
+              {item.tone === "success" ? "✓" : item.tone === "error" ? "!" : "i"}
             </span>
-            <span className="min-w-0 flex-1 break-words">{t.text}</span>
-            <button type="button" onClick={() => dismiss(t.id)} aria-label="Dismiss" className="-mr-1 shrink-0 rounded px-1 text-ink-faint hover:text-ink">
+            <span className="min-w-0 flex-1 break-words">{item.text}</span>
+            <button type="button" onClick={() => dismiss(item.id)} aria-label={t("Dismiss")} className="-my-1 -mr-2 grid h-7 w-7 shrink-0 place-items-center rounded-md text-base text-ink-faint hover:bg-surface-sunken hover:text-ink">
               ×
             </button>
           </div>

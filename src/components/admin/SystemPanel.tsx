@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { clsx } from "@/lib/clsx";
+import { useAdminT } from "@/components/admin/AdminLang";
 
 /**
  * The only interactive part of /admin/system: one button per maintenance
@@ -15,7 +16,7 @@ export type SystemActionKey = "backup" | "purge-ips" | "rebuild-index" | "optimi
 export function SystemActionButton({
   action,
   label,
-  busyLabel = "Working…",
+  busyLabel,
   confirmText,
   primary = false,
   disabled = false,
@@ -29,6 +30,7 @@ export function SystemActionButton({
   disabled?: boolean;
 }) {
   const router = useRouter();
+  const { t } = useAdminT();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -41,7 +43,7 @@ export function SystemActionButton({
       const res = await fetch(`/api/admin/system/${action}`, { method: "POST" });
       const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      setResult({ ok: true, text: data.message ?? "Done." });
+      setResult({ ok: true, text: data.message ?? t("Done.") });
       // Signing out everywhere includes this browser.
       if (action === "revoke-sessions") {
         router.push("/admin/login");
@@ -49,7 +51,7 @@ export function SystemActionButton({
       }
       router.refresh();
     } catch (err) {
-      setResult({ ok: false, text: err instanceof Error ? err.message : "The action failed." });
+      setResult({ ok: false, text: err instanceof Error ? err.message : t("The action failed.") });
     } finally {
       setBusy(false);
     }
@@ -68,10 +70,10 @@ export function SystemActionButton({
         )}
       >
         {busy && <span className="mr-2 inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent align-[-1px]" aria-hidden />}
-        {busy ? busyLabel : label}
+        {busy ? (busyLabel ?? t("Working…")) : label}
       </button>
       {result && (
-        <p role="status" className={clsx("text-xs", result.ok ? "text-verdict-valid" : "text-verdict-hoax")}>
+        <p role="status" className={clsx("text-sm", result.ok ? "text-verdict-valid" : "text-verdict-hoax")}>
           {result.text}
         </p>
       )}

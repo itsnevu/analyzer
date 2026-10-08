@@ -16,7 +16,9 @@ const DEV_SECRET = "dev-insecure-secret-change-me";
 const EXAMPLE_SECRET = "change-me-to-a-long-random-string";
 const SESSION_DAYS = 7;
 
-export const SESSION_COOKIE = "admin_session";
+// In production the "__Host-" prefix makes browsers accept the cookie only when it is Secure, has Path=/ and no
+// Domain, so a subdomain or a plain-HTTP response cannot plant or overwrite it. Development runs on plain HTTP.
+export const SESSION_COOKIE = process.env.NODE_ENV === "production" ? "__Host-admin_session" : "admin_session";
 export const SESSION_MAX_AGE = SESSION_DAYS * 24 * 60 * 60; // seconds
 
 const production = () => process.env.NODE_ENV === "production";

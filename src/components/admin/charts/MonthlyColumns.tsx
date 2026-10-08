@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { formatAdminMonth } from "@/lib/admin-lang";
+import { useAdminT } from "../AdminLang";
 import { CHART, TableView, Tooltip, fmt, niceTicks, topRoundedRect } from "./chart-kit";
 import { useWidth } from "./useWidth";
 
@@ -12,8 +14,6 @@ export interface MonthPoint {
 }
 
 const M = { top: 12, right: 4, bottom: 22, left: 36 };
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const monthLabel = (ym: string) => `${MONTH_NAMES[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
 
 /**
  * Single-series monthly columns. When one month dwarfs the rest (more than 3x
@@ -23,6 +23,10 @@ const monthLabel = (ym: string) => `${MONTH_NAMES[Number(ym.slice(5, 7)) - 1]} $
 export function MonthlyColumns({ points, height = 220 }: { points: MonthPoint[]; height?: number }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
+  // Outside the admin panel (the public /stats page) there is no provider, so this is English.
+  const { t, lang } = useAdminT();
+  const monthLabel = (ym: string) => formatAdminMonth(ym, lang);
+  const num = (n: number) => fmt(n, lang);
 
   const sorted = points.map((p) => p.count).sort((a, b) => b - a);
   const cut = sorted.length > 1 && sorted[0] > 3 * sorted[1] && sorted[0] > 20;
@@ -40,12 +44,12 @@ export function MonthlyColumns({ points, height = 220 }: { points: MonthPoint[];
     <div>
       <div ref={ref} className="relative" style={{ height }} onPointerLeave={() => setActive(null)}>
         {width > 0 && (
-          <svg width={width} height={height} role="img" aria-label="Detector searches per month">
-            {ticks.map((t) => (
-              <g key={t}>
-                <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} stroke={CHART.grid} strokeWidth={1} shapeRendering="crispEdges" />
-                <text x={M.left - 8} y={y(t)} dy="0.32em" textAnchor="end" fontSize={11} fill={CHART.axisText} className="tabular-nums">
-                  {fmt(t)}
+          <svg width={width} height={height} role="img" aria-label={t("Detector searches per month")}>
+            {ticks.map((tick) => (
+              <g key={tick}>
+                <line x1={M.left} x2={width - M.right} y1={y(tick)} y2={y(tick)} stroke={CHART.grid} strokeWidth={1} shapeRendering="crispEdges" />
+                <text x={M.left - 8} y={y(tick)} dy="0.32em" textAnchor="end" fontSize={11} fill={CHART.axisText} className="tabular-nums">
+                  {num(tick)}
                 </text>
               </g>
             ))}
@@ -72,7 +76,7 @@ export function MonthlyColumns({ points, height = 220 }: { points: MonthPoint[];
                         fill="var(--ink-muted)"
                         className="tabular-nums"
                       >
-                        {fmt(p.count)}
+                        {num(p.count)}
                       </text>
                     </>
                   )}
@@ -106,7 +110,7 @@ export function MonthlyColumns({ points, height = 220 }: { points: MonthPoint[];
                 height={plotH}
                 fill="transparent"
                 tabIndex={0}
-                aria-label={`${monthLabel(p.month)}: ${fmt(p.count)} searches`}
+                aria-label={t("{month}: {n} searches", { month: monthLabel(p.month), n: p.count })}
                 onPointerEnter={() => setActive(i)}
                 onFocus={() => setActive(i)}
                 onBlur={() => setActive(null)}
@@ -122,8 +126,8 @@ export function MonthlyColumns({ points, height = 220 }: { points: MonthPoint[];
             width={width}
             title={monthLabel(points[active].month)}
             rows={[
-              { label: "searches", value: fmt(points[active].count), color: CHART.brand },
-              { label: "pasted links", value: fmt(points[active].links) },
+              { label: t("searches"), value: num(points[active].count), color: CHART.brand },
+              { label: t("pasted links"), value: num(points[active].links) },
             ]}
           />
         )}
@@ -134,14 +138,19 @@ export function MonthlyColumns({ points, height = 220 }: { points: MonthPoint[];
           .filter((p) => p.count > yMax)
           .map((p) => (
             <p key={p.month} className="mt-2 text-xs text-ink-faint">
-              Axis cut at {fmt(yMax)} so the other months stay readable. {monthLabel(p.month)} goes past it: {fmt(p.count)} searches,{" "}
-              {fmt(p.links)} of them pasted links.
+              {t("The scale stops at {max} so the other months stay readable. {month} goes past it: {n} searches, {links} of them pasted links.", {
+                max: yMax,
+                month: monthLabel(p.month),
+                n: p.count,
+                links: p.links,
+              })}
             </p>
           ))}
 
       <TableView
-        head={["Month", "Searches", "Pasted links"]}
+        head={[t("Month"), t("Searches"), t("Pasted links")]}
         rows={points.filter((p) => p.count).map((p) => [monthLabel(p.month), p.count, p.links])}
+        lang={lang}
       />
     </div>
   );

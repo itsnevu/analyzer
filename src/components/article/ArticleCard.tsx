@@ -3,10 +3,14 @@
 import Link from "next/link";
 import type { Article, ArticleListItem } from "@/lib/data";
 import { VERDICT_META } from "@/lib/verdict";
-import { LANGUAGE_NAME, formatDate, sourceName } from "@/lib/sources";
+import { LANGUAGE_LABEL, VERDICT_LABEL } from "@/lib/verdict-labels";
+import { useI18n } from "@/lib/i18n";
+import { formatDate, sourceName } from "@/lib/sources";
 import { clsx } from "@/lib/clsx";
 
-export function VerdictBadge({ verdict, className }: { verdict: Article["verdict"]; className?: string }) {
+/** The verdict as a coloured pill, in the site language; `label` overrides the text (the admin panel passes its own). */
+export function VerdictBadge({ verdict, className, label }: { verdict: Article["verdict"]; className?: string; label?: string }) {
+  const { t } = useI18n();
   const m = VERDICT_META[verdict];
   return (
     <span
@@ -21,7 +25,7 @@ export function VerdictBadge({ verdict, className }: { verdict: Article["verdict
       <span className="grid h-4 w-4 place-items-center rounded-full text-[10px]" style={{ background: m.color, color: "var(--verdict-ink)" }}>
         {m.emoji}
       </span>
-      {m.labelEn}
+      {label ?? t(VERDICT_LABEL[verdict])}
     </span>
   );
 }
@@ -47,7 +51,8 @@ export function CoverPlaceholder({ verdict, label, className }: { verdict: Artic
 }
 
 export function ArticleCard({ article }: { article: ArticleListItem }) {
-  const date = formatDate(article.date);
+  const { t, lang } = useI18n();
+  const date = formatDate(article.date, "short", lang);
   return (
     <Link
       href={`/blog/${article.slug}`}
@@ -71,7 +76,7 @@ export function ArticleCard({ article }: { article: ArticleListItem }) {
           <VerdictBadge verdict={article.verdict} />
         </div>
         <span className="absolute right-3 top-3 rounded-md bg-black/40 px-2 py-1 text-[11px] font-medium uppercase tracking-wide text-white/80 backdrop-blur">
-          {LANGUAGE_NAME[article.lang]}
+          {t(LANGUAGE_LABEL[article.lang])}
         </span>
       </div>
 

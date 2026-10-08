@@ -4,17 +4,26 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { DatasetItem } from "@/lib/dataset-admin";
-import { formatCount, formatDate, outboundLink } from "@/lib/sources";
+import { outboundLink } from "@/lib/sources";
 import { DataGrid, type GridColumn, type GridPaging } from "@/components/admin/DataGrid";
+import { useAdminT } from "@/components/admin/AdminLang";
+import { adminLocale, formatAdminNumber, tk, type AdminLang } from "@/lib/admin-lang";
 
 const RESET = "__imported";
 
 const LABEL_NAME: Record<string, string> = {
-  HOAX: "Hoax", DISINFORMATION: "Disinformation", INFORMATION: "Information", FACT: "Fact",
-  EDUKASI: "Education", KLARIFIKASI: "Clarification", UNKNOWN: "Unknown",
+  HOAX: tk("Hoax"), DISINFORMATION: tk("Disinformation"), INFORMATION: tk("Information"), FACT: tk("Fact"),
+  EDUKASI: tk("Education"), KLARIFIKASI: tk("Clarification"), UNKNOWN: tk("Unknown"),
 };
 
-const pill = "inline-block whitespace-nowrap rounded-full border border-hairline px-3 py-1 text-xs font-medium hover:border-ink disabled:opacity-50";
+/** "9 Oct 2026" / "9 Okt 2026" for a "YYYY-MM-DD" date; "" when it is not one. */
+const day = (date: string, lang: AdminLang) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "";
+  const d = new Date(`${date}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(adminLocale(lang), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+};
+
+const pill = "inline-block whitespace-nowrap rounded-full border border-hairline px-3 py-1 text-sm font-medium hover:border-ink disabled:opacity-50";
 
 /**
  * Rows of the legacy dataset on the panel grid, with an inline label editor
@@ -41,6 +50,7 @@ export function DatasetTable({
   exportHref: string;
 }) {
   const router = useRouter();
+  const { t, lang } = useAdminT();
   const [patches, setPatches] = useState<Record<number, Partial<DatasetItem>>>({});
   const [busy, setBusy] = useState<number | null>(null);
 
@@ -64,7 +74,7 @@ export function DatasetTable({
       router.refresh();
     } catch {
       update(row.id, before);
-      alert("Failed to save the label.");
+      alert(t("Could not save the label. Please try again."));
     } finally {
       setBusy(null);
     }
@@ -77,13 +87,13 @@ export function DatasetTable({
       const data = (await res.json()) as { slug?: string | null; published?: boolean; withText?: boolean; error?: string };
       if (!res.ok) {
         if (data.slug) update(row.id, { archiveSlug: data.slug });
-        alert(data.error ?? "Failed to add.");
+        alert(data.error ?? t("Could not add it to the archive."));
         return;
       }
       update(row.id, { archiveSlug: data.slug ?? null, archivePublished: !!data.published });
       router.refresh();
     } catch {
-      alert("Failed to add.");
+      alert(t("Could not add it to the archive."));
     } finally {
       setBusy(null);
     }
@@ -95,16 +105,16 @@ export function DatasetTable({
       header: "#",
       width: "72px",
       sortable: true,
-      render: (r) => <span className="font-mono text-xs text-ink-faint">{r.id}</span>,
+      render: (r) => <span className="font-mono text-sm text-ink-faint">{r.id}</span>,
     },
     {
       key: "label",
-      header: "Label",
+      header: t("Label"),
       width: "200px",
       // Uncategorized rows have no effective label to filter by.
       filter:
         tab === "categorized"
-          ? { type: "select", options: labels.map((l) => ({ value: l, label: `${LABEL_NAME[l] ?? l} (${l})` })), placeholder: "All labels" }
+          ? { type: "select", options: labels.map((l) => ({ value: l, label: `${LABEL_NAME[l] ? t(LABEL_NAME[l]) : l} (${l})` })), placeholder: t("All labels") }
           : undefined,
       render: (r) => {
         const edited = r.adminLabel !== null && r.adminLabel !== r.label;
@@ -114,10 +124,10 @@ export function DatasetTable({
               value={r.adminLabel ?? RESET}
               disabled={busy === r.id}
               onChange={(e) => relabel(r, e.target.value)}
-              aria-label={`Label of row ${r.id}`}
-              className="w-full rounded-md border border-hairline bg-surface-sunken px-2 py-1 text-xs text-ink outline-none focus:ring-2 focus:ring-brand/30 disabled:opacity-50"
+              aria-label={t("Label of row {id}", { id: String(r.id) })}
+              className="w-full rounded-md border border-hairline bg-surface-sunken px-2 py-1 text-sm text-ink outline-none focus:ring-2 focus:ring-brand/30 disabled:opacity-50"
             >
-              <option value={RESET}>{r.label ? `Imported: ${r.label}` : "No label"}</option>
+              <option value={RESET}>{r.label ? t("Imported: {label}", { label: r.label }) : t("No label")}</option>
               {labels.map((l) => (
                 <option key={l} value={l}>
                   {l}
@@ -126,10 +136,10 @@ export function DatasetTable({
             </select>
             {edited && (
               <span
-                title={`Imported label: ${r.label ?? "none"}`}
-                className="shrink-0 rounded-full bg-verdict-warn/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-verdict-warn"
+                title={t("Imported label: {label}", { label: r.label ?? t("None") })}
+                className="shrink-0 rounded-full bg-verdict-warn/15 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-verdict-warn"
               >
-                edited
+                {t("Edited")}
               </span>
             )}
           </div>
@@ -138,10 +148,10 @@ export function DatasetTable({
     },
     {
       key: "title",
-      header: "Title",
+      header: t("Title"),
       sortable: true,
       param: "q",
-      filter: { type: "text", placeholder: "Search title…" },
+      filter: { type: "text", placeholder: t("Search the titles…") },
       className: "min-w-[260px]",
       render: (r) => {
         const link = r.url ? outboundLink(r.url, r.publishedOn ?? undefined) : null;
@@ -149,66 +159,66 @@ export function DatasetTable({
           <div className="min-w-0">
             {link ? (
               <a href={link.href} target="_blank" rel="noopener noreferrer" className="line-clamp-2 font-medium hover:text-brand" title={r.url}>
-                {r.title || "(no title)"}
+                {r.title || t("(no title)")}
               </a>
             ) : (
-              <span className="line-clamp-2 font-medium">{r.title || "(no title)"}</span>
+              <span className="line-clamp-2 font-medium">{r.title || t("(no title)")}</span>
             )}
-            {link?.archived && <span className="text-[10px] uppercase tracking-wider text-ink-faint">archived copy</span>}
+            {link?.archived && <span className="text-[11px] uppercase tracking-wider text-ink-faint">{t("Archived copy")}</span>}
           </div>
         );
       },
     },
     {
       key: "date",
-      header: "Date",
+      header: t("Date"),
       width: "120px",
       sortable: true,
       param: "year",
-      filter: { type: "select", options: years.map((y) => ({ value: y, label: y })), placeholder: "Any year" },
-      render: (r) => <span className="whitespace-nowrap text-xs text-ink-muted">{r.publishedOn ? formatDate(r.publishedOn) || r.publishedOn : "—"}</span>,
+      filter: { type: "select", options: years.map((y) => ({ value: y, label: y })), placeholder: t("Any year") },
+      render: (r) => <span className="whitespace-nowrap text-sm text-ink-muted">{r.publishedOn ? day(r.publishedOn, lang) || r.publishedOn : "—"}</span>,
     },
     {
       key: "source",
-      header: "Source",
+      header: t("Source"),
       width: "170px",
       filter: {
         type: "select",
-        options: sources.map((s) => ({ value: String(s.id), label: `${s.site} (${formatCount(s.count)})` })),
-        placeholder: "All sites",
+        options: sources.map((s) => ({ value: String(s.id), label: `${s.site} (${formatAdminNumber(s.count, lang)})` })),
+        placeholder: t("All sites"),
       },
       render: (r) => (
-        <span className="block max-w-[170px] truncate text-xs text-ink-muted" title={r.site}>
+        <span className="block max-w-[170px] truncate text-sm text-ink-muted" title={r.site}>
           {r.site || "—"}
         </span>
       ),
     },
     {
       key: "archived",
-      header: "Archive",
+      header: t("Archive"),
       width: "170px",
       align: "right",
       filter: {
         type: "select",
         options: [
-          { value: "yes", label: "In the archive" },
-          { value: "no", label: "Not in the archive" },
+          { value: "yes", label: t("In the archive") },
+          { value: "no", label: t("Not in the archive") },
         ],
-        placeholder: "Either",
+        placeholder: t("Either"),
       },
       render: (r) =>
         r.archiveSlug ? (
           <div className="flex items-center justify-end gap-2">
             {!r.archivePublished && (
-              <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">hidden</span>
+              <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">{t("Hidden")}</span>
             )}
             <Link href={`/admin/articles/${r.archiveSlug}/edit`} className={pill}>
-              In archive →
+              {t("In the archive")} →
             </Link>
           </div>
         ) : (
           <button type="button" onClick={() => addToArchive(r)} disabled={busy === r.id} className={pill}>
-            {busy === r.id ? "…" : "Add to archive"}
+            {busy === r.id ? "…" : t("Add to archive")}
           </button>
         ),
     },
@@ -216,7 +226,7 @@ export function DatasetTable({
 
   return (
     <DataGrid
-      caption={tab === "categorized" ? "Categorized rows" : "Uncategorized rows"}
+      caption={tab === "categorized" ? t("Rows with a label") : t("Rows without a label")}
       columns={columns}
       rows={rows}
       rowKey={(r) => String(r.id)}
@@ -225,10 +235,10 @@ export function DatasetTable({
       sort={sort}
       toolbarRight={
         <a href={exportHref} className="btn-primary px-3 py-1.5 text-xs">
-          Export CSV
+          {t("Export CSV")}
         </a>
       }
-      emptyMessage="No dataset rows match."
+      emptyMessage={t("No rows match these filters.")}
       dense
     />
   );

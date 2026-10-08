@@ -58,14 +58,14 @@ export function hostOf(url: string | undefined): string {
 
 export const LANGUAGE_NAME: Record<"id" | "en", string> = { id: "Indonesian", en: "English" };
 
-/** "2019-04-06" → "Apr 6, 2019"; "" or junk → "". Pinned to UTC so server and browser agree. */
-export function formatDate(date: string, style: "short" | "long" = "short"): string {
+/** "2019-04-06" → "Apr 6, 2019" (or "6 Apr 2019" for "id"); "" or junk → "". Pinned to UTC so server and browser agree. */
+export function formatDate(date: string, style: "short" | "long" = "short", lang: "en" | "id" = "en"): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "";
   const d = new Date(`${date}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-US", { day: "numeric", month: style === "long" ? "long" : "short", year: "numeric", timeZone: "UTC" });
+  return d.toLocaleDateString(lang === "id" ? "id-ID" : "en-US", { day: "numeric", month: style === "long" ? "long" : "short", year: "numeric", timeZone: "UTC" });
 }
 
-export function formatCount(n: number): string {
-  return n.toLocaleString("en-US");
+export function formatCount(n: number, lang: "en" | "id" = "en"): string {
+  return n.toLocaleString(lang === "id" ? "id-ID" : "en-US");
 }

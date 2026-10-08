@@ -55,13 +55,13 @@ export function ContactForm() {
         body: JSON.stringify({ ...data, meta: JSON.stringify(usageMeta()) }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed to send.");
+      if (!res.ok) throw new Error(json.error ?? t("Failed to send."));
       setStatus("ok");
-      setMsg(json.message ?? "Sent.");
+      setMsg(json.message ?? t("Sent."));
       form.reset();
     } catch (err) {
       setStatus("error");
-      setMsg(err instanceof Error ? err.message : "Something went wrong.");
+      setMsg(err instanceof Error ? err.message : t("Something went wrong."));
     }
   }
 
@@ -81,7 +81,7 @@ export function ContactForm() {
 
       <label className="block">
         <span className="mb-1.5 block text-xs font-medium text-ink-muted">{t("form.email")} *</span>
-        <input name="email" type="email" required maxLength={200} autoComplete="email" placeholder="you@email.com" className={fieldClass} />
+        <input name="email" type="email" required maxLength={200} autoComplete="email" placeholder={t("you@email.com")} className={fieldClass} />
         <span className="mt-1 block text-xs text-ink-faint">{t("form.emailHint")}</span>
       </label>
 

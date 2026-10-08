@@ -9,6 +9,7 @@ import { getDb, hasFts, SCHEMA_VERSION } from "./db";
 import { IPDB_DIR } from "./ip-asn";
 import { panelDb } from "./legacy-panel";
 import { SITE_URL } from "./site";
+import { makeAdminT, type AdminLang, type AdminT } from "./admin-lang";
 import { purgeExpiredIps, retentionDays } from "./usage";
 
 /**
@@ -19,8 +20,11 @@ import { purgeExpiredIps, retentionDays } from "./usage";
 
 /* ------------------------------------------------------------- helpers */
 
-/** "12.3 MB"; null or NaN → "—". */
-export function formatBytes(bytes: number | null | undefined): string {
+/** English wording for the formatters below; the admin page passes its own t() for Indonesian. */
+const EN: AdminT = makeAdminT("en");
+
+/** "12.3 MB" ("12,3 MB" in Indonesian); null or NaN → "—". */
+export function formatBytes(bytes: number | null | undefined, lang: AdminLang = "en"): string {
   if (bytes === null || bytes === undefined || !Number.isFinite(bytes)) return "—";
   if (bytes < 1024) return `${bytes} B`;
   const units = ["KB", "MB", "GB", "TB"];
@@ -30,33 +34,34 @@ export function formatBytes(bytes: number | null | undefined): string {
     v /= 1024;
     i++;
   }
-  return `${v >= 100 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
+  const num = v >= 100 ? String(Math.round(v)) : v.toFixed(1);
+  return `${lang === "id" ? num.replace(".", ",") : num} ${units[i]}`;
 }
 
-/** "3 h ago"; Infinity → "never"; a negative or tiny span → "just now". */
-export function formatAge(ms: number): string {
-  if (!Number.isFinite(ms)) return "never";
+/** "3 h ago"; Infinity → "never"; a negative or tiny span → "just now". Pass the admin t() for another language. */
+export function formatAge(ms: number, t: AdminT = EN): string {
+  if (!Number.isFinite(ms)) return t("never");
   const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return "just now";
+  if (s < 60) return t("just now");
   const m = Math.round(s / 60);
-  if (m < 60) return `${m} min ago`;
+  if (m < 60) return t("{n} min ago", { n: m });
   const h = Math.round(m / 60);
-  if (h < 48) return `${h} h ago`;
+  if (h < 48) return t("{n} h ago", { n: h });
   const d = Math.round(h / 24);
-  if (d < 60) return `${d} d ago`;
-  return `${Math.round(d / 30)} mo ago`;
+  if (d < 60) return t("{n} d ago", { n: d });
+  return t("{n} mo ago", { n: Math.round(d / 30) });
 }
 
-/** "2 d 3 h" for an uptime in seconds. */
-export function formatDuration(seconds: number): string {
+/** "2 d 3 h" for an uptime in seconds. Pass the admin t() for another language. */
+export function formatDuration(seconds: number, t: AdminT = EN): string {
   const s = Math.max(0, Math.floor(seconds));
   const d = Math.floor(s / 86_400);
   const h = Math.floor((s % 86_400) / 3600);
   const m = Math.floor((s % 3600) / 60);
-  if (d) return `${d} d ${h} h`;
-  if (h) return `${h} h ${m} min`;
-  if (m) return `${m} min`;
-  return `${s} s`;
+  if (d) return t("{d} d {h} h", { d, h });
+  if (h) return t("{h} h {m} min", { h, m });
+  if (m) return t("{n} min", { n: m });
+  return t("{n} s", { n: s });
 }
 
 function sizeOf(file: string): number | null {

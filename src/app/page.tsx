@@ -10,17 +10,18 @@ import { Faq } from "@/components/home/Faq";
 import { CtaBand } from "@/components/home/CtaBand";
 import { Reveal } from "@/components/ui/Reveal";
 import { getArticleStats, getSourceCounts, listArticles } from "@/lib/articles";
+import { getSiteT } from "@/lib/site-lang-server";
 
 // The numbers and the latest entries come straight from the database.
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [stats, sources, recent] = await Promise.all([getArticleStats(), getSourceCounts(), listArticles({ pageSize: 3, withText: true })]);
+  const [stats, sources, recent, { t }] = await Promise.all([getArticleStats(), getSourceCounts(), listArticles({ pageSize: 3, withText: true }), getSiteT()]);
   const items = [
-    { value: stats.total, suffix: "", label: "Fact-check articles", sub: "In the searchable archive" },
-    { value: stats.indonesian, suffix: "", label: "Indonesian entries", sub: "Local fact-checkers" },
-    { value: stats.english, suffix: "", label: "English entries", sub: "International sources" },
-    { value: stats.sources, suffix: "", label: "Fact-checking sources", sub: "Every entry links to its original" },
+    { value: stats.total, suffix: "", label: t("Fact-check articles"), sub: t("In the searchable archive") },
+    { value: stats.indonesian, suffix: "", label: t("Indonesian entries"), sub: t("Local fact-checkers") },
+    { value: stats.english, suffix: "", label: t("English entries"), sub: t("International sources") },
+    { value: stats.sources, suffix: "", label: t("Fact-checking sources"), sub: t("Every entry links to its original") },
   ];
 
   return (

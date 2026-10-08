@@ -36,9 +36,6 @@ const visit = (slug: string, extra: { staff?: number; at?: string } = {}) =>
   insertUsage({ at: extra.at ?? daysAgo(1), kind: "visit", staff: extra.staff ?? 0, path: `/blog/${slug}` });
 
 beforeAll(async () => {
-  // The empty store seeds itself with the built-in examples (all dated 2019) on first use.
-  await store.listArticles();
-  // The seeds are dated 2019; these years are the test's own.
   await store.saveArticle(article("pop-a", { date: "2010-03-01", verdict: "hoax" }));
   await store.saveArticle(article("pop-b", { date: "2012-07-15", verdict: "misleading", lang: "en", sourceSite: "hoax-slayer.com" }));
   await store.saveArticle(article("pop-c", { date: "2012-01-02", verdict: "valid" }));
@@ -57,9 +54,9 @@ describe("archive aggregation", () => {
     expect(byYear["2010"]).toEqual({ hoax: 1, misleading: 0, valid: 0 });
     expect(byYear["2011"]).toEqual({ hoax: 0, misleading: 0, valid: 0 });
     expect(byYear["2012"]).toEqual({ hoax: 1, misleading: 1, valid: 1 });
-    // Consecutive years, oldest first, up to the seeds' year.
+    // Consecutive years, oldest first, up to the newest entry's year.
     expect(years.map((y) => Number(y.year))).toEqual(years.map((_, i) => 2010 + i));
-    expect(years[years.length - 1].year).toBe("2019");
+    expect(years[years.length - 1].year).toBe("2012");
   });
 
   it("sums the overview from the same rows", async () => {

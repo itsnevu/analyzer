@@ -26,10 +26,10 @@ export function HowItWorks() {
             <div className="relative">
               <span className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: STEP_COLORS[i] }} />
-                <span className="eyebrow">{s.kicker}</span>
+                <span className="eyebrow">{t(s.kicker)}</span>
               </span>
-              <h3 className="mt-4 font-display text-lg font-bold">{s.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-ink-muted">{s.body}</p>
+              <h3 className="mt-4 font-display text-lg font-bold">{t(s.title)}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-muted">{t(s.body)}</p>
             </div>
           </li>
         ))}

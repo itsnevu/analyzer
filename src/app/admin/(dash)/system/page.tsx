@@ -1,32 +1,39 @@
+import type { Metadata } from "next";
 import { SystemActionButton } from "@/components/admin/SystemPanel";
+import { adminLocale, formatAdminDateTime, formatAdminNumber, tk, type AdminLang } from "@/lib/admin-lang";
+import { getAdminT } from "@/lib/admin-lang-server";
 import { clsx } from "@/lib/clsx";
-import { formatCount, formatDate } from "@/lib/sources";
 import { backupsInfo, configInfo, COUNTED_TABLES, databaseInfo, filesInfo, formatAge, formatBytes, formatDuration, runtimeInfo, VACUUM_MAX_WAL_BYTES } from "@/lib/system";
 import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "System" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getAdminT();
+  return { title: t("System") };
+}
 
 const TABLE_NAMES: Record<(typeof COUNTED_TABLES)[number], string> = {
-  articles: "Articles (archive)",
-  reports: "Reports & messages",
-  usage_log: "Research log rows",
-  searches: "Searches",
-  legacy_dataset: "Legacy dataset rows",
-  stopwords: "Stopwords",
-  admin_log: "Activity log entries",
+  articles: tk("Articles (archive)"),
+  reports: tk("Reports & messages"),
+  usage_log: tk("Research log rows"),
+  searches: tk("Searches"),
+  legacy_dataset: tk("Old dataset rows"),
+  stopwords: tk("Common words (stopwords)"),
+  admin_log: tk("Activity log entries"),
 };
 
-const wib = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString("en-GB", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" });
+/** "9 Oct 2026" / "9 Okt 2026" for a "YYYY-MM-DD" date. */
+const day = (date: string, lang: AdminLang) => {
+  const d = new Date(`${date}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? date : d.toLocaleDateString(adminLocale(lang), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 };
 
 function Card({ title, note, children, className }: { title: string; note?: string; children: React.ReactNode; className?: string }) {
   return (
     <section className={clsx("neu p-5", className)}>
       <h2 className="font-display text-lg font-bold">{title}</h2>
-      {note && <p className="mt-0.5 text-xs text-ink-faint">{note}</p>}
+      {note && <p className="mt-0.5 text-sm text-ink-faint">{note}</p>}
       <div className="mt-4">{children}</div>
     </section>
   );
@@ -49,7 +56,7 @@ function Chip({ tone, children }: { tone: "ok" | "warn" | "off"; children: React
   return (
     <span
       className={clsx(
-        "inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+        "inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider",
         tone === "ok" && "bg-verdict-valid/15 text-verdict-valid",
         tone === "warn" && "bg-verdict-warn/15 text-verdict-warn",
         tone === "off" && "bg-surface-sunken text-ink-faint",
@@ -64,6 +71,9 @@ const Mono = ({ children }: { children: React.ReactNode }) => <span className="f
 
 export default async function SystemPage() {
   await requireAdmin();
+  const { t, lang } = await getAdminT();
+  const n = (v: number) => formatAdminNumber(v, lang);
+  const bytes = (v: number | null | undefined) => formatBytes(v, lang);
   const rt = runtimeInfo();
   const db = databaseInfo();
   const backups = backupsInfo();
@@ -77,240 +87,328 @@ export default async function SystemPage() {
   return (
     <div className="space-y-4">
       <div className="neu p-6">
-        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">System</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">{t("System")}</h1>
         <p className="mt-2 max-w-3xl text-sm text-ink-muted">
-          The server as it is right now: runtime, database, backups, which optional features are configured (never their secrets) and the
-          data files the site needs. Maintenance actions run in place and are written to the activity log.
+          {t(
+            "How the server is doing right now: the program, the database, backups, which optional features are set up (never their secrets) and the data files the site needs. The maintenance buttons run right away and are written to the activity log.",
+          )}
         </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Runtime" note="This Node process">
+        <Card title={t("Server program")} note={t("The Node.js process that runs the site")}>
           <Rows
             rows={[
               ["Node.js", <Mono key="n">{rt.node}</Mono>],
               ["Next.js", <Mono key="x">{rt.next}</Mono>],
-              ["Environment", <Chip key="e" tone={rt.env === "production" ? "ok" : "warn"}>{rt.env}</Chip>],
-              ["Uptime", formatDuration(rt.uptimeSeconds)],
-              ["Memory (RSS)", `${formatBytes(rt.rssBytes)} · heap ${formatBytes(rt.heapUsedBytes)}`],
-              ["Platform", `${rt.platform} (${rt.arch})`],
-              ["Machine", `${rt.hostname} · ${rt.cpus} CPU · ${formatBytes(rt.totalMemoryBytes)} RAM`],
-              ["Process id", rt.pid],
+              [
+                t("Mode"),
+                <Chip key="e" tone={rt.env === "production" ? "ok" : "warn"}>
+                  {rt.env === "production" ? t("Live (production)") : rt.env === "development" ? t("Development") : rt.env}
+                </Chip>,
+              ],
+              [t("Running for"), formatDuration(rt.uptimeSeconds, t)],
+              [t("Memory in use"), t("{total} (JavaScript heap {heap})", { total: bytes(rt.rssBytes), heap: bytes(rt.heapUsedBytes) })],
+              [t("Operating system"), `${rt.platform} (${rt.arch})`],
+              [t("Computer"), `${rt.hostname} · ${n(rt.cpus)} CPU · ${bytes(rt.totalMemoryBytes)} RAM`],
+              [t("Process ID"), rt.pid],
             ]}
           />
         </Card>
 
-        <Card title="Database" note="SQLite, opened through node:sqlite">
+        <Card title={t("Database")} note={t("One SQLite file that holds all the site's data")}>
           <Rows
             rows={[
-              ["File", <Mono key="f">{db.file}</Mono>],
-              ["Size", `${formatBytes(db.bytes)} (${formatCount(db.pageCount)} pages of ${formatBytes(db.pageSize)})`],
+              [t("File"), <Mono key="f">{db.file}</Mono>],
+              [t("Size"), t("{size} ({pages} pages of {pageSize})", { size: bytes(db.bytes), pages: db.pageCount, pageSize: bytes(db.pageSize) })],
               [
-                "Write-ahead log",
+                t("Changes waiting to be merged (WAL)"),
                 <span key="w">
-                  {formatBytes(db.walBytes)} {walWarn && <Chip tone="warn">large</Chip>}
+                  {bytes(db.walBytes)} {walWarn && <Chip tone="warn">{t("Large")}</Chip>}
                 </span>,
               ],
-              ["Journal mode", <Mono key="j">{db.journalMode}</Mono>],
-              ["Reclaimable by VACUUM", formatBytes(reclaimable)],
-              ["Full-text search", <Chip key="fts" tone={db.fts ? "ok" : "warn"}>{db.fts ? "available" : "unavailable (LIKE fallback)"}</Chip>],
-              ["Schema version", db.schemaVersion],
+              [t("Journal mode"), <Mono key="j">{db.journalMode}</Mono>],
+              [t("Unused space to give back (VACUUM)"), bytes(reclaimable)],
+              [
+                t("Fast word search (FTS)"),
+                <Chip key="fts" tone={db.fts ? "ok" : "warn"}>
+                  {db.fts ? t("Available") : t("Unavailable (a slower search is used)")}
+                </Chip>,
+              ],
+              [t("Database structure version"), db.schemaVersion],
             ]}
           />
-          <h3 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wider text-ink-faint">Row counts</h3>
+          <h3 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wider text-ink-faint">{t("Rows per table")}</h3>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm sm:grid-cols-3">
-            {COUNTED_TABLES.map((t) => (
-              <div key={t} className="rounded-lg bg-surface-sunken px-3 py-2">
-                <dd className="text-lg font-semibold tabular-nums">{db.counts[t] === null ? "—" : formatCount(db.counts[t] ?? 0)}</dd>
-                <dt className="text-[11px] text-ink-muted">{TABLE_NAMES[t]}</dt>
+            {COUNTED_TABLES.map((table) => (
+              <div key={table} className="rounded-lg bg-surface-sunken px-3 py-2">
+                <dd className="text-lg font-semibold tabular-nums">{db.counts[table] === null ? "—" : n(db.counts[table] ?? 0)}</dd>
+                <dt className="text-xs text-ink-muted">{t(TABLE_NAMES[table])}</dt>
               </div>
             ))}
           </dl>
         </Card>
 
-        <Card title="Backups" note="SQLite's online backup; a daily copy is made in production (see src/instrumentation.ts)">
+        <Card title={t("Backups")} note={t("Copies of the database. On the live server a copy is made every day (see src/instrumentation.ts).")}>
           <Rows
             rows={[
-              ["Directory", <Mono key="d">{backups.dir}</Mono>],
-              ["Kept", backups.keep === 0 ? <Chip key="k" tone="warn">turned off (DB_BACKUP_KEEP=0)</Chip> : `last ${backups.keep}`],
+              [t("Folder"), <Mono key="d">{backups.dir}</Mono>],
               [
-                "Last backup",
+                t("Copies kept"),
+                backups.keep === 0 ? (
+                  <Chip key="k" tone="warn">
+                    {t("Turned off (DB_BACKUP_KEEP=0)")}
+                  </Chip>
+                ) : (
+                  t("The last {n}", { n: backups.keep })
+                ),
+              ],
+              [
+                t("Last backup"),
                 <span key="l">
-                  {formatAge(backups.lastAgeMs)}{" "}
-                  {backups.lastAgeMs > 2 * 86_400_000 && <Chip tone="warn">{Number.isFinite(backups.lastAgeMs) ? "stale" : "none yet"}</Chip>}
+                  {formatAge(backups.lastAgeMs, t)}{" "}
+                  {backups.lastAgeMs > 2 * 86_400_000 && <Chip tone="warn">{Number.isFinite(backups.lastAgeMs) ? t("Out of date") : t("None yet")}</Chip>}
                 </span>,
               ],
               [
-                "Free disk space",
+                t("Free disk space"),
                 <span key="f">
-                  {formatBytes(backups.freeDiskBytes)} {lowDisk && <Chip tone="warn">low</Chip>}
+                  {bytes(backups.freeDiskBytes)} {lowDisk && <Chip tone="warn">{t("Low")}</Chip>}
                 </span>,
               ],
-              ["Backups in all", `${backups.files.length} files · ${formatBytes(backups.totalBytes)}`],
+              [t("All backups"), t("{n} files · {size}", { n: backups.files.length, size: bytes(backups.totalBytes) })],
             ]}
           />
           {backups.files.length > 0 && (
-            <ul className="mt-3 max-h-56 divide-y divide-hairline overflow-y-auto rounded-lg border border-hairline text-xs">
+            <ul className="mt-3 max-h-56 divide-y divide-hairline overflow-y-auto rounded-lg border border-hairline text-sm">
               {backups.files.map((f) => (
                 <li key={f.name} className="flex items-center justify-between gap-3 px-3 py-1.5">
-                  <span className="truncate font-mono" title={wib(f.at)}>{f.name}</span>
+                  <span className="truncate font-mono text-xs" title={formatAdminDateTime(f.at, lang)}>
+                    {f.name}
+                  </span>
                   <span className="shrink-0 tabular-nums text-ink-muted">
-                    {formatBytes(f.bytes)} · {formatAge(f.ageMs)}
+                    {bytes(f.bytes)} · {formatAge(f.ageMs, t)}
                   </span>
                 </li>
               ))}
             </ul>
           )}
           <div className="mt-4">
-            <SystemActionButton action="backup" label="Back up now" busyLabel="Copying…" primary />
+            <SystemActionButton action="backup" label={t("Back up now")} busyLabel={t("Copying…")} primary />
           </div>
         </Card>
 
-        <Card title="Maintenance" note="Each action is written to the activity log">
+        <Card title={t("Maintenance")} note={t("Each action is written to the activity log.")}>
           <ul className="space-y-4 text-sm">
             <li className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div className="max-w-md">
-                <div className="font-medium">Purge expired IP addresses</div>
-                <p className="mt-0.5 text-xs text-ink-muted">
-                  Clears research-log addresses older than the retention period
-                  {cfg.ipRetentionDays ? ` (${cfg.ipRetentionDays} days)` : ""}. The network name, country and keyed hash stay. The hourly
-                  job does this too; this runs it now.
-                  {cfg.ipRetentionDays === 0 && " Retention is unlimited (RESEARCH_IP_RETENTION_DAYS=0), so there is nothing to clear."}
+                <div className="font-medium">{t("Remove old IP addresses")}</div>
+                <p className="mt-0.5 text-sm text-ink-muted">
+                  {cfg.ipRetentionDays
+                    ? t(
+                        "Clears visitors' IP addresses in the research log once they are older than {n} days. The network name, country and a scrambled code (hash) stay. This also happens by itself every hour; the button does it now.",
+                        { n: cfg.ipRetentionDays },
+                      )
+                    : t("IP addresses are kept without a time limit (RESEARCH_IP_RETENTION_DAYS=0), so there is nothing to remove.")}
                 </p>
               </div>
               <SystemActionButton
                 action="purge-ips"
-                label="Purge expired IPs now"
-                busyLabel="Purging…"
+                label={t("Remove old IP addresses now")}
+                busyLabel={t("Removing…")}
                 disabled={cfg.ipRetentionDays === 0}
-                confirmText={`Clear every IP address recorded more than ${cfg.ipRetentionDays} days ago? This cannot be undone.`}
+                confirmText={t("Remove every IP address recorded more than {n} days ago? This cannot be undone.", { n: cfg.ipRetentionDays })}
               />
             </li>
             <li className="flex flex-col gap-2 border-t border-hairline pt-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="max-w-md">
-                <div className="font-medium">Rebuild search index</div>
-                <p className="mt-0.5 text-xs text-ink-muted">
-                  Re-reads every article into the full-text index (articles_fts). Use it if search results look stale or wrong after a
-                  direct database change. A few seconds on the full archive.
+                <div className="font-medium">{t("Rebuild search index")}</div>
+                <p className="mt-0.5 text-sm text-ink-muted">
+                  {t(
+                    "Reads every article into the search index again (articles_fts). Use it if search results look out of date or wrong after the database was changed directly. It takes a few seconds.",
+                  )}
                 </p>
               </div>
               <SystemActionButton
                 action="rebuild-index"
-                label="Rebuild search index"
-                busyLabel="Rebuilding…"
+                label={t("Rebuild search index")}
+                busyLabel={t("Rebuilding…")}
                 disabled={!db.fts}
-                confirmText="Rebuild the full-text index now? Searches answer slower for a few seconds."
+                confirmText={t("Rebuild the search index now? Searches will be a little slower for a few seconds.")}
               />
             </li>
             <li className="flex flex-col gap-2 border-t border-hairline pt-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="max-w-md">
-                <div className="font-medium">Optimize database</div>
-                <p className="mt-0.5 text-xs text-ink-muted">
-                  Refreshes the query planner&apos;s statistics (PRAGMA optimize), checkpoints the write-ahead log and, when the log is under{" "}
-                  {formatBytes(VACUUM_MAX_WAL_BYTES)}, rewrites the file with VACUUM to give back {formatBytes(reclaimable)} of free pages.
-                  It may take a few seconds, during which writes wait.
+                <div className="font-medium">{t("Optimize database")}</div>
+                <p className="mt-0.5 text-sm text-ink-muted">
+                  {t(
+                    "Refreshes the database's statistics (PRAGMA optimize), merges waiting changes into the file and, when they are under {max}, rewrites the file (VACUUM) to give back {free} of unused space. It may take a few seconds, during which saving waits.",
+                    { max: bytes(VACUUM_MAX_WAL_BYTES), free: bytes(reclaimable) },
+                  )}
                 </p>
               </div>
               <SystemActionButton
                 action="optimize"
-                label="Optimize database"
-                busyLabel="Optimizing…"
-                confirmText="Optimize the database now? Writes pause for a few seconds while the file is rewritten."
+                label={t("Optimize database")}
+                busyLabel={t("Optimizing…")}
+                confirmText={t("Optimize the database now? Saving pauses for a few seconds while the file is rewritten.")}
               />
             </li>
             <li className="flex flex-col gap-2 border-t border-hairline pt-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="max-w-md">
-                <div className="font-medium">Sign out everywhere</div>
-                <p className="mt-0.5 text-xs text-ink-muted">
-                  Ends every admin session on every device, this one included. Use it after signing in on a shared computer or if a
-                  device was lost. Logging out normally only ends the session in that browser.
+                <div className="font-medium">{t("Sign out everywhere")}</div>
+                <p className="mt-0.5 text-sm text-ink-muted">
+                  {t(
+                    "Ends every admin login on every device, this one included. Use it after signing in on a shared computer or if a device was lost. Signing out normally only ends the login in that browser.",
+                  )}
                 </p>
               </div>
               <SystemActionButton
                 action="revoke-sessions"
-                label="Sign out everywhere"
-                busyLabel="Signing out…"
-                confirmText="Sign out every admin session, including this one?"
+                label={t("Sign out everywhere")}
+                busyLabel={t("Signing out…")}
+                confirmText={t("Sign out every admin login, including this one?")}
               />
             </li>
           </ul>
         </Card>
 
-        <Card title="Configuration" note="Read from the environment (.env.local); values that are secrets are shown only as set or not">
+        <Card title={t("Configuration")} note={t("Read from the settings file (.env.local). Secret values are only shown as set up or not.")}>
           <Rows
             rows={[
               [
-                "Admin login",
+                t("Admin login"),
                 cfg.auth.problem ? (
-                  <Chip key="a" tone="warn">disabled: {cfg.auth.problem}</Chip>
+                  <Chip key="a" tone="warn">
+                    {t("Disabled: {problem}", { problem: cfg.auth.problem })}
+                  </Chip>
                 ) : cfg.auth.devDefaults ? (
-                  <Chip key="a" tone="warn">development defaults</Chip>
+                  <Chip key="a" tone="warn">
+                    {t("Development defaults")}
+                  </Chip>
                 ) : (
-                  <Chip key="a" tone="ok">configured</Chip>
+                  <Chip key="a" tone="ok">
+                    {t("Set up")}
+                  </Chip>
                 ),
               ],
-              ["Site URL", <Mono key="s">{cfg.siteUrl}</Mono>],
-              ["Database path", cfg.databasePathSet ? <Mono key="d">DATABASE_PATH</Mono> : <span key="d" className="text-ink-muted">default (data/hoax.db)</span>],
-              ["Backups kept", cfg.backupKeep === 0 ? <Chip key="b" tone="warn">off</Chip> : cfg.backupKeep],
-              ["IP retention", cfg.ipRetentionDays === 0 ? <Chip key="r" tone="warn">unlimited</Chip> : `${cfg.ipRetentionDays} days`],
+              [t("Site address"), <Mono key="s">{cfg.siteUrl}</Mono>],
               [
-                "External model",
+                t("Database location"),
+                cfg.databasePathSet ? (
+                  <Mono key="d">DATABASE_PATH</Mono>
+                ) : (
+                  <span key="d" className="text-ink-muted">
+                    {t("Default (data/hoax.db)")}
+                  </span>
+                ),
+              ],
+              [
+                t("Backups kept"),
+                cfg.backupKeep === 0 ? (
+                  <Chip key="b" tone="warn">
+                    {t("Off")}
+                  </Chip>
+                ) : (
+                  n(cfg.backupKeep)
+                ),
+              ],
+              [
+                t("IP addresses kept for"),
+                cfg.ipRetentionDays === 0 ? (
+                  <Chip key="r" tone="warn">
+                    {t("No time limit")}
+                  </Chip>
+                ) : (
+                  t("{n} days", { n: cfg.ipRetentionDays })
+                ),
+              ],
+              [
+                t("External model"),
                 cfg.externalModel.configured ? (
                   <span key="m">
-                    <Mono>{cfg.externalModel.host}</Mono> · {cfg.externalModel.timeoutMs} ms
+                    <Mono>{cfg.externalModel.host}</Mono> · {n(cfg.externalModel.timeoutMs)} ms
                   </span>
                 ) : (
-                  <Chip key="m" tone="off">not configured (the trained classifier answers)</Chip>
+                  <Chip key="m" tone="off">
+                    {t("Not set up (the trained model answers)")}
+                  </Chip>
                 ),
               ],
-              ["Telegram alerts", <Chip key="t" tone={cfg.telegram ? "ok" : "off"}>{cfg.telegram ? "configured" : "not configured"}</Chip>],
               [
-                "E-mail alerts (SMTP)",
-                cfg.smtp.configured ? <Mono key="e">{cfg.smtp.host}</Mono> : <Chip key="e" tone="off">not configured</Chip>,
+                t("Telegram alerts"),
+                <Chip key="t" tone={cfg.telegram ? "ok" : "off"}>
+                  {cfg.telegram ? t("Set up") : t("Not set up")}
+                </Chip>,
               ],
-              ["Report e-mail", cfg.reportEmail ? <Mono key="re">{cfg.reportEmail}</Mono> : <span key="re" className="text-ink-muted">—</span>],
+              [
+                t("E-mail alerts (SMTP)"),
+                cfg.smtp.configured ? (
+                  <Mono key="e">{cfg.smtp.host}</Mono>
+                ) : (
+                  <Chip key="e" tone="off">
+                    {t("Not set up")}
+                  </Chip>
+                ),
+              ],
+              [
+                t("E-mail for reports"),
+                cfg.reportEmail ? (
+                  <Mono key="re">{cfg.reportEmail}</Mono>
+                ) : (
+                  <span key="re" className="text-ink-muted">
+                    —
+                  </span>
+                ),
+              ],
             ]}
           />
         </Card>
 
-        <Card title="Files" note="Data the site needs besides the database">
+        <Card title={t("Files")} note={t("Data files the site needs besides the database")}>
           <Rows
             rows={[
               [
-                "Screenshot reader (OCR)",
+                t("Screenshot reader (OCR)"),
                 files.ocr.present ? (
                   <span key="o">
-                    <Chip tone="ok">present</Chip> · {files.ocr.languages.join(", ")}
+                    <Chip tone="ok">{t("Present")}</Chip> · {files.ocr.languages.join(", ")}
                   </span>
                 ) : (
-                  <Chip key="o" tone="warn">missing: run npm run prepare:ocr</Chip>
+                  <Chip key="o" tone="warn">
+                    {t("Missing: run {command}", { command: "npm run prepare:ocr" })}
+                  </Chip>
                 ),
               ],
-              ["OCR directory", <Mono key="od">{files.ocr.dir}</Mono>],
+              [t("OCR folder"), <Mono key="od">{files.ocr.dir}</Mono>],
               [
-                "Classifier model",
+                t("Trained model"),
                 files.model.present ? (
                   <span key="m">
-                    <Chip tone="ok">present</Chip> · {formatBytes(files.model.bytes)}
-                    {files.model.trainedAt && ` · trained ${wib(files.model.trainedAt)}`}
-                    {files.model.docs !== null && ` on ${formatCount(files.model.docs)} docs`}
+                    <Chip tone="ok">{t("Present")}</Chip> · {bytes(files.model.bytes)}
+                    {files.model.trainedAt && ` · ${t("trained {date}", { date: formatAdminDateTime(files.model.trainedAt, lang) })}`}
+                    {files.model.docs !== null && ` · ${t("{n} fact-checks", { n: files.model.docs })}`}
                   </span>
                 ) : (
-                  <Chip key="m" tone="warn">no model file: train one on the Model page</Chip>
+                  <Chip key="m" tone="warn">
+                    {t("No model file: train one on the Model page")}
+                  </Chip>
                 ),
               ],
-              ["Model file", <Mono key="mp">{files.model.path}</Mono>],
+              [t("Model file"), <Mono key="mp">{files.model.path}</Mono>],
               [
-                "IPtoASN database",
+                t("IP-to-network lookup (IPtoASN)"),
                 files.ipdb.file ? (
                   <span key="i">
-                    <Chip tone="ok">present</Chip> · {files.ipdb.date ? formatDate(files.ipdb.date) : files.ipdb.file} · {formatBytes(files.ipdb.bytes)}
+                    <Chip tone="ok">{t("Present")}</Chip> · {files.ipdb.date ? day(files.ipdb.date, lang) : files.ipdb.file} · {bytes(files.ipdb.bytes)}
                   </span>
                 ) : (
-                  <Chip key="i" tone="warn">missing: run npm run prepare:ipdb</Chip>
+                  <Chip key="i" tone="warn">
+                    {t("Missing: run {command}", { command: "npm run prepare:ipdb" })}
+                  </Chip>
                 ),
               ],
-              ["IPtoASN directory", <Mono key="id">{files.ipdb.dir}</Mono>],
+              [t("IPtoASN folder"), <Mono key="id">{files.ipdb.dir}</Mono>],
             ]}
           />
         </Card>

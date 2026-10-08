@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { DetectionResult, Verdict } from "@/lib/detect";
-import { detectLanguage, LANG_LABEL } from "@/lib/language";
+import { detectLanguage } from "@/lib/language";
 import { VERDICT_META } from "@/lib/verdict";
+import { LANGUAGE_LABEL, VERDICT_LABEL } from "@/lib/verdict-labels";
+import { siteLocale } from "@/lib/site-lang";
 import { useI18n } from "@/lib/i18n";
 import { takePendingText } from "@/lib/pending";
 import { isImage, readImageText } from "@/lib/ocr";
@@ -48,7 +50,7 @@ const MODES: { key: Mode; labelKey: string; Icon: typeof TextIcon }[] = [
 ];
 
 export function DetectorPanel() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +110,10 @@ export function DetectorPanel() {
   const announcement = loading
     ? t("det.analyzing")
     : result
-      ? `${t("res.announce")}: ${VERDICT_META[result.verdict].labelEn}, ${Math.round(result.hoaxProbability * 100)}% ${t("res.hoaxProbability").toLowerCase()}.`
+      ? t("Result ready: {verdict}, hoax probability {pct}%.", {
+          verdict: t(VERDICT_LABEL[result.verdict]),
+          pct: Math.round(result.hoaxProbability * 100),
+        })
       : "";
 
   function saveHistory(txt: string, r: DetectionResult) {
@@ -146,13 +151,18 @@ export function DetectorPanel() {
     setOcr({ progress: 0, status: "loading" });
     try {
       const found = await readImageText(file, (progress, status) => setOcr({ progress, status }));
-      if (found.replace(/\s+/g, "").length < 10) throw new Error("No readable text was found in that image.");
+      if (found.replace(/\s+/g, "").length < 10) {
+        setError(t("No readable text was found in that image."));
+        return;
+      }
       setText((prev) => (prev.trim() ? `${prev.trim()}\n\n${found}` : found));
       via.current = "screenshot";
       setFromShot(true);
-      setNotice("Text read from your screenshot. Check it for reading mistakes, then press Analyze.");
+      setNotice(t("Text read from your screenshot. Check it for reading mistakes, then press the button to analyze it."));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The screenshot could not be read.");
+      // The OCR engine's own message is technical; the detail goes to the console.
+      console.error("[ocr]", e);
+      setError(t("The screenshot could not be read."));
     } finally {
       setOcr(null);
     }
@@ -179,7 +189,8 @@ export function DetectorPanel() {
         body: JSON.stringify({ text: input, meta: usageMeta(via.current) }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Error.");
+      // The API words its errors in the visitor's language (it reads the same cookie).
+      if (!res.ok) throw new Error(data.error ?? t("Something went wrong. Please try again."));
       setResult(data as DetectionResult);
       setAnalyzed(input);
       saveHistory(input, data as DetectionResult);
@@ -189,7 +200,14 @@ export function DetectorPanel() {
         resultRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error.");
+      // Only the API's own message is shown as it is; a network failure (TypeError) or an unreadable answer has the browser's English text.
+      setError(
+        e instanceof TypeError
+          ? t("The check could not reach the server. Check your connection and try again.")
+          : e instanceof Error && e.name === "Error"
+            ? e.message
+            : t("Something went wrong. Please try again."),
+      );
     } finally {
       setLoading(false);
     }
@@ -231,7 +249,7 @@ export function DetectorPanel() {
                   >
                     <Icon className="h-3 w-3" />
                     {t(labelKey)}
-                    {active && <span className="sr-only"> (detected)</span>}
+                    {active && <span className="sr-only"> {t("(detected)")}</span>}
                   </li>
                 );
               })}
@@ -245,7 +263,7 @@ export function DetectorPanel() {
                 live ? "bg-brand-gradient text-surface" : "bg-surface-sunken text-ink-faint",
               )}
             >
-              {live ? LANG_LABEL[live.lang] : "…"}
+              {live ? t(LANGUAGE_LABEL[live.lang]) : "…"}
             </span>
           </div>
         </div>
@@ -331,18 +349,18 @@ export function DetectorPanel() {
           {ocr && (
             <div className="absolute inset-0 grid place-items-center rounded-xl bg-surface-sunken/95 p-4 text-center">
               <div className="w-full max-w-[14rem]">
-                <div className="text-sm font-medium text-ink">Reading your screenshot…</div>
+                <div className="text-sm font-medium text-ink">{t("Reading your screenshot…")}</div>
                 <div
                   className="mt-3 h-1.5 overflow-hidden rounded-full bg-hairline"
                   role="progressbar"
-                  aria-label="Reading your screenshot"
+                  aria-label={t("Reading your screenshot")}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={ocrPct}
                 >
                   <div className="h-full bg-brand transition-all motion-reduce:transition-none" style={{ width: `${ocrPct}%` }} />
                 </div>
-                <div className="mt-2 text-xs text-ink-faint">The first time downloads about 4 MB of language data.</div>
+                <div className="mt-2 text-xs text-ink-faint">{t("The first time downloads about 4 MB of language data.")}</div>
               </div>
             </div>
           )}
@@ -384,8 +402,8 @@ export function DetectorPanel() {
             )}
           </div>
           <span className={clsx("text-xs tabular-nums", short ? "text-verdict-warn" : "text-ink-faint")}>
-            {chars.toLocaleString("en-US")}
-            <span className="text-ink-faint"> / {MAX_CHARS.toLocaleString("en-US")}</span> {t("det.chars")}
+            {chars.toLocaleString(siteLocale(lang))}
+            <span className="text-ink-faint"> / {MAX_CHARS.toLocaleString(siteLocale(lang))}</span> {t("det.chars")}
           </span>
         </div>
 
@@ -417,18 +435,19 @@ export function DetectorPanel() {
         </div>
         <p id="detector-hint" className={clsx("mt-2 text-center text-xs", short ? "text-verdict-warn" : "text-ink-faint")}>
           {isLink
-            ? "Link detected: we will read the page and check its text."
+            ? t("Link detected: we will read the page and check its text.")
             : chars > 0 && missing > 0
-              ? `Add ${missing} more ${missing === 1 ? "character" : "characters"} to analyze.`
+              ? missing === 1
+                ? t("Add 1 more character to analyze.")
+                : t("Add {n} more characters to analyze.", { n: missing })
               : chars === 0
-                ? `Paste at least ${MIN_CHARS} characters, a link, or a screenshot.`
-                : `Tip: press ${mac ? "⌘" : "Ctrl"} + Enter to analyze.`}
+                ? t("Paste at least {n} characters, a link, or a screenshot.", { n: MIN_CHARS })
+                : t("Tip: press {keys} to analyze.", { keys: mac ? "⌘ + Enter" : "Ctrl + Enter" })}
         </p>
         <p className="mt-1 text-center text-xs text-ink-faint">
-          Every check is recorded for research on how this tool is used, with your IP address, network and device.
-          Don&apos;t paste private information.{" "}
+          {t("Every check is recorded for research on how this tool is used, with your IP address, network and device. Don't paste private information.")}{" "}
           <a href="/privacy" className="underline hover:text-ink">
-            Privacy
+            {t("Privacy")}
           </a>
         </p>
 
@@ -471,7 +490,7 @@ export function DetectorPanel() {
                 >
                   {Math.round(h.hoaxProbability * 100)}%
                 </span>
-                <span className="sr-only">{meta.labelEn}: </span>
+                <span className="sr-only">{t(VERDICT_LABEL[h.verdict])}: </span>
                 <span className="min-w-0 max-w-[13rem] truncate text-ink-muted sm:max-w-[18rem]">{h.excerpt}</span>
               </button>
             );

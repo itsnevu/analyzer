@@ -16,7 +16,7 @@ export interface HeroCounts {
 }
 
 export function Hero({ counts }: { counts?: HeroCounts }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const router = useRouter();
   const [text, setText] = useState("");
   const ready = text.trim().length >= 15;
@@ -38,8 +38,8 @@ export function Hero({ counts }: { counts?: HeroCounts }) {
   }
 
   const trust = [
-    counts && counts.total > 0 && { Icon: ArchiveIcon, value: formatCount(counts.total), label: t("hero.trust.archive") },
-    counts && counts.sources > 0 && { Icon: ShieldIcon, value: formatCount(counts.sources), label: t("hero.trust.sources") },
+    counts && counts.total > 0 && { Icon: ArchiveIcon, value: formatCount(counts.total, lang), label: t("hero.trust.archive") },
+    counts && counts.sources > 0 && { Icon: ShieldIcon, value: formatCount(counts.sources, lang), label: t("hero.trust.sources") },
     { Icon: TextIcon, value: "", label: t("hero.trust.langs") },
   ].filter((x): x is { Icon: typeof ArchiveIcon; value: string; label: string } => Boolean(x));
 
@@ -106,17 +106,17 @@ export function Hero({ counts }: { counts?: HeroCounts }) {
               />
             </label>
             <div className="flex flex-col items-stretch gap-2 border-t border-hairline p-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
-              <span className={clsx("px-2 text-xs", text && !ready ? "text-verdict-warn" : "text-ink-faint")}>
-                {text && !ready ? `${15 - text.trim().length} more characters to go` : t("hero.box.hint")}
+              <span className={clsx("min-w-0 px-2 text-xs", text && !ready ? "text-verdict-warn" : "text-ink-faint")}>
+                {text && !ready ? t("{n} more characters to go", { n: 15 - text.trim().length }) : t("hero.box.hint")}
               </span>
-              <div className="flex gap-2">
-                <Link href="/#how" className="neu-btn flex-1 px-5 py-2.5 text-center text-sm font-medium sm:flex-none">
+              <div className="flex shrink-0 gap-2">
+                <Link href="/#how" className="neu-btn flex-1 whitespace-nowrap px-5 py-2.5 text-center text-sm font-medium sm:flex-none">
                   {t("hero.cta.secondary")}
                 </Link>
                 <button
                   type="submit"
                   disabled={!ready}
-                  className={clsx("btn-primary flex-1 px-6 py-2.5 text-sm sm:flex-none", !ready && "cursor-not-allowed opacity-50 hover:opacity-50")}
+                  className={clsx("btn-primary flex-1 whitespace-nowrap px-6 py-2.5 text-sm sm:flex-none", !ready && "cursor-not-allowed opacity-50 hover:opacity-50")}
                 >
                   {t("hero.cta.primary")}
                 </button>
@@ -135,7 +135,7 @@ export function Hero({ counts }: { counts?: HeroCounts }) {
             ))}
             <li>
               <Link href="/stats" className="inline-flex items-center gap-1 text-ink-faint transition-colors hover:text-ink">
-                All the numbers <ArrowRightIcon className="h-3.5 w-3.5" />
+                {t("All the numbers")} <ArrowRightIcon className="h-3.5 w-3.5" />
               </Link>
             </li>
           </ul>

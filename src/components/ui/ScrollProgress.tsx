@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { clsx } from "@/lib/clsx";
+import { useI18n } from "@/lib/i18n";
 
 export function ScrollProgress() {
   const [progress, setProgress] = useState(0);
   const [showTop, setShowTop] = useState(false);
   const pathname = usePathname();
+  const { t } = useI18n();
 
   useEffect(() => {
     let raf = 0;
@@ -43,7 +45,7 @@ export function ScrollProgress() {
 
       {/* Back to top */}
       <button
-        aria-label="Back to top"
+        aria-label={t("Back to top")}
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         className={clsx(
           "neu-btn fixed bottom-6 right-6 z-50 grid h-11 w-11 place-items-center transition-all duration-300",

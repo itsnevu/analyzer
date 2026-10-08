@@ -6,6 +6,7 @@ import { asSingleUrl, extractText, NON_CONTENT_TAGS, PageError, readPageHtml } f
 import { canonicalLink, firstElement, metaContent, removeComments, removeElements, stripTags } from "./html-scan";
 import { detectLanguage } from "./language";
 import { applyHtmlTags, isSkippedDomain, skipListFilter } from "./settings";
+import { MessageError } from "./message-error";
 import { slugify } from "./slug";
 import { foldText } from "./similarity";
 
@@ -20,7 +21,7 @@ import { foldText } from "./similarity";
  * Server-only.
  */
 
-export class ExtractError extends Error {}
+export class ExtractError extends MessageError {}
 
 export type LabelClass = "hoax" | "misleading" | "true" | "clarification";
 
@@ -452,7 +453,7 @@ export async function extractArticle(raw: string): Promise<ExtractResult> {
   const link = asSingleUrl(input);
   if (link) {
     const host = new URL(link).hostname;
-    if (isSkippedDomain(host)) throw new ExtractError(`${host} is on the skip list (Settings → Skipped domains), so its pages are not read.`);
+    if (isSkippedDomain(host)) throw new ExtractError("{host} is on the skip list (Settings → Skipped domains), so its pages are not read.", { host });
     // The whole page is read, not the detector's "readable text", so short heading lines (NARASI:, PENJELASAN:)
     // and the page's own metadata (publish date) survive.
     const page = await readPageHtml(link, skipListFilter);

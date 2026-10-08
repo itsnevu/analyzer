@@ -34,8 +34,8 @@ function parse(text: string): Item[] {
 
 const short = (s: string) => (s.length > 72 ? `${s.slice(0, 69)}…` : s);
 
-/** The sources a fact-check cites, as a tidy list with outbound icons and archived-copy notes. */
-export function ReferenceList({ text }: { text: string }) {
+/** The sources a fact-check cites, as a tidy list with outbound icons and archived-copy notes (`archivedNote`, in the page language). */
+export function ReferenceList({ text, archivedNote }: { text: string; archivedNote: string }) {
   const items = parse(text);
   if (!items.length) return null;
   return (
@@ -62,7 +62,7 @@ export function ReferenceList({ text }: { text: string }) {
                     {l.archived && (
                       <span className="ml-2 inline-flex items-center gap-1 align-middle text-[11px] text-ink-faint">
                         <ArchiveIcon className="h-3 w-3" />
-                        Archived copy; the original is offline
+                        {archivedNote}
                       </span>
                     )}
                   </li>

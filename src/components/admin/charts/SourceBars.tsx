@@ -1,3 +1,4 @@
+import { makeAdminT, tk, type AdminLang } from "@/lib/admin-lang";
 import { CHART, Legend, TableView, fmt } from "./chart-kit";
 
 export interface SourceBar {
@@ -7,20 +8,33 @@ export interface SourceBar {
   unlabeled: number;
 }
 
-const DEFAULT_LEGEND = { labeled: "Labeled", unlabeled: "Unlabeled" };
+const DEFAULT_LEGEND = { labeled: tk("Labeled"), unlabeled: tk("Unlabeled") };
 
 /**
  * Horizontal bars, labeled rows first and unlabeled rows after a 2px gap.
  * `legend` renames the two series for other splits (e.g. "With full text" / "Link only").
+ * `lang` is the admin panel's language (English by default, for the public /stats page).
  */
-export function SourceBars({ rows, legend = DEFAULT_LEGEND }: { rows: SourceBar[]; legend?: { labeled: string; unlabeled: string } }) {
+export function SourceBars({
+  rows,
+  legend = DEFAULT_LEGEND,
+  lang = "en",
+}: {
+  rows: SourceBar[];
+  legend?: { labeled: string; unlabeled: string };
+  lang?: AdminLang;
+}) {
+  const t = makeAdminT(lang);
+  const num = (n: number) => fmt(n, lang);
+  const labeledName = t(legend.labeled);
+  const unlabeledName = t(legend.unlabeled);
   const max = Math.max(...rows.map((r) => r.labeled + r.unlabeled), 1);
   return (
     <div>
       <Legend
         items={[
-          { label: legend.labeled, color: CHART.brand },
-          { label: legend.unlabeled, color: CHART.neutral },
+          { label: labeledName, color: CHART.brand },
+          { label: unlabeledName, color: CHART.neutral },
         ]}
       />
       <ul className="mt-3 space-y-1">
@@ -30,7 +44,7 @@ export function SourceBars({ rows, legend = DEFAULT_LEGEND }: { rows: SourceBar[
             <li
               key={r.name}
               className="grid grid-cols-[minmax(0,9.5rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-surface-sunken"
-              title={`${r.name}: ${fmt(r.labeled)} ${legend.labeled.toLowerCase()}, ${fmt(r.unlabeled)} ${legend.unlabeled.toLowerCase()}`}
+              title={`${r.name}: ${num(r.labeled)} ${labeledName.toLowerCase()}, ${num(r.unlabeled)} ${unlabeledName.toLowerCase()}`}
             >
               <span className="truncate text-xs text-ink-muted">
                 {r.name}
@@ -62,16 +76,17 @@ export function SourceBars({ rows, legend = DEFAULT_LEGEND }: { rows: SourceBar[
                 )}
               </span>
               <span className="text-right text-xs tabular-nums">
-                <span className="font-semibold text-ink">{fmt(r.labeled)}</span>
-                {r.unlabeled > 0 && <span className="text-ink-faint"> + {fmt(r.unlabeled)}</span>}
+                <span className="font-semibold text-ink">{num(r.labeled)}</span>
+                {r.unlabeled > 0 && <span className="text-ink-faint"> + {num(r.unlabeled)}</span>}
               </span>
             </li>
           );
         })}
       </ul>
       <TableView
-        head={["Source", legend.labeled, legend.unlabeled, "Total"]}
+        head={[t("Source"), labeledName, unlabeledName, t("Total")]}
         rows={rows.map((r) => [r.name, r.labeled, r.unlabeled, r.labeled + r.unlabeled])}
+        lang={lang}
       />
     </div>
   );

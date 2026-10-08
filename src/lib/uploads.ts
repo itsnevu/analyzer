@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
+import { MessageError } from "./message-error";
 
 /**
  * Uploaded images. Next only serves files that were in public/ at build time,
@@ -23,7 +24,7 @@ const DECODABLE = new Set(["png", "jpeg", "webp", "gif"]);
 sharp.concurrency(1);
 const NAME = /^[a-f0-9]{32}\.webp$/;
 
-export class UploadError extends Error {}
+export class UploadError extends MessageError {}
 
 /** The first bytes of a PNG, JPEG, GIF or WebP file. */
 export function hasImageSignature(b: Buffer): boolean {

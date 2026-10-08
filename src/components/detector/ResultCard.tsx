@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { REPORT_DRAFT_KEY, type ReportDraft } from "@/lib/report-labels";
 import type { DetectionResult } from "@/lib/detect";
 import { VERDICT_META } from "@/lib/verdict";
-import { LANG_LABEL } from "@/lib/language";
+import { DETECTOR_CATEGORIES, DETECTOR_SIGNALS, LANGUAGE_LABEL, VERDICT_LABEL } from "@/lib/verdict-labels";
 import { formatDate, hostOf, sourceName } from "@/lib/sources";
+import type { SiteT } from "@/lib/site-lang";
 import { useI18n } from "@/lib/i18n";
 import { clsx } from "@/lib/clsx";
 import { CopyButton } from "@/components/ui/CopyButton";
@@ -21,10 +22,27 @@ function Heading({ children }: { children: React.ReactNode }) {
   return <h3 className="eyebrow">{children}</h3>;
 }
 
+/**
+ * A signal's label in the site language. The API keeps them in English (the
+ * highlighter matches on them); the trained classifier's cues read
+ * "word: vaksin", the heuristic's are the matched words themselves.
+ */
+function signalLabel(label: string, t: SiteT): string {
+  const cue = /^(word|phrase): (.+)$/.exec(label);
+  if (cue) return cue[1] === "word" ? t("word: {cue}", { cue: cue[2] }) : t("phrase: {cue}", { cue: cue[2] });
+  return DETECTOR_SIGNALS.includes(label) ? t(label) : label;
+}
+
 export function ResultCard({ result, text }: { result: DetectionResult; text: string }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const router = useRouter();
   const m = VERDICT_META[result.verdict];
+  const verdictLabel = t(VERDICT_LABEL[result.verdict]);
+  // The site's own sentences come as keys; an external model's explanation is shown as it is.
+  const explanation = result.explanationParts?.length ? result.explanationParts.map((p) => t(p.key, p.vars)).join(" ") : result.explanation;
+  const category = result.category && DETECTOR_CATEGORIES.includes(result.category) ? t(result.category) : result.category;
+  // The local engines attach the site's standard references, whose texts are translated; a model's are shown as they are.
+  const own = result.engine !== "external";
   const pct = Math.round(result.hoaxProbability * 100);
   const confidence = Math.round(result.confidence * 100);
   const related = result.related ?? [];
@@ -44,8 +62,8 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
   }
 
   const shareText = top
-    ? `This looks like a known claim. ${VERDICT_META[top.verdict].labelEn}: ${top.title}`
-    : `Hoax Analyzer says: ${m.labelEn} (${pct}% hoax probability). Check a message yourself:`;
+    ? t("This looks like a known claim. {verdict}: {title}", { verdict: t(VERDICT_LABEL[top.verdict]), title: top.title })
+    : t("Hoax Analyzer says: {verdict} ({pct}% hoax probability). Check a message yourself:", { verdict: verdictLabel, pct });
 
   return (
     <article aria-labelledby="result-verdict" className="neu animate-fade-up overflow-hidden p-0 shadow-neu-lg motion-reduce:animate-none">
@@ -55,12 +73,12 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
           <div className="w-full min-w-0 text-center sm:w-auto sm:text-left">
             <div className="meta-label">{t("res.verdict")}</div>
             <h2 id="result-verdict" className="mt-1 break-words font-display text-4xl font-bold leading-none tracking-tight sm:text-5xl lg:text-6xl" style={{ color: m.color }}>
-              {m.labelEn}
+              {verdictLabel}
             </h2>
-            {result.category && <p className="mt-2 text-sm text-ink-muted">{result.category}</p>}
+            {category && <p className="mt-2 text-sm text-ink-muted">{category}</p>}
             <dl className="mt-5 flex flex-wrap justify-center gap-2 sm:justify-start">
               <Stat label={t("res.confidence")} value={`${confidence}%`} />
-              <Stat label={t("res.language")} value={LANG_LABEL[result.language]} />
+              <Stat label={t("res.language")} value={t(LANGUAGE_LABEL[result.language])} />
               <Stat label={t("res.engine")} value={engine} />
             </dl>
           </div>
@@ -73,13 +91,13 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
         <CopyButton
           text={
             `Hoax Analyzer\n` +
-            `${t("res.verdict")}: ${m.labelEn}\n` +
-            `${pct}% hoax\n` +
+            `${t("res.verdict")}: ${verdictLabel}\n` +
+            `${t("res.hoaxProbability")}: ${pct}%\n` +
             `${t("res.confidence")}: ${confidence}%\n` +
-            `${t("res.explanation")}: ${result.explanation}`
+            `${t("res.explanation")}: ${explanation}`
           }
         />
-        <ShareBar text={shareText} url={top ? `/blog/${top.slug}` : "/detector"} label="Share" />
+        <ShareBar text={shareText} url={top ? `/blog/${top.slug}` : "/detector"} label={t("Share")} />
         <button
           type="button"
           onClick={reportWrong}
@@ -92,7 +110,7 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
 
       {result.source && (
         <div className="border-b border-hairline px-6 py-3 text-xs text-ink-muted sm:px-8">
-          Read from the page{" "}
+          {t("Read from the page")}{" "}
           <a
             href={result.source.url}
             target="_blank"
@@ -109,13 +127,16 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
       <div className="space-y-8 p-6 sm:p-8">
         <section>
           <Heading>{t("res.explanation")}</Heading>
-          <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-ink">{result.explanation}</p>
+          <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-ink">{explanation}</p>
 
           {(result.simulated || result.fallbackReason) && (
             <div className="mt-4 rounded-xl border border-verdict-warn/30 bg-verdict-warn/10 px-4 py-3 text-xs leading-relaxed text-ink-muted">
-              <strong className="text-verdict-warn">{result.fallbackReason ? "Fallback." : t("res.demoTag")}</strong>{" "}
+              <strong className="text-verdict-warn">{result.fallbackReason ? t("Fallback.") : t("res.demoTag")}</strong>{" "}
+              {/* lib/detect gives one of two public reasons: a timeout, or any other failure. */}
               {result.fallbackReason
-                ? `The configured detection model is unavailable right now (${result.fallbackReason}), so the site's own classifier and the fact-check archive answered instead.`
+                ? /too long/.test(result.fallbackReason)
+                  ? t("The configured detection model took too long to answer, so the site's own classifier and the fact-check archive answered instead.")
+                  : t("The configured detection model could not be used right now, so the site's own classifier and the fact-check archive answered instead.")
                 : t("res.demoNote")}
             </div>
           )}
@@ -136,8 +157,8 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
                   <span className="text-[10px]" aria-hidden>
                     {s.kind === "risk" ? "▲" : "✓"}
                   </span>
-                  <span className="sr-only">{s.kind === "risk" ? "Risk marker: " : "Credibility marker: "}</span>
-                  {s.label}
+                  <span className="sr-only">{s.kind === "risk" ? t("Risk marker:") : t("Credibility marker:")} </span>
+                  {signalLabel(s.label, t)}
                 </li>
               ))}
             </ul>
@@ -173,7 +194,7 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
                   </span>
                   {a.summary && <span className="line-clamp-2 text-xs leading-relaxed text-ink-muted">{a.summary}</span>}
                   <span className="mt-auto truncate pt-1 text-xs text-ink-faint">
-                    {[a.sourceSite && sourceName(a.sourceSite), formatDate(a.date)].filter(Boolean).join(" · ")}
+                    {[a.sourceSite && sourceName(a.sourceSite), formatDate(a.date, "short", lang)].filter(Boolean).join(" · ")}
                   </span>
                 </Link>
               </li>
@@ -198,14 +219,16 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
                       rel="noopener noreferrer"
                       className="group inline-flex items-start gap-1.5 text-sm font-medium text-ink transition-colors hover:text-brand"
                     >
-                      <span className="break-words">{ref.title}</span>
+                      <span className="break-words">{own ? t(ref.title) : ref.title}</span>
                       <ExternalIcon className="mt-1 h-3 w-3 shrink-0 text-ink-faint group-hover:text-brand" />
                     </a>
                   ) : (
-                    <span className="text-sm font-medium text-ink">{ref.title}</span>
+                    <span className="text-sm font-medium text-ink">{own ? t(ref.title) : ref.title}</span>
                   )}
-                  <div className="mt-1 text-xs text-ink-faint">{[ref.source, host && host !== ref.source ? host : ""].filter(Boolean).join(" · ")}</div>
-                  {ref.snippet && <p className="mt-1.5 text-xs leading-relaxed text-ink-muted">{ref.snippet}</p>}
+                  <div className="mt-1 text-xs text-ink-faint">
+                    {[own ? t(ref.source) : ref.source, host && host !== ref.source ? host : ""].filter(Boolean).join(" · ")}
+                  </div>
+                  {ref.snippet && <p className="mt-1.5 text-xs leading-relaxed text-ink-muted">{own ? t(ref.snippet) : ref.snippet}</p>}
                 </li>
               );
             })}
@@ -216,9 +239,9 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
       <ResearchCard checkId={result.checkId} />
 
       <div className="border-t border-hairline px-6 py-4 text-xs text-ink-faint sm:px-8">
-        Model: <span className="text-ink-muted">{result.model}</span> · {t("res.footer")}{" "}
+        {t("Model:")} <span className="text-ink-muted">{result.model}</span> · {t("res.footer")}{" "}
         <Link href="/disclaimer" className="underline hover:text-ink">
-          Terms
+          {t("Terms")}
         </Link>
       </div>
     </article>

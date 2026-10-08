@@ -1,9 +1,16 @@
-"use client";
-
+import type { Metadata } from "next";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DISCLAIMER_POINTS } from "@/lib/dictionary";
+import { getSiteT } from "@/lib/site-lang-server";
+import { rich } from "@/components/ui/Rich";
 
-export default function DisclaimerPage() {
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getSiteT();
+  return { title: t("disclaimer.eyebrow") };
+}
+
+export default async function DisclaimerPage() {
+  const { t } = await getSiteT();
   return (
     <>
       <PageHeader eyebrowKey="disclaimer.eyebrow" titleKey="disclaimer.title" introKey="disclaimer.intro" />
@@ -14,11 +21,17 @@ export default function DisclaimerPage() {
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-brand-gradient text-sm font-bold text-surface">
                 {i + 1}
               </span>
-              <p className="text-sm leading-relaxed text-ink">{p}</p>
+              <p className="text-sm leading-relaxed text-ink">{t(p)}</p>
             </div>
           ))}
           <p className="pt-3 text-xs text-ink-faint">
-            Last updated October 1, 2026. Questions: <a href="mailto:syyhoaxanalyzer@gmail.com" className="underline hover:text-ink">syyhoaxanalyzer@gmail.com</a>
+            {rich(t("Last updated October 1, 2026. Questions: <mail>syyhoaxanalyzer@gmail.com</mail>"), {
+              mail: (s) => (
+                <a href="mailto:syyhoaxanalyzer@gmail.com" className="underline hover:text-ink">
+                  {s}
+                </a>
+              ),
+            })}
           </p>
         </div>
       </section>

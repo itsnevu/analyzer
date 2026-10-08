@@ -1,23 +1,35 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { actionLabel, adminLogActions, adminLogFilterFrom, listAdminLog } from "@/lib/admin-log";
 import { ActivityTable, ClearActivityButton } from "@/components/admin/ActivityTable";
 import { Pagination } from "@/components/ui/Pagination";
-import { formatCount } from "@/lib/sources";
+import { formatAdminDateTime, formatAdminNumber } from "@/lib/admin-lang";
+import { getAdminT } from "@/lib/admin-lang-server";
 import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Activity log" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getAdminT();
+  return { title: t("Activity log") };
+}
 
 type Params = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 const field = "rounded-lg border border-hairline bg-surface-sunken px-3 py-2 text-sm text-ink outline-none focus:ring-2 focus:ring-brand/30";
-const wib = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString("en-GB", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" });
-};
+
+/** Puts elements where a translated sentence has {name} placeholders, so the sentence stays one dictionary entry. */
+function withLinks(text: string, parts: Record<string, React.ReactNode>): React.ReactNode[] {
+  return text.split(/(\{\w+\})/).map((piece, i) => {
+    const m = piece.match(/^\{(\w+)\}$/);
+    return m && m[1] in parts ? <span key={i}>{parts[m[1]]}</span> : piece;
+  });
+}
 
 export default async function ActivityPage({ searchParams }: { searchParams: Promise<Params> }) {
   await requireAdmin();
+  const { t, lang } = await getAdminT();
+  const n = (v: number) => formatAdminNumber(v, lang);
   const sp = await searchParams;
   const f = adminLogFilterFrom((k) => one(sp[k]) || undefined);
   const result = listAdminLog({ ...f, pageSize: 100 });
@@ -35,52 +47,76 @@ export default async function ActivityPage({ searchParams }: { searchParams: Pro
   };
   const first = result.total ? (result.page - 1) * result.pageSize + 1 : 0;
   const last = Math.min(result.page * result.pageSize, result.total);
-  const items = result.items.map((r) => ({ ...r, label: actionLabel(r.action), when: wib(r.at) }));
+  const items = result.items.map((r) => ({ ...r, label: t(actionLabel(r.action)), when: formatAdminDateTime(r.at, lang) }));
 
   return (
     <div className="space-y-4">
       <div className="neu p-6">
-        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">Activity log ({formatCount(result.total)})</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">
+          {t("Activity log")} <span className="align-middle font-mono text-sm font-medium text-ink-faint">{n(result.total)}</span>
+        </h1>
         <p className="mt-2 max-w-3xl text-sm text-ink-muted">
-          What was done in this panel and from which address: logins, article edits and bulk actions, review decisions, dataset and settings
-          changes, model training, report status changes and the maintenance actions on the{" "}
-          <Link href="/admin/system" className="text-brand hover:underline">System</Link> page. Visitors&apos; own use of the site is in the{" "}
-          <Link href="/admin/research" className="text-brand hover:underline">research log</Link>, not here.
+          {withLinks(
+            t(
+              "Everything done in this admin panel, and from which internet address: logins, article changes, review decisions, dataset and settings changes, model training, report updates and the maintenance buttons on the {system} page. What visitors do on the site is in the {research}, not here.",
+            ),
+            {
+              system: (
+                <Link href="/admin/system" className="text-brand hover:underline">
+                  {t("System")}
+                </Link>
+              ),
+              research: (
+                <Link href="/admin/research" className="text-brand hover:underline">
+                  {t("research log")}
+                </Link>
+              ),
+            },
+          )}
         </p>
       </div>
 
       <form action="/admin/activity" method="get" className="neu flex flex-wrap items-center gap-2 p-3 text-sm">
-        <select name="action" defaultValue={f.action ?? ""} className={field} aria-label="Action">
-          <option value="">All actions</option>
+        <select name="action" defaultValue={f.action ?? ""} className={field} aria-label={t("Action")}>
+          <option value="">{t("All actions")}</option>
           {actions.map((a) => (
             <option key={a.action} value={a.action}>
-              {actionLabel(a.action)} ({formatCount(a.count)})
+              {t(actionLabel(a.action))} ({n(a.count)})
             </option>
           ))}
         </select>
-        <label className="flex items-center gap-1.5 text-xs text-ink-muted">
-          From <input type="date" name="from" defaultValue={f.from} className={field} />
+        <label className="flex items-center gap-1.5 text-sm text-ink-muted">
+          {t("From")} <input type="date" name="from" defaultValue={f.from} className={field} />
         </label>
-        <label className="flex items-center gap-1.5 text-xs text-ink-muted">
-          To <input type="date" name="to" defaultValue={f.to} className={field} />
+        <label className="flex items-center gap-1.5 text-sm text-ink-muted">
+          {t("To")} <input type="date" name="to" defaultValue={f.to} className={field} />
         </label>
-        <button type="submit" className="neu-btn px-4 py-2">Apply</button>
+        <button type="submit" className="neu-btn px-4 py-2">
+          {t("Apply")}
+        </button>
         {(f.action || f.from || f.to) && (
-          <Link href="/admin/activity" className="px-2 text-xs text-ink-muted hover:text-ink">Reset</Link>
+          <Link href="/admin/activity" className="px-2 text-sm text-ink-muted hover:text-ink">
+            {t("Reset")}
+          </Link>
         )}
         <span className="flex-1" />
-        <a href={`/api/admin/activity/export?${query()}`} className="btn-primary px-4 py-2 text-sm">Export CSV</a>
+        <a href={`/api/admin/activity/export?${query()}`} className="btn-primary px-4 py-2 text-sm">
+          {t("Export CSV")}
+        </a>
       </form>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs text-ink-muted">
-          View {formatCount(first)}–{formatCount(last)} of {formatCount(result.total)}
-        </p>
+        <p className="text-sm text-ink-muted">{t("Showing {first}–{last} of {total}", { first, last, total: result.total })}</p>
         <ClearActivityButton days={90} />
       </div>
 
       <ActivityTable items={items} />
-      <Pagination page={result.page} pages={result.pages} hrefFor={(p) => href({ page: p })} />
+      <Pagination
+        page={result.page}
+        pages={result.pages}
+        hrefFor={(p) => href({ page: p })}
+        labels={{ nav: t("Pages"), prev: t("← Previous"), next: t("Next →") }}
+      />
     </div>
   );
 }

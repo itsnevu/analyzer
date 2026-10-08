@@ -4,19 +4,21 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { VerdictBadge } from "@/components/article/ArticleCard";
+import { adminLocale, tk, type AdminLang } from "@/lib/admin-lang";
 import { clsx } from "@/lib/clsx";
 import type { ExtractResult, ExtractedFields } from "@/lib/extract";
 import { slugify } from "@/lib/slug";
-import { formatDate, sourceName } from "@/lib/sources";
+import { sourceName } from "@/lib/sources";
+import { useAdminT } from "./AdminLang";
 
 const field = "w-full rounded-lg border border-hairline bg-surface-sunken px-3.5 py-2.5 text-sm text-ink outline-none focus:ring-2 focus:ring-brand/30";
-const labelCls = "mb-1.5 block text-xs font-medium text-ink-muted";
+const labelCls = "mb-1.5 block text-sm font-medium text-ink-muted";
 
 const DATE_FROM: Record<ExtractedFields["dateFrom"], string> = {
-  url: "from the address",
-  meta: "from the page's metadata",
-  text: "found in the text",
-  today: "not found; today",
+  url: tk("Taken from the link"),
+  meta: tk("Taken from the page details"),
+  text: tk("Found in the text"),
+  today: tk("Not found, so today's date is used"),
 };
 
 /** "slug" → "slug-2", "slug-2" → "slug-3". */
@@ -25,8 +27,17 @@ function nextSlug(slug: string): string {
   return m ? `${m[1]}-${Number(m[2]) + 1}` : `${slug}-2`;
 }
 
+/** "2019-04-06" → "Apr 6, 2019" / "6 Apr 2019"; "" or junk → "". */
+function dayLabel(date: string, lang: AdminLang): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "";
+  const d = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(adminLocale(lang), { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 export function ExtractTool({ initialText = "" }: { initialText?: string }) {
   const router = useRouter();
+  const { t, lang } = useAdminT();
   const [input, setInput] = useState(initialText);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,12 +59,12 @@ export function ExtractTool({ initialText = "" }: { initialText?: string }) {
         body: JSON.stringify({ input }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Extraction failed.");
+      if (!res.ok) throw new Error(json.error ?? t("Could not read this."));
       const r = json as ExtractResult;
       setResult(r);
       setD(r.fields);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Extraction failed.");
+      setError(err instanceof Error ? err.message : t("Could not read this."));
     } finally {
       setBusy(false);
     }
@@ -91,36 +102,44 @@ export function ExtractTool({ initialText = "" }: { initialText?: string }) {
       if (res.status === 409) {
         const suggestion = nextSlug(d.slug || slugify(d.title));
         set("slug", suggestion);
-        throw new Error(`${json.error} The slug was changed to "${suggestion}"; save again to use it.`);
+        throw new Error(t("{error} The web address was changed to “{slug}”; press save again to use it.", { error: json.error ?? "", slug: suggestion }));
       }
-      if (!res.ok) throw new Error(json.error ?? "Failed to save.");
+      if (!res.ok) throw new Error(json.error ?? t("Could not save."));
       const slug: string = json.article?.slug ?? d.slug;
       router.push(`/admin/articles/${slug}/edit`);
       router.refresh();
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save.");
+      setSaveError(err instanceof Error ? err.message : t("Could not save."));
       setSaving(null);
     }
   }
+
+  const verdictNote = !d
+    ? ""
+    : d.verdictGuessed
+      ? t("Guessed: the title has no verdict label")
+      : d.verdictTag === "headline"
+        ? t("Taken from the wording of the headline")
+        : t("Taken from the label in the title [{tag}]", { tag: d.verdictTag });
 
   return (
     <div className="space-y-4">
       <form onSubmit={process} className="neu space-y-4 p-6">
         <label className="block">
-          <span className={labelCls}>Link, HTML or text</span>
+          <span className={labelCls}>{t("Link, page code or text")}</span>
           <textarea
             rows={6}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="https://turnbackhoax.id/2019/04/06/salah-…  or paste the page's HTML, or the forwarded message itself"
+            placeholder={t("https://turnbackhoax.id/2019/04/06/salah-…  or paste the page code, or the forwarded message itself")}
             className={clsx(field, "resize-y font-mono text-xs leading-relaxed")}
           />
         </label>
         <div className="flex flex-wrap items-center gap-3">
           <button type="submit" disabled={busy || !input.trim()} className="btn-primary px-6 py-3 text-sm disabled:opacity-50">
-            {busy ? "Reading…" : "Process"}
+            {busy ? t("Reading…") : t("Fill in the form")}
           </button>
-          <span className="text-xs text-ink-faint">Links on the skip list (Settings → Skipped domains) are refused.</span>
+          <span className="text-xs text-ink-faint">{t("Links from websites on the skip list (Settings → Skipped domains) are refused.")}</span>
         </div>
       </form>
 
@@ -132,14 +151,14 @@ export function ExtractTool({ initialText = "" }: { initialText?: string }) {
             <div className="neu space-y-2 p-5 text-sm">
               {result.source && (
                 <p className="text-ink-muted">
-                  Read from{" "}
+                  {t("Read from")}{" "}
                   <a href={result.source.url} target="_blank" rel="noopener noreferrer nofollow" className="font-medium text-ink hover:text-brand">
                     {result.source.title} ↗
                   </a>
                 </p>
               )}
               {result.notes.length > 0 && (
-                <ul className="space-y-1 rounded-lg border border-verdict-warn/30 bg-verdict-warn/10 px-4 py-3 text-xs leading-relaxed text-ink-muted">
+                <ul className="space-y-1 rounded-lg border border-verdict-warn/30 bg-verdict-warn/10 px-4 py-3 text-sm leading-relaxed text-ink-muted">
                   {result.notes.map((n, i) => (
                     <li key={i}>{n}</li>
                   ))}
@@ -150,8 +169,8 @@ export function ExtractTool({ initialText = "" }: { initialText?: string }) {
 
           {result.similar.length > 0 && (
             <div className="neu p-5">
-              <h2 className="eyebrow">Already in the archive</h2>
-              <p className="mt-1 text-xs text-ink-faint">Fact-checks that share this claim&apos;s key words. Check them before saving a duplicate.</p>
+              <h2 className="eyebrow">{t("Already in the archive")}</h2>
+              <p className="mt-1 text-sm text-ink-faint">{t("Fact-checks that use the same key words. Check them so you do not save the same thing twice.")}</p>
               <ul className="mt-3 space-y-2">
                 {result.similar.map((a) => (
                   <li key={a.slug} className="flex items-start gap-3 rounded-lg border border-hairline p-3">
@@ -161,10 +180,10 @@ export function ExtractTool({ initialText = "" }: { initialText?: string }) {
                         {a.title}
                       </Link>
                       <span className="mt-0.5 block text-xs text-ink-faint">
-                        {[a.sourceSite && sourceName(a.sourceSite), formatDate(a.date), !a.published && "hidden"].filter(Boolean).join(" · ")}
+                        {[a.sourceSite && sourceName(a.sourceSite), dayLabel(a.date, lang), !a.published && t("Hidden")].filter(Boolean).join(" · ")}
                       </span>
                     </span>
-                    <Link href={`/blog/${a.slug}`} target="_blank" className="text-ink-faint hover:text-ink" title="Open on the site">
+                    <Link href={`/blog/${a.slug}`} target="_blank" className="px-1 text-ink-faint hover:text-ink" title={t("View on site")} aria-label={t("View on site")}>
                       ↗
                     </Link>
                   </li>
@@ -175,80 +194,78 @@ export function ExtractTool({ initialText = "" }: { initialText?: string }) {
 
           <div className="neu space-y-4 p-6">
             <label className="block">
-              <span className={labelCls}>Title *</span>
+              <span className={labelCls}>{t("Title *")}</span>
               <input required value={d.title} onChange={(e) => set("title", e.target.value)} className={field} />
             </label>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className={labelCls}>Slug (URL)</span>
+                <span className={labelCls}>{t("Web address (slug)")}</span>
                 <input value={d.slug} onChange={(e) => set("slug", slugify(e.target.value))} className={clsx(field, "font-mono text-xs")} />
                 <span className="mt-1 block text-xs text-ink-faint">/blog/{d.slug || "…"}</span>
               </label>
               <label className="block">
-                <span className={labelCls}>Date</span>
+                <span className={labelCls}>{t("Date")}</span>
                 <input type="date" value={d.date} onChange={(e) => set("date", e.target.value)} className={field} />
-                <span className="mt-1 block text-xs text-ink-faint">{DATE_FROM[d.dateFrom]}</span>
+                <span className="mt-1 block text-xs text-ink-faint">{t(DATE_FROM[d.dateFrom])}</span>
               </label>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
               <label className="block">
-                <span className={labelCls}>Verdict</span>
+                <span className={labelCls}>{t("Verdict")}</span>
                 <select value={d.verdict} onChange={(e) => set("verdict", e.target.value as ExtractedFields["verdict"])} className={field}>
-                  <option value="hoax">Hoax</option>
-                  <option value="misleading">Misleading</option>
-                  <option value="valid">Credible</option>
+                  <option value="hoax">{t("Hoax")}</option>
+                  <option value="misleading">{t("Misleading")}</option>
+                  <option value="valid">{t("Credible")}</option>
                 </select>
-                <span className={clsx("mt-1 block text-xs", d.verdictGuessed ? "text-verdict-warn" : "text-ink-faint")}>
-                  {d.verdictGuessed ? "guessed; no label in the title" : d.verdictTag === "headline" ? "from the headline's wording" : `from the title tag [${d.verdictTag}]`}
-                </span>
+                <span className={clsx("mt-1 block text-xs", d.verdictGuessed ? "text-verdict-warn" : "text-ink-faint")}>{verdictNote}</span>
               </label>
               <label className="block">
-                <span className={labelCls}>Category</span>
+                <span className={labelCls}>{t("Category")}</span>
                 <input value={d.category} onChange={(e) => set("category", e.target.value)} className={field} />
               </label>
               <label className="block">
-                <span className={labelCls}>Language</span>
+                <span className={labelCls}>{t("Language")}</span>
                 <select value={d.lang} onChange={(e) => set("lang", e.target.value as ExtractedFields["lang"])} className={field}>
-                  <option value="id">Indonesian</option>
-                  <option value="en">English</option>
+                  <option value="id">{t("Indonesian")}</option>
+                  <option value="en">{t("English")}</option>
                 </select>
               </label>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className={labelCls}>Source site</span>
-                <input value={d.sourceSite} onChange={(e) => set("sourceSite", e.target.value)} className={clsx(field, "font-mono text-xs")} placeholder="turnbackhoax.id" />
+                <span className={labelCls}>{t("Website that published the fact-check")}</span>
+                <input value={d.sourceSite} onChange={(e) => set("sourceSite", e.target.value)} className={clsx(field, "font-mono text-xs")} placeholder={"turnbackhoax.id"} />
               </label>
               <label className="block">
-                <span className={labelCls}>Original link</span>
-                <input value={d.originalUrl} onChange={(e) => set("originalUrl", e.target.value)} className={clsx(field, "font-mono text-xs")} placeholder="https://…" />
+                <span className={labelCls}>{t("Link to the original fact-check")}</span>
+                <input value={d.originalUrl} onChange={(e) => set("originalUrl", e.target.value)} className={clsx(field, "font-mono text-xs")} placeholder={"https://…"} />
               </label>
             </div>
           </div>
 
           <div className="neu space-y-4 p-6">
             <label className="block">
-              <span className={labelCls}>Summary ({d.lang === "en" ? "English" : "Indonesian"})</span>
+              <span className={labelCls}>{d.lang === "en" ? t("Short summary (English)") : t("Short summary (Indonesian)")}</span>
               <textarea rows={2} value={d.summary} onChange={(e) => set("summary", e.target.value)} className={clsx(field, "resize-none")} />
             </label>
             <label className="block">
-              <span className={labelCls}>Narration (the claim as it circulated)</span>
+              <span className={labelCls}>{t("The claim (as it was spread)")}</span>
               <textarea rows={5} value={d.narration} onChange={(e) => set("narration", e.target.value)} className={clsx(field, "resize-y")} />
             </label>
             <label className="block">
-              <span className={labelCls}>Explanation (what the fact-checkers found)</span>
+              <span className={labelCls}>{t("Explanation (what the fact-check found)")}</span>
               <textarea rows={10} value={d.explanation} onChange={(e) => set("explanation", e.target.value)} className={clsx(field, "resize-y")} />
             </label>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
-                <span className={labelCls}>Source (where the claim was seen)</span>
+                <span className={labelCls}>{t("Where the claim was spread")}</span>
                 <textarea rows={3} value={d.source} onChange={(e) => set("source", e.target.value)} className={clsx(field, "resize-y")} />
               </label>
               <label className="block">
-                <span className={labelCls}>References (one per line)</span>
+                <span className={labelCls}>{t("References (one per line)")}</span>
                 <textarea rows={3} value={d.reference} onChange={(e) => set("reference", e.target.value)} className={clsx(field, "resize-y font-mono text-xs")} />
               </label>
             </div>
@@ -258,12 +275,12 @@ export function ExtractTool({ initialText = "" }: { initialText?: string }) {
 
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={() => void save(false)} disabled={saving !== null || !d.title.trim()} className="neu-btn px-5 py-3 text-sm disabled:opacity-50">
-              {saving === "draft" ? "Saving…" : "Save as hidden draft"}
+              {saving === "draft" ? t("Saving…") : t("Save as hidden draft")}
             </button>
             <button type="button" onClick={() => void save(true)} disabled={saving !== null || !d.title.trim()} className="btn-primary px-6 py-3 text-sm disabled:opacity-50">
-              {saving === "publish" ? "Saving…" : "Save and publish"}
+              {saving === "publish" ? t("Saving…") : t("Save and publish")}
             </button>
-            <span className="text-xs text-ink-faint">Both open the saved article in the editor.</span>
+            <span className="text-sm text-ink-faint">{t("Both open the article in the editor afterwards.")}</span>
           </div>
         </>
       )}

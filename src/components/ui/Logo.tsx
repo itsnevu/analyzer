@@ -1,5 +1,8 @@
 import { clsx } from "@/lib/clsx";
 
+/** The site name stays the same in every language. */
+const NAME = "Hoax Analyzer";
+
 const TILES = [
   { x: 1, y: 1, c: "#3b9199", l: "H" }, // teal
   { x: 51, y: 1, c: "#d1348c", l: "O" }, // magenta
@@ -10,7 +13,7 @@ const TILES = [
 /** The original SYY Hoax Analyzer mark: a 2×2 grid spelling H-O-A-X. */
 export function LogoMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 98 98" className={className} role="img" aria-label="Hoax Analyzer">
+    <svg viewBox="0 0 98 98" className={className} role="img" aria-label={NAME}>
       {TILES.map((t) => (
         <g key={t.l}>
           <rect x={t.x} y={t.y} width="46" height="46" rx="9" fill={t.c} />
@@ -48,7 +51,7 @@ export function Logo({
             SYY
           </span>
           <span className="block font-display text-sm font-bold leading-tight tracking-tight text-ink">
-            Hoax Analyzer
+            {NAME}
           </span>
         </span>
       )}

@@ -96,6 +96,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { Verdict } from "./detect";
+import { MessageError } from "./message-error";
 
 export const CLASSES: readonly Verdict[] = ["hoax", "misleading", "valid"];
 const K = CLASSES.length;
@@ -464,7 +465,7 @@ export function trainBaseline(db: DatabaseSync, opts: TrainOptions = {}): Baseli
   const random = rng(opts.seed ?? 42);
 
   const rows = readRows(db).filter((r) => CLASSES.includes(r.verdict as Verdict));
-  if (rows.length < 2 * K) throw new Error(`Not enough published articles to train on (${rows.length}).`);
+  if (rows.length < 2 * K) throw new MessageError("Not enough published articles to train on ({count}).", { count: rows.length });
   // The holdout is always the claim text, the condition the model runs in, whatever was trained on.
   const archive = archiveSnapshot(db);
   const docs: Doc[] = rows.map((r) => ({

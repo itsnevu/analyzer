@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { clsx } from "@/lib/clsx";
+import { useAdminT } from "./AdminLang";
 
 const field =
   "w-full rounded-lg border border-hairline bg-surface-sunken px-4 py-3 text-sm text-ink outline-none transition-shadow placeholder:text-ink-faint focus:ring-2 focus:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-60";
@@ -15,6 +16,7 @@ const field =
  */
 export function LoginForm({ notice, disabled }: { notice?: string; disabled?: boolean }) {
   const router = useRouter();
+  const { t } = useAdminT();
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [capsLock, setCapsLock] = useState(false);
@@ -42,11 +44,11 @@ export function LoginForm({ notice, disabled }: { notice?: string; disabled?: bo
         setLoading(false);
         return;
       }
-      if (!res.ok) throw new Error(data.error ?? "Login failed.");
+      if (!res.ok) throw new Error(data.error ?? t("Sign-in failed."));
       router.push("/admin");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(err instanceof Error ? err.message : t("Something went wrong."));
       // A used or wrong code is no good for a second try; the next one comes from the app.
       if (needsCode) setCode("");
       setLoading(false);
@@ -67,10 +69,10 @@ export function LoginForm({ notice, disabled }: { notice?: string; disabled?: bo
   return (
     <div className="w-full max-w-sm">
       <div className="mb-6">
-        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-faint">{needsCode ? "Step 2 of 2" : "Admin sign in"}</p>
-        <h2 className="mt-2 font-display text-2xl font-bold tracking-tight">{needsCode ? "Two-factor check" : "Welcome back"}</h2>
+        <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-faint">{needsCode ? t("Step 2 of 2") : t("Admin sign in")}</p>
+        <h2 className="mt-2 font-display text-2xl font-bold tracking-tight">{needsCode ? t("Two-factor check") : t("Welcome back")}</h2>
         <p className="mt-1 text-sm text-ink-muted">
-          {needsCode ? "Enter the code from your authenticator app to finish signing in." : "Sign in to manage the archive, reports and the detector."}
+          {needsCode ? t("Enter the code from your authenticator app to finish signing in.") : t("Sign in to manage the archive, reports and the detector.")}
         </p>
       </div>
 
@@ -83,8 +85,8 @@ export function LoginForm({ notice, disabled }: { notice?: string; disabled?: bo
       <form onSubmit={onSubmit} className="neu space-y-4 p-6" aria-busy={loading}>
         {!needsCode ? (
           <div>
-            <label htmlFor="admin-password" className="mb-1.5 block text-xs font-medium text-ink-muted">
-              Password
+            <label htmlFor="admin-password" className="mb-1.5 block text-sm font-medium text-ink-muted">
+              {t("Password")}
             </label>
             <div className="relative">
               <input
@@ -109,16 +111,16 @@ export function LoginForm({ notice, disabled }: { notice?: string; disabled?: bo
                 disabled={disabled}
                 aria-pressed={showPassword}
                 aria-controls="admin-password"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? t("Hide password") : t("Show password")}
                 className="absolute inset-y-1.5 right-1.5 flex items-center gap-1 rounded-md px-2.5 text-xs font-medium text-ink-muted transition-colors hover:bg-surface-raised hover:text-ink disabled:opacity-50"
               >
                 {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                <span>{showPassword ? "Hide" : "Show"}</span>
+                <span>{showPassword ? t("Hide") : t("Show")}</span>
               </button>
             </div>
             {capsLock && (
               <p id="caps-warning" role="status" className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-verdict-warn">
-                <span aria-hidden>⇪</span> Caps Lock is on.
+                <span aria-hidden>⇪</span> {t("Caps Lock is on.")}
               </p>
             )}
           </div>
@@ -126,14 +128,14 @@ export function LoginForm({ notice, disabled }: { notice?: string; disabled?: bo
           <div>
             <div className="mb-3 flex items-center justify-between gap-2 rounded-lg bg-surface-sunken px-3 py-2 text-xs text-ink-muted">
               <span className="flex items-center gap-1.5">
-                <span aria-hidden className="text-verdict-valid">✓</span> Password accepted
+                <span aria-hidden className="text-verdict-valid">✓</span> {t("Password accepted")}
               </span>
               <button type="button" onClick={backToPassword} className="font-medium text-ink hover:text-brand">
-                Change
+                {t("Change")}
               </button>
             </div>
-            <label htmlFor="admin-code" className="mb-1.5 block text-xs font-medium text-ink-muted">
-              Authenticator code
+            <label htmlFor="admin-code" className="mb-1.5 block text-sm font-medium text-ink-muted">
+              {t("Authenticator code")}
             </label>
             <input
               id="admin-code"
@@ -152,13 +154,13 @@ export function LoginForm({ notice, disabled }: { notice?: string; disabled?: bo
               className={clsx(field, "text-center font-mono text-lg tracking-[0.3em]")}
             />
             <span id="totp-hint" className="mt-1.5 block text-xs text-ink-faint">
-              The 6-digit code from your authenticator app.
+              {t("The 6-digit code from your authenticator app.")}
             </span>
           </div>
         )}
 
         <button type="submit" disabled={loading || disabled} className="btn-primary w-full py-3 disabled:opacity-50">
-          {loading ? "Checking…" : needsCode ? "Verify and sign in" : "Sign in"}
+          {loading ? t("Checking…") : needsCode ? t("Verify and sign in") : t("Sign in")}
         </button>
 
         {error && (
@@ -169,7 +171,7 @@ export function LoginForm({ notice, disabled }: { notice?: string; disabled?: bo
       </form>
 
       <p className="mt-4 text-center text-xs text-ink-faint">
-        Forgot the password? Set it with the <code className="rounded bg-surface-sunken px-1">ADMIN_PASSWORD</code> variable.
+        {t("Forgot the password? Set a new one with this setting on the server:")} <code className="rounded bg-surface-sunken px-1">ADMIN_PASSWORD</code>
       </p>
     </div>
   );

@@ -3,15 +3,22 @@ import { getDatasetOverview } from "@/lib/legacy-panel";
 import { DatasetTable } from "@/components/admin/DatasetTable";
 import { AdminPageHeader, AdminTab } from "@/components/admin/AdminPage";
 import { requireAdmin } from "@/lib/require-admin";
+import { getAdminT } from "@/lib/admin-lang-server";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Dataset" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getAdminT();
+  return { title: t("Dataset") };
+}
 
 type Params = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export default async function DatasetPage({ searchParams }: { searchParams: Promise<Params> }) {
   await requireAdmin();
+  const { t } = await getAdminT();
   const sp = await searchParams;
   const f = datasetFilterFrom((k) => one(sp[k]) || undefined);
   const result = listDataset(f);
@@ -37,16 +44,18 @@ export default async function DatasetPage({ searchParams }: { searchParams: Prom
   return (
     <div>
       <AdminPageHeader
-        title="Dataset"
+        title={t("Dataset")}
         count={overview.labeled + overview.unlabeled}
-        description="The old detector's training data and the label each page was given. A label changed here wins over the imported one; “Add to archive” turns a row into a fact-check entry, hidden when its label gives no verdict."
+        description={t(
+          "Pages the old detector learned from, with the label each one was given. A label you change here replaces the imported one. “Add to archive” turns a row into a fact-check entry (kept hidden if its label gives no verdict).",
+        )}
         tabs={
           <>
             <AdminTab href={tabHref("categorized")} active={f.tab !== "uncategorized"} count={overview.labeled}>
-              Categorized
+              {t("Labeled")}
             </AdminTab>
             <AdminTab href={tabHref("uncategorized")} active={f.tab === "uncategorized"} count={overview.unlabeled}>
-              Uncategorized
+              {t("Unlabeled")}
             </AdminTab>
           </>
         }

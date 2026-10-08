@@ -28,8 +28,6 @@ const article = (slug: string, title: string, explanation: string, extra: Partia
 });
 
 beforeAll(async () => {
-  // The empty store seeds itself with the built-in examples on first use.
-  await store.listArticles();
   await store.saveArticle(article("vaksin-magnet", "[SALAH] Setelah Divaksin, Tubuh Punya Daya Magnetis", "Vaksin tidak mengandung logam sehingga tidak membuat tubuh menjadi magnet."));
   await store.saveArticle(article("rebusan-sirsak", "[SALAH] Air Rebusan Daun Sirsak Menyembuhkan Kanker", "Belum ada penelitian klinis yang membuktikan daun sirsak menyembuhkan kanker."));
   await store.saveArticle(article("hidden-one", "Draft fact-check about magnet", "Hidden text about vaksin magnet", { published: false }));
@@ -46,10 +44,11 @@ describe("archive search", () => {
   });
 
   it("paginates", async () => {
-    const page = await store.listArticles({ pageSize: 2, page: 2 });
+    const page = await store.listArticles({ pageSize: 1, page: 2 });
     expect(page.page).toBe(2);
-    expect(page.items.length).toBeLessThanOrEqual(2);
-    expect(page.total).toBeGreaterThanOrEqual(5);
+    expect(page.items).toHaveLength(1);
+    expect(page.total).toBe(2); // the hidden one is left out
+    expect(page.pages).toBe(2);
   });
 });
 

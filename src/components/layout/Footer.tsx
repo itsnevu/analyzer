@@ -16,11 +16,11 @@ export function Footer() {
       links: [
         { label: t("footer.link.detector"), href: "/detector" },
         { label: t("footer.link.blog"), href: "/blog" },
-        { label: "Statistics", href: "/stats" },
+        { label: t("Statistics"), href: "/stats" },
         { label: t("footer.link.report"), href: "/report" },
         { label: t("footer.link.disclaimer"), href: "/disclaimer" },
-        { label: "Privacy", href: "/privacy" },
-        { label: "RSS feed", href: "/feed.xml" },
+        { label: t("Privacy"), href: "/privacy" },
+        { label: t("RSS feed"), href: "/feed.xml" },
       ],
     },
     {

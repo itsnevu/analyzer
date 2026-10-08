@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useAdminT } from "../AdminLang";
 import { CHART, Legend, TableView, Tooltip, fmt, niceTicks, topRoundedRect } from "./chart-kit";
 import { useWidth } from "./useWidth";
 
@@ -27,6 +28,9 @@ const GAP = 2;
 export function StackedColumns({ labels, series, values, unit, height = 240 }: Props) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [active, setActive] = useState<number | null>(null);
+  // Outside the admin panel (the public /stats page) there is no provider, so this is English.
+  const { t, lang } = useAdminT();
+  const num = (n: number) => fmt(n, lang);
 
   const totals = values.map((v) => series.reduce((s, x) => s + (v[x.key] ?? 0), 0));
   const ticks = niceTicks(Math.max(...totals, 1));
@@ -45,12 +49,12 @@ export function StackedColumns({ labels, series, values, unit, height = 240 }: P
       <Legend items={[...series].reverse()} />
       <div ref={ref} className="relative mt-3" style={{ height }} onPointerLeave={() => setActive(null)}>
         {width > 0 && (
-          <svg width={width} height={height} role="img" aria-label={`${unit} per ${labels[0]}–${labels[labels.length - 1]}`}>
-            {ticks.map((t) => (
-              <g key={t}>
-                <line x1={M.left} x2={width - M.right} y1={y(t)} y2={y(t)} stroke={CHART.grid} strokeWidth={1} shapeRendering="crispEdges" />
-                <text x={M.left - 8} y={y(t)} dy="0.32em" textAnchor="end" fontSize={11} fill={CHART.axisText} className="tabular-nums">
-                  {fmt(t)}
+          <svg width={width} height={height} role="img" aria-label={t("{unit}, {from}–{to}", { unit, from: labels[0] ?? "", to: labels[labels.length - 1] ?? "" })}>
+            {ticks.map((tick) => (
+              <g key={tick}>
+                <line x1={M.left} x2={width - M.right} y1={y(tick)} y2={y(tick)} stroke={CHART.grid} strokeWidth={1} shapeRendering="crispEdges" />
+                <text x={M.left - 8} y={y(tick)} dy="0.32em" textAnchor="end" fontSize={11} fill={CHART.axisText} className="tabular-nums">
+                  {num(tick)}
                 </text>
               </g>
             ))}
@@ -82,7 +86,7 @@ export function StackedColumns({ labels, series, values, unit, height = 240 }: P
 
             {totals[peak] > 0 && (
               <text x={center(peak)} y={y(totals[peak]) - 6} textAnchor="middle" fontSize={11} fontWeight={600} fill="var(--ink-muted)" className="tabular-nums">
-                {fmt(totals[peak])}
+                {num(totals[peak])}
               </text>
             )}
 
@@ -112,7 +116,7 @@ export function StackedColumns({ labels, series, values, unit, height = 240 }: P
                 height={plotH}
                 fill="transparent"
                 tabIndex={0}
-                aria-label={`${l}: ${fmt(totals[i])} ${unit}`}
+                aria-label={`${l}: ${num(totals[i])} ${unit}`}
                 onPointerEnter={() => setActive(i)}
                 onFocus={() => setActive(i)}
                 onBlur={() => setActive(null)}
@@ -126,15 +130,16 @@ export function StackedColumns({ labels, series, values, unit, height = 240 }: P
           <Tooltip
             x={center(active)}
             width={width}
-            title={`${labels[active]} · ${fmt(totals[active])} ${unit}`}
-            rows={[...series].reverse().map((s) => ({ label: s.label, value: fmt(values[active][s.key] ?? 0), color: s.color }))}
+            title={`${labels[active]} · ${num(totals[active])} ${unit}`}
+            rows={[...series].reverse().map((s) => ({ label: s.label, value: num(values[active][s.key] ?? 0), color: s.color }))}
           />
         )}
       </div>
 
       <TableView
-        head={["", ...series.map((s) => s.label), "Total"]}
+        head={["", ...series.map((s) => s.label), t("Total")]}
         rows={labels.map((l, i) => [l, ...series.map((s) => values[i][s.key] ?? 0), totals[i]])}
+        lang={lang}
       />
     </div>
   );

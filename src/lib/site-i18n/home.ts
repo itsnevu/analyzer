@@ -1,0 +1,118 @@
+/** Indonesian for the public site, keyed by a dictionary key (lib/dictionary) or the English text in the code. See ../site-lang. */
+// The home page.
+export const home: Record<string, string> = {
+  /* ---- Dictionary keys ---- */
+  "hero.badge": "Riset deteksi hoaks",
+  "hero.title.a": "Kirim saja",
+  "hero.title.hoax": "hoaksnya",
+  "hero.title.b": "saya beri analisisnya.",
+  "hero.subtitle":
+    "Tempelkan artikel, berita, atau pesan terusan yang Anda ragukan. Sistem akan mengenali bahasanya, menghitung kemungkinan hoaks, dan menampilkan referensi untuk verifikasi, dengan dukungan text mining, machine learning, dan arsip ribuan cek fakta.",
+  "hero.cta.primary": "Mulai Periksa →",
+  "hero.cta.secondary": "Cara kerjanya",
+  "hero.disclaimer": "Hasil berupa prediksi & tidak dapat dijadikan barang bukti hukum.",
+  "hero.trust.archive": "cek fakta dalam arsip",
+  "hero.trust.sources": "sumber cek fakta",
+  "hero.trust.langs": "Bahasa Indonesia & Inggris",
+  "hero.box.label": "Teks yang ingin diperiksa",
+  "hero.box.placeholder": "Tempelkan pesan, judul berita, atau artikel yang Anda ragukan…",
+  "hero.box.hint": "Minimal 15 karakter. Tautan dan tangkapan layar bisa diperiksa di halaman detektor.",
+
+  "how.eyebrow": "Cara Kerja",
+  "how.title": "Dari teks mentah menjadi hasil, tanpa menebak-nebak.",
+  "how.intro": "Empat langkah: praproses text mining klasik, lalu penilaian machine learning yang mengambil cek fakta yang cocok dari arsip.",
+  "how.1.kicker": "Masukan",
+  "how.1.title": "Tempelkan teksnya",
+  "how.1.body": "Salin artikel, berita, atau pesan terusan yang Anda ragukan ke kotak analisis. Teks panjang juga bisa.",
+  "how.2.kicker": "Praproses",
+  "how.2.title": "Kenali bahasanya",
+  "how.2.body": "Sistem mengenali bahasa Indonesia atau Inggris, lalu menjalankan penyaringan (filtering), penghapusan stopword, dan stemming.",
+  "how.3.kicker": "Analisis",
+  "how.3.title": "Model memberi penilaian",
+  "how.3.body": "Pengklasifikasi yang dilatih dengan ribuan cek fakta menghitung kemungkinan hoaks, dan arsip menyediakan cek fakta yang cocok dengan teks Anda.",
+  "how.4.kicker": "Hasil",
+  "how.4.title": "Hasil & referensi",
+  "how.4.body": "Dapatkan hasil, tingkat keyakinan, penjelasan, dan tautan referensi untuk Anda verifikasi sendiri.",
+
+  "tips.eyebrow": "Literasi Digital",
+  "tips.title": "6 cara cepat mengenali hoaks sendiri.",
+  "tips.intro": "Alat ini membantu, tetapi sikap kritis Anda adalah benteng pertama. Ingat enam hal ini.",
+  "tips.1.title": "Curigai judul yang bombastis",
+  "tips.1.body": "Judul dengan HURUF KAPITAL SEMUA, tanda seru bertumpuk, atau kata seperti 'VIRAL/WAJIB SEBARKAN' sering menandakan clickbait atau hoaks.",
+  "tips.2.title": "Periksa sumber aslinya",
+  "tips.2.body": "Telusuri siapa yang menerbitkannya. Media yang kredibel mencantumkan nama, tanggal, dan sumber yang bisa Anda verifikasi.",
+  "tips.3.title": "Perhatikan tanggalnya",
+  "tips.3.body": "Berita lama sering diedarkan ulang seolah-olah baru. Pastikan konteks dan waktunya masih relevan.",
+  "tips.4.title": "Verifikasi gambar & video",
+  "tips.4.body": "Sebuah gambar bisa saja diambil dari peristiwa lain. Gunakan pencarian gambar terbalik (reverse image search) untuk memeriksa asal-usulnya.",
+  "tips.5.title": "Waspadai emosi yang berlebihan",
+  "tips.5.body": "Konten yang memancing amarah atau ketakutan berlebihan sengaja dibuat agar cepat dibagikan tanpa berpikir dua kali.",
+  "tips.6.title": "Bandingkan beberapa sumber",
+  "tips.6.body": "Jika hanya satu situs tak dikenal yang memberitakannya, kemungkinan besar berita itu tidak kredibel.",
+
+  "recent.eyebrow": "Cek Fakta Terbaru",
+  "recent.title": "Arsip hoaks yang telah dibedah.",
+
+  "faq.eyebrow": "Tanya Jawab",
+  "faq.title": "Jawaban atas pertanyaan yang paling sering diajukan.",
+  "faq.1.q": "Apakah hasilnya dapat dijadikan barang bukti hukum?",
+  "faq.1.a": "Tidak. Hasil sistem hanyalah prediksi berdasarkan referensi dan tidak dapat dijadikan barang bukti di pengadilan. Selalu verifikasi dengan sumber resmi.",
+  "faq.2.q": "Bahasa apa saja yang didukung?",
+  "faq.2.a": "Saat ini bahasa Indonesia dan Inggris. Bahasa dikenali secara otomatis dari teks yang Anda masukkan.",
+  "faq.3.q": "Masukan seperti apa yang dapat dianalisis?",
+  "faq.3.a": "Masukan berupa teks: artikel, berita, atau pesan terusan. Untuk konten gambar/video, sertakan deskripsinya dalam bentuk teks.",
+  "faq.4.q": "Bagaimana jika menurut saya hasilnya salah?",
+  "faq.4.a": "Laporkan melalui halaman Laporkan Hoaks. Sistem terus diperbaiki berdasarkan laporan pengguna dan verifikasi tim.",
+  "faq.5.q": "Bagaimana detektor menentukan hasilnya?",
+  "faq.5.a":
+    "Pertama, teks Anda dicocokkan dengan arsip cek fakta; klaim yang sudah pernah dicek fakta mendapat hasil yang sama, dan cek faktanya ditampilkan. Jika tidak ada yang cocok, pengklasifikasi yang dilatih dengan ribuan cek fakta yang sudah terbit menilai susunan katanya. Hasilnya berupa prediksi, jadi selalu buka referensinya.",
+  "faq.6.q": "Apakah teks yang saya tempelkan disimpan?",
+  "faq.6.a":
+    "Ya. Setiap pemeriksaan disimpan di server kami beserta hasilnya, alamat IP, serta detail jaringan dan perangkat Anda, untuk riset tentang cara alat ini digunakan dan untuk menyempurnakan detektor. Hasil riset hanya diterbitkan dalam bentuk statistik atau data anonim; lihat halaman Privasi. Mohon jangan menempelkan informasi pribadi. Lima pemeriksaan terakhir Anda juga diingat di peramban ini, dan Anda dapat menghapusnya kapan saja.",
+  "faq.7.q": "Dari mana asal cek faktanya?",
+  "faq.7.a":
+    "Arsip ini mengumpulkan cek fakta yang sudah terbit dari TurnBackHoax (MAFINDO), Kominfo, Satgas COVID-19, Tempo, Kompas, CekFakta.com, Hoax-Slayer, dan lainnya. Setiap entri menautkan ke artikel aslinya.",
+
+  "cta.title.a": "Ragu dengan sebuah berita?",
+  "cta.title.b": "Periksa dulu.",
+  "cta.body": "Hanya butuh 10 detik. Tempelkan teksnya, biarkan sistem menilainya dan menampilkan referensinya.",
+  "cta.primary": "Buka Detektor →",
+  "cta.secondary": "Laporkan Hoaks",
+
+  /* ---- Numbers strip ---- */
+  "Fact-check articles": "Artikel cek fakta",
+  "In the searchable archive": "Di arsip yang bisa dicari",
+  "Indonesian entries": "Entri berbahasa Indonesia",
+  "Local fact-checkers": "Pemeriksa fakta lokal",
+  "English entries": "Entri berbahasa Inggris",
+  "International sources": "Sumber internasional",
+  "Fact-checking sources": "Sumber cek fakta",
+
+  /* ---- Hero, sources, recent and popular posts ---- */
+  "{n} more characters to go": "Kurang {n} karakter lagi",
+  "All the numbers": "Semua angka",
+  "All the numbers →": "Semua angka →",
+  "Archive built from these fact-checking sources": "Arsip ini dihimpun dari sumber cek fakta berikut",
+  "Search the archive": "Cari di arsip",
+  "Search {n} fact-checks… e.g. vaksin, KPU, undian": "Cari di antara {n} cek fakta… mis. vaksin, KPU, undian",
+  Search: "Cari",
+  "Popular this month": "Populer bulan ini",
+  Latest: "Terbaru",
+  "What people are reading.": "Yang sedang banyak dibaca.",
+  "Fresh from the archive.": "Baru dari arsip.",
+  "The fact-checks opened most often in the last {days} days.": "Cek fakta yang paling sering dibuka dalam {days} hari terakhir.",
+  "The newest fact-checks with their full text. Most-read entries take this spot once enough people have visited.":
+    "Cek fakta terbaru beserta teks lengkapnya. Entri yang paling banyak dibaca akan tampil di sini setelah cukup banyak pengunjung.",
+  "1 visit": "1 kunjungan",
+  "{n} visits": "{n} kunjungan",
+
+  /* ---- Example result ---- */
+  "See it work": "Lihat cara kerjanya",
+  "A forwarded message, checked in seconds.": "Pesan terusan, diperiksa dalam hitungan detik.",
+  "Most hoaxes that reach your family group have been debunked before. The detector finds the fact-check for you.":
+    "Sebagian besar hoaks yang masuk ke grup keluarga Anda sudah pernah dibantah. Detektor akan menemukan cek faktanya untuk Anda.",
+  "Forwarded many times": "Diteruskan berkali-kali",
+  "This claim was already fact-checked.": "Klaim ini sudah pernah dicek fakta.",
+  "Read the fact-check": "Baca cek faktanya",
+  "Run this example →": "Jalankan contoh ini →",
+};

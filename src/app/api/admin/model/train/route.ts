@@ -3,6 +3,8 @@ import { logAdmin } from "@/lib/admin-log";
 import { isAdmin } from "@/lib/admin-articles";
 import { baselineInfo, modelStatus, retrainSchedule, trainBaseline, type BaselineMetrics } from "@/lib/baseline";
 import { getDb } from "@/lib/db";
+import { translateError } from "@/lib/message-error";
+import { adminTFromRequest } from "@/lib/admin-lang";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +18,8 @@ const globalForTrain = globalThis as unknown as { __hoaxTraining?: Promise<Basel
  * meanwhile, which is acceptable for an admin action. Admins only.
  */
 export async function POST(req: Request) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const t = adminTFromRequest(req);
+  if (!(await isAdmin())) return NextResponse.json({ error: t("Unauthorized") }, { status: 401 });
   try {
     if (!globalForTrain.__hoaxTraining) {
       globalForTrain.__hoaxTraining = new Promise<BaselineMetrics>((resolve, reject) => {
@@ -37,6 +40,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, metrics, status: modelStatus(), baseline: baselineInfo(), schedule: retrainSchedule(getDb()) });
   } catch (err) {
     console.error("[model] training failed:", err);
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Training failed." }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? translateError(err, t) : t("Training failed.") }, { status: 500 });
   }
 }

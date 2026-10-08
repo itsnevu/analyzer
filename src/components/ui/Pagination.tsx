@@ -1,15 +1,27 @@
 import Link from "next/link";
 import { clsx } from "@/lib/clsx";
 
+/** The pager's own words; English unless the page passes them translated. */
+export interface PaginationLabels {
+  /** The nav landmark's name, for screen readers. */
+  nav: string;
+  prev: string;
+  next: string;
+}
+
+const ENGLISH: PaginationLabels = { nav: "Pages", prev: "← Prev", next: "Next →" };
+
 /** Page links for a server-rendered list. `hrefFor` builds the URL for a page number. */
 export function Pagination({
   page,
   pages,
   hrefFor,
+  labels = ENGLISH,
 }: {
   page: number;
   pages: number;
   hrefFor: (page: number) => string;
+  labels?: PaginationLabels;
 }) {
   if (pages <= 1) return null;
 
@@ -23,13 +35,13 @@ export function Pagination({
 
   const pill = "grid h-9 min-w-9 place-items-center rounded-full px-3 text-sm font-medium transition-colors";
   return (
-    <nav aria-label="Pages" className="mt-8 flex flex-wrap items-center justify-center gap-1.5">
+    <nav aria-label={labels.nav} className="mt-8 flex flex-wrap items-center justify-center gap-1.5">
       {page > 1 ? (
         <Link href={hrefFor(page - 1)} className={clsx(pill, "neu-btn")} rel="prev">
-          ← Prev
+          {labels.prev}
         </Link>
       ) : (
-        <span className={clsx(pill, "text-ink-faint")}>← Prev</span>
+        <span className={clsx(pill, "text-ink-faint")}>{labels.prev}</span>
       )}
       {items.map((item, i) =>
         item === "gap" ? (
@@ -49,10 +61,10 @@ export function Pagination({
       )}
       {page < pages ? (
         <Link href={hrefFor(page + 1)} className={clsx(pill, "neu-btn")} rel="next">
-          Next →
+          {labels.next}
         </Link>
       ) : (
-        <span className={clsx(pill, "text-ink-faint")}>Next →</span>
+        <span className={clsx(pill, "text-ink-faint")}>{labels.next}</span>
       )}
     </nav>
   );

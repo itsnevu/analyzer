@@ -1,49 +1,67 @@
 import Link from "next/link";
-import { getArticleStats, listArticles } from "@/lib/articles";
-import { getAllReports } from "@/lib/reports";
-import { VERDICT_META } from "@/lib/verdict";
-import { formatCount, formatDate, sourceName } from "@/lib/sources";
+import { getArticleStats } from "@/lib/articles";
+import { getReportCounts } from "@/lib/reports";
+import { sourceName } from "@/lib/sources";
 import { CLASS_META, DATASET_CLASSES } from "@/lib/dataset-classes";
 import { getDatasetByYear, getDatasetOverview, getDatasetSources } from "@/lib/legacy-panel";
-import { getRecentSearches, getRepeatedSearches, getSearchOverview, getSearchesByMonth } from "@/lib/searches";
+import { getRepeatedSearches, getSearchOverview, getSearchesByMonth } from "@/lib/searches";
 import { modelStatus } from "@/lib/baseline";
+import { countOpenAttention } from "@/lib/attention";
 import { countStopwords, listSkipDomains } from "@/lib/settings";
+import { adminLocale, formatAdminDateTime, formatAdminMonth, formatAdminNumber, tk, type AdminLang, type AdminT } from "@/lib/admin-lang";
+import { getAdminT } from "@/lib/admin-lang-server";
 import { ClassCards } from "@/components/admin/charts/ClassCards";
 import { MonthlyColumns } from "@/components/admin/charts/MonthlyColumns";
 import { SourceBars } from "@/components/admin/charts/SourceBars";
 import { StackedColumns } from "@/components/admin/charts/StackedColumns";
-import { AdminPageHeader, StatTile } from "@/components/admin/AdminPage";
-import { DashboardWeek } from "@/components/admin/DashboardWeek";
+import { StatTile } from "@/components/admin/AdminPage";
+import { AdminIcon } from "@/components/admin/AdminIcons";
+import type { AdminIconName } from "@/components/admin/admin-nav";
+import { DashboardWeek, ENGINE_LABEL, WeekDetails, loadWeek } from "@/components/admin/DashboardWeek";
 import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 
-const LANG_NAME: Record<string, string> = { id: "Indonesian", en: "English", ms: "Malay" };
-const LABEL_NAME: Record<string, string> = { EDUKASI: "Education", KLARIFIKASI: "Clarification", UNKNOWN: "Unknown" };
+const LANG_NAME: Record<string, string> = { id: tk("Indonesian"), en: tk("English"), ms: tk("Malay") };
+const LABEL_NAME: Record<string, string> = { EDUKASI: tk("Education"), KLARIFIKASI: tk("Clarification"), UNKNOWN: tk("Unknown") };
 const TOP_SOURCES = 10;
-const ENGINE_NAME = { external: "External model", baseline: "Trained classifier", heuristic: "Keyword heuristic (demo mode)" } as const;
-const TOOLS = [
-  { href: "/admin/detect", label: "Detection lab", note: "Score a text against the archive with BM25, Levenshtein, Damerau, Smith–Waterman, Jaccard or cosine." },
-  { href: "/admin/extract", label: "Extract from a page", note: "Turn a fact-check page or a forwarded message into a draft article." },
-  { href: "/admin/review", label: "Review queue", note: "Give the hidden entries a verdict, one at a time." },
-  { href: "/admin/attention", label: "Needs attention", note: "Claims people checked that the archive could not answer yet." },
-  { href: "/admin/dataset", label: "Dataset", note: "The old detector's 17k labeled and unlabeled rows; relabel or add to the archive." },
-  { href: "/admin/sources", label: "Sources", note: "The 23 sites the old crawler collected from, with counts." },
-  { href: "/admin/searches", label: "Searches", note: "Every text submitted to the detector, old panel included." },
-  { href: "/admin/research", label: "Research log", note: "Visits and checks with network and device, for the paper." },
-  { href: "/admin/settings", label: "Settings", note: "Stopwords per language, HTML entity replacements, skipped domains." },
+
+const QUICK_ACTIONS: { href: string; label: string; hint: string; icon: AdminIconName; primary?: boolean }[] = [
+  { href: "/admin/detect", label: tk("Check a text"), hint: tk("See if a message is a hoax"), icon: "flask", primary: true },
+  { href: "/admin/articles/new", label: tk("Write an article"), hint: tk("Add a new fact-check"), icon: "file" },
+  { href: "/admin/reports", label: tk("Read reports"), hint: tk("Hoax reports and messages from visitors"), icon: "inbox" },
 ];
 
-const monthYear = (ym: string) =>
-  new Date(`${ym}-01T00:00:00Z`).toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+interface Todo {
+  key: string;
+  text: string;
+  action: string;
+  href: string;
+  tone: "warn" | "hoax";
+}
 
-function Section({ eyebrow, title, note, children }: { eyebrow: string; title: string; note?: string; children: React.ReactNode }) {
+/** "Thursday, 9 October 2026" / "Kamis, 9 Oktober 2026", in Jakarta time; read outside render. */
+function todayLabel(lang: AdminLang): string {
+  return new Date().toLocaleDateString(adminLocale(lang), { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Jakarta" });
+}
+
+/** The open "needs attention" claims; a count that fails leaves the item out instead of the page. */
+function safeAttention(): number | null {
+  try {
+    return countOpenAttention(30);
+  } catch (err) {
+    console.error("[admin] attention count failed:", err);
+    return null;
+  }
+}
+
+/** Section inside "More numbers". */
+function Block({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-3 pt-4">
+    <section className="space-y-3">
       <div>
-        <span className="eyebrow">{eyebrow}</span>
-        <h2 className="mt-1.5 font-display text-xl font-bold">{title}</h2>
-        {note && <p className="mt-1 max-w-2xl text-sm text-ink-muted">{note}</p>}
+        <h3 className="font-display text-lg font-bold">{title}</h3>
+        {note && <p className="mt-0.5 max-w-3xl text-sm text-ink-muted">{note}</p>}
       </div>
       {children}
     </section>
@@ -52,28 +70,199 @@ function Section({ eyebrow, title, note, children }: { eyebrow: string; title: s
 
 function Card({ title, subtitle, className = "", children }: { title: string; subtitle?: string; className?: string; children: React.ReactNode }) {
   return (
-    <div className={`neu min-w-0 p-5 ${className}`}>
-      <h3 className="font-semibold">{title}</h3>
-      {subtitle && <p className="mt-0.5 text-xs text-ink-faint">{subtitle}</p>}
-      <div className="mt-4">{children}</div>
+    <div className={`neu-inset min-w-0 p-4 ${className}`}>
+      <h4 className="font-semibold">{title}</h4>
+      {subtitle && <p className="mt-0.5 text-sm text-ink-muted">{subtitle}</p>}
+      <div className="mt-3">{children}</div>
+    </div>
+  );
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex justify-between gap-3 border-b border-hairline pb-1.5 last:border-b-0">
+      <dt className="text-ink-muted">{label}</dt>
+      <dd className="text-right tabular-nums">{children}</dd>
     </div>
   );
 }
 
 export default async function AdminDashboard() {
   await requireAdmin();
-  const [stats, recent, reports] = await Promise.all([getArticleStats(), listArticles({ visibility: "all", pageSize: 6 }), getAllReports()]);
-  const unread = reports.filter((r) => !r.readAt).length;
-  const tiles: { label: string; value: number; href: string; tone?: "valid" | "warn" | "hoax" | "brand"; note?: string }[] = [
-    { label: "Published articles", value: stats.total, href: "/admin/articles?visibility=public", tone: "brand", note: `${formatCount(stats.sources)} publishers` },
-    { label: "Hoax", value: stats.hoax, href: "/admin/articles?visibility=public&verdict=hoax", tone: "hoax" },
-    { label: "Misleading", value: stats.misleading, href: "/admin/articles?visibility=public&verdict=misleading", tone: "warn" },
-    { label: "Credible", value: stats.valid, href: "/admin/articles?visibility=public&verdict=valid", tone: "valid" },
-    { label: "Hidden, needs review", value: stats.hidden, href: "/admin/review", tone: stats.hidden ? "warn" : undefined },
-    { label: "Reports received", value: reports.length, href: "/admin/reports", note: unread ? `${formatCount(unread)} unread` : undefined },
-  ];
+  const { t, lang } = await getAdminT();
+  const n = (v: number) => formatAdminNumber(v, lang);
 
+  const [stats, reports] = await Promise.all([getArticleStats(), getReportCounts()]);
+  const attention = safeAttention();
   const model = modelStatus();
+  const week = loadWeek();
+  const openReports = reports.byStatus.new + reports.byStatus["in-progress"];
+
+  // Only what really needs a hand, in plain sentences.
+  const todos: Todo[] = [];
+  if (stats.hidden > 0) {
+    todos.push({ key: "review", text: t("Hidden articles waiting for your verdict: {n}", { n: stats.hidden }), action: t("Review now"), href: "/admin/review", tone: "warn" });
+  }
+  if (reports.unread > 0) {
+    todos.push({ key: "reports", text: t("New messages and reports you have not read yet: {n}", { n: reports.unread }), action: t("Read them"), href: "/admin/reports", tone: "hoax" });
+  } else if (openReports > 0) {
+    todos.push({ key: "reports", text: t("Messages and reports that are not finished yet: {n}", { n: openReports }), action: t("Open reports"), href: "/admin/reports", tone: "warn" });
+  }
+  if (attention) {
+    todos.push({ key: "attention", text: t("Claims visitors checked that we have no article for yet: {n}", { n: attention }), action: t("Take a look"), href: "/admin/attention", tone: "warn" });
+  }
+  if (model.engine === "heuristic") {
+    todos.push({ key: "model", text: t("The detector only uses a simple keyword check, because no trained model is available."), action: t("Open the model page"), href: "/admin/model", tone: "warn" });
+  }
+
+  const allClear = todos.length === 0;
+  const status = allClear
+    ? t("All caught up. Nothing needs your attention right now.")
+    : todos.length === 1
+      ? t("One thing needs your attention.")
+      : t("{n} things need your attention.", { n: todos.length });
+
+  return (
+    <div className="space-y-4">
+      {/* Status line */}
+      <header className={`neu flex items-center gap-4 border-l-4 p-4 sm:px-5 ${allClear ? "border-l-verdict-valid" : "border-l-verdict-warn"}`}>
+        <span
+          aria-hidden
+          className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-xl font-bold ${allClear ? "bg-verdict-valid/15 text-verdict-valid" : "bg-verdict-warn/15 text-verdict-warn"}`}
+        >
+          {allClear ? "✓" : "!"}
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm text-ink-muted">{todayLabel(lang)}</p>
+          <h1 className="font-display text-xl font-bold leading-snug sm:text-2xl">{status}</h1>
+        </div>
+      </header>
+
+      {/* The four numbers that matter */}
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <StatTile
+          size="lg"
+          label={t("Fact-checks on the website")}
+          value={n(stats.total)}
+          note={t("Published, visible to everyone")}
+          href="/admin/articles?visibility=public"
+          tone="brand"
+        />
+        <StatTile
+          size="lg"
+          label={t("Waiting for your review")}
+          value={n(stats.hidden)}
+          note={t("Hidden until you give a verdict")}
+          href="/admin/review"
+          tone={stats.hidden ? "warn" : "valid"}
+        />
+        <StatTile
+          size="lg"
+          label={t("New messages & reports")}
+          value={n(reports.unread)}
+          note={reports.total ? t("Not read yet, out of {total} received", { total: reports.total }) : t("Nothing received yet")}
+          href="/admin/reports"
+          tone={reports.unread ? "hoax" : "valid"}
+        />
+        <StatTile size="lg" label={t("Checks by visitors")} value={n(week.checks)} note={t("In the last 7 days")} href="/admin/searches" tone="brand" />
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        {/* To do */}
+        <section className="neu p-4 sm:p-5 lg:col-span-2" aria-labelledby="todo-title">
+          <h2 id="todo-title" className="font-display text-xl font-bold">
+            {t("To do")}
+          </h2>
+          {allClear ? (
+            <div className="mt-3 flex items-center gap-3 rounded-lg bg-verdict-valid/10 px-4 py-3">
+              <span aria-hidden className="text-2xl text-verdict-valid">
+                ✓
+              </span>
+              <div>
+                <p className="text-[15px] font-semibold">{t("All caught up")}</p>
+                <p className="text-sm text-ink-muted">{t("Nothing is waiting for you. New tasks will show up here.")}</p>
+              </div>
+            </div>
+          ) : (
+            <ul className="mt-2 divide-y divide-hairline">
+              {todos.map((item) => (
+                <li key={item.key} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4">
+                  <span className="flex min-w-0 flex-1 items-start gap-3 text-[15px] leading-snug">
+                    <span aria-hidden className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${item.tone === "hoax" ? "bg-verdict-hoax" : "bg-verdict-warn"}`} />
+                    {item.text}
+                  </span>
+                  <Link href={item.href} className="btn-primary inline-flex min-h-[40px] shrink-0 items-center justify-center self-start px-5 py-2 text-sm sm:self-auto">
+                    {item.action} →
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* Quick actions */}
+        <section className="neu p-4 sm:p-5" aria-labelledby="quick-title">
+          <h2 id="quick-title" className="font-display text-xl font-bold">
+            {t("Quick actions")}
+          </h2>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
+            {QUICK_ACTIONS.map((a) => (
+              <li key={a.href}>
+                <Link
+                  href={a.href}
+                  className={`flex min-h-[52px] items-center gap-3 rounded-xl px-4 py-2.5 transition-colors ${
+                    a.primary ? "bg-ink text-surface-raised hover:opacity-90" : "border border-hairline text-ink hover:border-ink hover:bg-surface-sunken"
+                  }`}
+                >
+                  <AdminIcon name={a.icon} className="h-5 w-5 shrink-0" />
+                  <span className="min-w-0 leading-tight">
+                    <span className="block text-[15px] font-semibold">{t(a.label)}</span>
+                    <span className={`block text-[13px] ${a.primary ? "text-surface-raised/75" : "text-ink-muted"}`}>{t(a.hint)}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+
+      <DashboardWeek data={week} lang={lang} />
+
+      <details className="neu group overflow-hidden p-0">
+        <summary className="flex min-h-[56px] cursor-pointer list-none items-center gap-3 px-4 py-3 hover:bg-surface-sunken sm:px-5 [&::-webkit-details-marker]:hidden">
+          <span className="min-w-0 flex-1">
+            <span className="block font-display text-lg font-bold">{t("More numbers")}</span>
+            <span className="block text-sm text-ink-muted">{t("Details for the curious: articles by verdict, the detector, searches and the old dataset.")}</span>
+          </span>
+          <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-hairline text-ink-muted transition-transform group-open:rotate-180">
+            ▾
+          </span>
+        </summary>
+        <div className="space-y-6 border-t border-hairline px-4 py-5 sm:px-5">
+          <MoreNumbers t={t} lang={lang} stats={stats} model={model} week={week} attention={attention} />
+        </div>
+      </details>
+    </div>
+  );
+}
+
+/** Everything technical, in one collapsed section; loaded with the page as before. */
+function MoreNumbers({
+  t,
+  lang,
+  stats,
+  model,
+  week,
+  attention,
+}: {
+  t: AdminT;
+  lang: AdminLang;
+  stats: Awaited<ReturnType<typeof getArticleStats>>;
+  model: ReturnType<typeof modelStatus>;
+  week: ReturnType<typeof loadWeek>;
+  attention: number | null;
+}) {
+  const n = (v: number) => formatAdminNumber(v, lang);
   const stopwords = countStopwords();
   const skipped = listSkipDomains();
   const dataset = getDatasetOverview();
@@ -81,7 +270,6 @@ export default async function AdminDashboard() {
   const sources = getDatasetSources();
   const search = getSearchOverview();
   const months = getSearchesByMonth();
-  const latestSearches = getRecentSearches(6);
   const repeated = getRepeatedSearches(5);
 
   const hasDataset = dataset.labeled + dataset.unlabeled > 0;
@@ -93,7 +281,7 @@ export default async function AdminDashboard() {
     ? [
         ...named.slice(0, TOP_SOURCES),
         {
-          name: `${rest.length} other sites`,
+          name: t("{n} other sites", { n: rest.length }),
           lang: "",
           labeled: rest.reduce((s, r) => s + r.labeled, 0),
           unlabeled: rest.reduce((s, r) => s + r.unlabeled, 0),
@@ -107,188 +295,91 @@ export default async function AdminDashboard() {
       return acc;
     }, {}),
   ).sort((a, b) => b[1] - a[1]);
+  const decimals = (v: number) => v.toLocaleString(adminLocale(lang), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <div className="space-y-4">
-      <AdminPageHeader
-        className="mb-0"
-        title="Dashboard"
-        description="The archive, the detector and what visitors did with them, at a glance."
-        actions={
-          <>
-            <Link href="/admin/detect" className="neu-btn px-4 py-2.5 text-sm">
-              Detection lab
+    <>
+      <Block title={t("Published articles")}>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          <StatTile label={t("Hoax")} value={n(stats.hoax)} href="/admin/articles?visibility=public&verdict=hoax" tone="hoax" />
+          <StatTile label={t("Misleading")} value={n(stats.misleading)} href="/admin/articles?visibility=public&verdict=misleading" tone="warn" />
+          <StatTile label={t("Credible")} value={n(stats.valid)} href="/admin/articles?visibility=public&verdict=valid" tone="valid" />
+          <StatTile label={t("Publishers")} value={n(stats.sources)} href="/admin/sources" />
+          <StatTile label={t("In Indonesian")} value={n(stats.indonesian)} />
+          <StatTile label={t("In English")} value={n(stats.english)} />
+        </div>
+      </Block>
+
+      <Block title={t("The detector")} note={t("Which engine answers visitors' checks right now.")}>
+        <div className="grid gap-3 lg:grid-cols-2">
+          <Card title={t(ENGINE_LABEL[model.engine])} subtitle={model.engine === "heuristic" ? t("Demo mode: the answers are only a rough guess.") : undefined}>
+            <dl className="space-y-1.5 text-sm">
+              <Row label={t("External AI model (optional)")}>{model.external.configured ? model.external.host : t("not set up")}</Row>
+              <Row label={t("Trained model")}>
+                {model.baseline
+                  ? t("{accuracy}% correct, F1 score {f1}", { accuracy: Math.round(model.baseline.accuracy * 100), f1: decimals(model.baseline.macroF1) })
+                  : t("not trained yet")}
+              </Row>
+              {model.baseline && (
+                <Row label={t("Last trained")}>
+                  {t("{date}, on {n} fact-checks", { date: formatAdminDateTime(model.baseline.trainedAt, lang), n: model.baseline.docs })}
+                </Row>
+              )}
+            </dl>
+            <Link href="/admin/model" className="mt-3 inline-flex min-h-[40px] items-center text-sm font-medium text-brand hover:underline">
+              {t("Model details, test and retrain →")}
             </Link>
-            <Link href="/admin/articles/new" className="btn-primary px-5 py-2.5 text-sm">
-              + Add article
+          </Card>
+          <Card title={t("Settings")}>
+            <p className="text-sm text-ink-muted">
+              {t("{id} Indonesian, {en} English and {ms} Malay stopwords, and {domains} skipped websites.", {
+                id: stopwords.id,
+                en: stopwords.en,
+                ms: stopwords.ms,
+                domains: skipped.length,
+              })}
+            </p>
+            <Link href="/admin/settings" className="mt-3 inline-flex min-h-[40px] items-center text-sm font-medium text-brand hover:underline">
+              {t("Open settings →")}
             </Link>
-          </>
-        }
-      />
+          </Card>
+        </div>
+      </Block>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        {tiles.map((s) => (
-          <StatTile key={s.label} label={s.label} value={formatCount(s.value)} href={s.href} tone={s.tone} note={s.note} />
-        ))}
-      </div>
+      <Block title={t("Visitor checks in detail")}>
+        <WeekDetails data={week} lang={lang} open={attention} />
+      </Block>
 
-      <div className="grid gap-3 lg:grid-cols-5">
-        <Card title="Detector engine" subtitle="Which engine answers public checks right now" className="lg:col-span-2">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: model.engine === "heuristic" ? "var(--warn)" : "var(--valid)" }} aria-hidden />
-            <span className="text-lg font-semibold">{ENGINE_NAME[model.engine]}</span>
-          </div>
-          <dl className="mt-3 space-y-1.5 text-sm">
-            <div className="flex justify-between gap-3 border-b border-hairline pb-1.5">
-              <dt className="text-ink-muted">External model (optional)</dt>
-              <dd className="truncate">{model.external.configured ? model.external.host : "not configured"}</dd>
-            </div>
-            <div className="flex justify-between gap-3 border-b border-hairline pb-1.5">
-              <dt className="text-ink-muted">Trained classifier</dt>
-              <dd>{model.baseline ? `${Math.round(model.baseline.accuracy * 100)}% accuracy, F1 ${model.baseline.macroF1.toFixed(2)}` : "not trained"}</dd>
-            </div>
-            {model.baseline && (
-              <div className="flex justify-between gap-3 border-b border-hairline pb-1.5">
-                <dt className="text-ink-muted">Trained</dt>
-                <dd>{formatDate(model.baseline.trainedAt.slice(0, 10)) || model.baseline.trainedAt} on {formatCount(model.baseline.docs)} fact-checks</dd>
-              </div>
-            )}
-          </dl>
-          <Link href="/admin/model" className="mt-4 inline-block text-sm text-brand hover:underline">
-            Model details, ping and retrain →
-          </Link>
-        </Card>
-
-        <Card title="Tools" subtitle="Rebuilt from the old panel's menus" className="lg:col-span-3">
-          <ul className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-            {TOOLS.map((t) => (
-              <li key={t.href}>
-                <Link href={t.href} className="font-medium hover:text-brand">
-                  {t.label}
-                </Link>
-                <span className="block text-xs text-ink-faint">{t.note}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-4 text-xs text-ink-faint">
-            Settings hold {formatCount(stopwords.id)} Indonesian, {formatCount(stopwords.en)} English and {formatCount(stopwords.ms)} Malay stopwords and {skipped.length} skipped {skipped.length === 1 ? "domain" : "domains"}.
-          </p>
-        </Card>
-      </div>
-
-      <DashboardWeek />
-
-      <Section
-        eyebrow="Legacy detector"
-        title="Training dataset"
-        note="Copied from the old detector panel (/adminpanel/). Every row is a page the old crawler collected; the label is the class the old detector learned from."
-      >
-        {hasDataset ? (
-          <>
-            <ClassCards byClass={dataset.byClass} labeled={dataset.labeled} />
-
-            <Card
-              title="Labeled rows by publish year"
-              subtitle={`${formatCount(dataset.labeled)} labeled rows${otherLabeled ? `; the ${formatCount(otherLabeled)} with smaller labels are left out of this chart` : ""}`}
-            >
-              <StackedColumns
-                labels={years.map((y) => y.year)}
-                series={DATASET_CLASSES.map((key) => ({ key, ...CLASS_META[key] }))}
-                values={years.map((y) => ({ ...y.byClass }))}
-                unit="rows"
-              />
-            </Card>
-
-            <div className="grid gap-3 lg:grid-cols-5">
-              <Card title="Rows per source site" subtitle="Labeled, then unlabeled" className="lg:col-span-3">
-                <SourceBars rows={sourceRows} />
-              </Card>
-
-              <Card title="Data notes" className="lg:col-span-2">
-                <dl className="space-y-4 text-sm">
-                  <div>
-                    <dt className="text-ink-muted">Never labeled</dt>
-                    <dd className="mt-0.5">
-                      <span className="text-2xl font-semibold">{formatCount(dataset.unlabeled)}</span>
-                      <span className="text-ink-faint"> rows</span>
-                    </dd>
-                    {mostUnlabeled.length > 0 && (
-                      <dd className="mt-1 text-xs text-ink-faint">
-                        Mostly {mostUnlabeled.map((s) => `${s.name} (${formatCount(s.unlabeled)})`).join(", ")}
-                      </dd>
-                    )}
-                  </div>
-                  {dataset.other.length > 0 && (
-                    <div>
-                      <dt className="text-ink-muted">Other labels</dt>
-                      <dd className="mt-1 flex flex-wrap gap-1.5">
-                        {dataset.other.map((o) => (
-                          <span key={o.label} className="rounded-full border border-hairline px-2.5 py-0.5 text-xs">
-                            {LABEL_NAME[o.label] ?? o.label} <span className="tabular-nums text-ink-faint">{formatCount(o.count)}</span>
-                          </span>
-                        ))}
-                      </dd>
-                    </div>
-                  )}
-                  <div>
-                    <dt className="text-ink-muted">Language of the source site</dt>
-                    <dd className="mt-1 space-y-0.5 text-xs">
-                      {byLang.map(([lang, n]) => (
-                        <div key={lang} className="flex justify-between gap-3">
-                          <span>{LANG_NAME[lang] ?? "Unknown"}</span>
-                          <span className="tabular-nums text-ink-muted">{formatCount(n)}</span>
-                        </div>
-                      ))}
-                    </dd>
-                  </div>
-                </dl>
-              </Card>
-            </div>
-          </>
-        ) : (
-          <div className="neu p-8 text-center text-sm text-ink-muted">
-            The legacy panel data is not in the database yet. Run <code className="font-mono">npm run import:panel</code>.
-          </div>
-        )}
-      </Section>
-
-      <Section
-        eyebrow="Detector"
-        title="Searches"
-        note="Text and links people submitted to the detector. The old panel logged them from April 2019; IP addresses were not copied."
-      >
+      <Block title={t("Searches, all time")} note={t("Texts and links people checked with the detector. The old panel logged them from April 2019; IP addresses were not copied.")}>
         {search.total > 0 ? (
           <div className="grid gap-3 lg:grid-cols-3">
             <Card
-              title="Searches per month"
-              subtitle={search.first && search.last ? `${monthYear(search.first.slice(0, 7))} to ${monthYear(search.last.slice(0, 7))}` : undefined}
+              title={t("Searches per month")}
+              subtitle={
+                search.first && search.last
+                  ? t("{from} to {to}", { from: formatAdminMonth(search.first.slice(0, 7), lang), to: formatAdminMonth(search.last.slice(0, 7), lang) })
+                  : undefined
+              }
               className="lg:col-span-2"
             >
               <MonthlyColumns points={months} />
             </Card>
 
-            <Card title="All time">
-              <div className="text-5xl font-semibold tracking-tight">{formatCount(search.total)}</div>
-              <div className="mt-1 text-sm text-ink-muted">searches</div>
-              <dl className="mt-4 space-y-1.5 text-sm">
-                {[
-                  ["Distinct queries", formatCount(search.distinct)],
-                  ["Pasted links", `${formatCount(search.links)} (${Math.round((search.links / search.total) * 100)}%)`],
-                  ["Made on this site", formatCount(search.fromSite)],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between gap-3 border-b border-hairline pb-1.5">
-                    <dt className="text-ink-muted">{k}</dt>
-                    <dd className="tabular-nums">{v}</dd>
-                  </div>
-                ))}
+            <Card title={t("All time")}>
+              <div className="text-4xl font-semibold tracking-tight">{n(search.total)}</div>
+              <div className="mt-1 text-sm text-ink-muted">{t("searches")}</div>
+              <dl className="mt-3 space-y-1.5 text-sm">
+                <Row label={t("Different texts")}>{n(search.distinct)}</Row>
+                <Row label={t("Pasted links")}>{`${n(search.links)} (${Math.round((search.links / search.total) * 100)}%)`}</Row>
+                <Row label={t("Made on this site")}>{n(search.fromSite)}</Row>
               </dl>
               {repeated.length > 0 && (
                 <>
-                  <h4 className="mt-5 text-xs font-semibold uppercase tracking-wider text-ink-faint">Most repeated</h4>
-                  <ol className="mt-2 space-y-1.5 text-sm">
+                  <h5 className="mt-4 text-sm font-semibold text-ink-muted">{t("Checked most often")}</h5>
+                  <ol className="mt-1.5 space-y-1.5 text-sm">
                     {repeated.map((r) => (
                       <li key={r.query} className="flex items-baseline gap-2">
-                        <span className="w-8 shrink-0 text-right text-xs tabular-nums text-ink-faint">{r.count}×</span>
+                        <span className="w-9 shrink-0 text-right text-xs tabular-nums text-ink-faint">{n(r.count)}×</span>
                         <span className="truncate" title={r.query}>
                           {r.query}
                         </span>
@@ -300,71 +391,86 @@ export default async function AdminDashboard() {
             </Card>
           </div>
         ) : (
-          <div className="neu p-8 text-center text-sm text-ink-muted">No searches logged yet.</div>
+          <p className="text-sm text-ink-muted">{t("No searches logged yet.")}</p>
         )}
-      </Section>
+      </Block>
 
-      <div className="grid gap-3 pt-4 lg:grid-cols-2">
-        <div className="neu min-w-0 p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold">Latest articles</h2>
-            <Link href="/admin/articles" className="text-sm text-ink-muted hover:text-ink">
-              View all →
-            </Link>
-          </div>
-          <ul className="divide-y divide-hairline">
-            {recent.items.map((a) => {
-              const m = VERDICT_META[a.verdict];
-              return (
-                <li key={a.slug} className="flex items-center justify-between gap-4 py-2.5">
-                  <div className="min-w-0">
-                    <Link href={`/admin/articles/${a.slug}/edit`} className="block truncate text-sm font-medium hover:text-brand">
-                      {a.title}
-                    </Link>
-                    <div className="truncate text-xs text-ink-faint">
-                      {[a.category, a.sourceSite && sourceName(a.sourceSite), formatDate(a.date), !a.published && "hidden"].filter(Boolean).join(" · ")}
-                    </div>
-                  </div>
-                  <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-ink-muted">
-                    <span className="h-2 w-2 rounded-full" style={{ background: m.color }} aria-hidden />
-                    {m.labelEn}
-                  </span>
-                </li>
-              );
-            })}
-            {recent.items.length === 0 && <li className="py-6 text-center text-sm text-ink-faint">No articles yet.</li>}
-          </ul>
-        </div>
+      <Block
+        title={t("The old detector's training data")}
+        note={t("Copied from the old detector panel (/adminpanel/). Each row is a page the old crawler collected; the label is what the old detector learned from.")}
+      >
+        {hasDataset ? (
+          <>
+            <ClassCards byClass={dataset.byClass} labeled={dataset.labeled} lang={lang} />
 
-        <div className="neu min-w-0 p-5">
-          <h2 className="mb-3 font-display text-lg font-bold">Latest searches</h2>
-          <ul className="divide-y divide-hairline">
-            {latestSearches.map((s) => {
-              const isLink = /^https?:\/\//i.test(s.query);
-              const verdict = s.verdict && s.verdict in VERDICT_META ? VERDICT_META[s.verdict as keyof typeof VERDICT_META] : null;
-              return (
-                <li key={s.id} className="py-2.5">
-                  <div className="truncate text-sm" title={s.query}>
-                    {s.query}
-                  </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-faint">
-                    <span>{formatDate(s.createdAt.slice(0, 10))}</span>
-                    <span>· {isLink ? "link" : "text"}</span>
-                    <span>· {s.origin === "legacy" ? "old panel" : "this site"}</span>
-                    {verdict && (
-                      <span className="flex items-center gap-1">
-                        · <span className="h-2 w-2 rounded-full" style={{ background: verdict.color }} aria-hidden />
-                        {verdict.labelEn}
-                      </span>
+            <Card
+              title={t("Labeled rows by year published")}
+              subtitle={
+                otherLabeled
+                  ? t("{n} labeled rows; the {m} rows with other labels are not in this chart", { n: dataset.labeled, m: otherLabeled })
+                  : t("{n} labeled rows", { n: dataset.labeled })
+              }
+            >
+              <StackedColumns
+                labels={years.map((y) => y.year)}
+                series={DATASET_CLASSES.map((key) => ({ key, color: CLASS_META[key].color, label: t(CLASS_META[key].label) }))}
+                values={years.map((y) => ({ ...y.byClass }))}
+                unit={t("rows")}
+              />
+            </Card>
+
+            <div className="grid gap-3 lg:grid-cols-5">
+              <Card title={t("Rows per source website")} subtitle={t("Labeled, then unlabeled")} className="lg:col-span-3">
+                <SourceBars rows={sourceRows} lang={lang} />
+              </Card>
+
+              <Card title={t("Data notes")} className="lg:col-span-2">
+                <dl className="space-y-4 text-sm">
+                  <div>
+                    <dt className="text-ink-muted">{t("Never labeled")}</dt>
+                    <dd className="mt-0.5">
+                      <span className="text-2xl font-semibold">{n(dataset.unlabeled)}</span>
+                      <span className="text-ink-faint"> {t("rows")}</span>
+                    </dd>
+                    {mostUnlabeled.length > 0 && (
+                      <dd className="mt-1 text-xs text-ink-faint">
+                        {t("Mostly {list}", { list: mostUnlabeled.map((s) => `${s.name} (${n(s.unlabeled)})`).join(", ") })}
+                      </dd>
                     )}
                   </div>
-                </li>
-              );
-            })}
-            {latestSearches.length === 0 && <li className="py-6 text-center text-sm text-ink-faint">No searches yet.</li>}
-          </ul>
-        </div>
-      </div>
-    </div>
+                  {dataset.other.length > 0 && (
+                    <div>
+                      <dt className="text-ink-muted">{t("Other labels")}</dt>
+                      <dd className="mt-1 flex flex-wrap gap-1.5">
+                        {dataset.other.map((o) => (
+                          <span key={o.label} className="rounded-full border border-hairline px-2.5 py-0.5 text-xs">
+                            {LABEL_NAME[o.label] ? t(LABEL_NAME[o.label]) : o.label} <span className="tabular-nums text-ink-faint">{n(o.count)}</span>
+                          </span>
+                        ))}
+                      </dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="text-ink-muted">{t("Language of the source website")}</dt>
+                    <dd className="mt-1 space-y-0.5 text-xs">
+                      {byLang.map(([code, count]) => (
+                        <div key={code} className="flex justify-between gap-3">
+                          <span>{t(LANG_NAME[code] ?? "Unknown")}</span>
+                          <span className="tabular-nums text-ink-muted">{n(count)}</span>
+                        </div>
+                      ))}
+                    </dd>
+                  </div>
+                </dl>
+              </Card>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-ink-muted">
+            {t("The old panel's data is not in the database yet. Run this command:")} <code className="font-mono">npm run import:panel</code>
+          </p>
+        )}
+      </Block>
+    </>
   );
 }

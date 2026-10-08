@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { VerdictBadge } from "@/components/article/ArticleCard";
 import { popularArticles, type PopularResult } from "@/lib/stats";
-import { formatCount, formatDate, sourceName } from "@/lib/sources";
+import { formatDate, sourceName } from "@/lib/sources";
 import { VERDICT_META } from "@/lib/verdict";
 import { Section } from "@/components/ui/Section";
+import { getSiteT } from "@/lib/site-lang-server";
 
 /**
  * The fact-checks people opened most in the last 30 days, from the research
@@ -12,6 +13,7 @@ import { Section } from "@/components/ui/Section";
  * minutes in src/lib/stats.ts.
  */
 export async function PopularPosts({ compact = false }: { compact?: boolean }) {
+  const { t, lang } = await getSiteT();
   let result: PopularResult;
   try {
     result = await popularArticles(30, 5);
@@ -20,7 +22,7 @@ export async function PopularPosts({ compact = false }: { compact?: boolean }) {
   }
   const { items, popular, days } = result;
   if (items.length === 0) return null;
-  const eyebrow = popular ? "Popular this month" : "Latest";
+  const eyebrow = popular ? t("Popular this month") : t("Latest");
 
   if (compact) {
     return (
@@ -42,13 +44,13 @@ export async function PopularPosts({ compact = false }: { compact?: boolean }) {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <span className="eyebrow">{eyebrow}</span>
-            <h2 className="mt-2 font-display text-2xl font-bold tracking-tight">{popular ? "What people are reading." : "Fresh from the archive."}</h2>
+            <h2 className="mt-2 font-display text-2xl font-bold tracking-tight">{popular ? t("What people are reading.") : t("Fresh from the archive.")}</h2>
             <p className="mt-1 text-sm text-ink-muted">
-              {popular ? `The fact-checks opened most often in the last ${days} days.` : "The newest fact-checks with their full text. Most-read entries take this spot once enough people have visited."}
+              {popular ? t("The fact-checks opened most often in the last {days} days.", { days }) : t("The newest fact-checks with their full text. Most-read entries take this spot once enough people have visited.")}
             </p>
           </div>
           <Link href="/stats" className="text-sm text-ink-muted transition-colors hover:text-ink">
-            All the numbers →
+            {t("All the numbers →")}
           </Link>
         </div>
 
@@ -62,7 +64,7 @@ export async function PopularPosts({ compact = false }: { compact?: boolean }) {
                 </div>
                 <h3 className="line-clamp-3 font-display text-sm font-bold leading-snug text-ink transition-colors group-hover:text-brand">{a.title}</h3>
                 <p className="mt-auto truncate text-xs text-ink-faint">
-                  {[a.sourceSite && sourceName(a.sourceSite), formatDate(a.date), popular && a.visits > 0 && `${formatCount(a.visits)} ${a.visits === 1 ? "visit" : "visits"}`]
+                  {[a.sourceSite && sourceName(a.sourceSite), formatDate(a.date, "short", lang), popular && a.visits > 0 && (a.visits === 1 ? t("1 visit") : t("{n} visits", { n: a.visits }))]
                     .filter(Boolean)
                     .join(" · ")}
                 </p>

@@ -1,12 +1,17 @@
-"use client";
-
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ReportForm } from "@/components/forms/ReportForm";
-import { useI18n } from "@/lib/i18n";
+import { getSiteT } from "@/lib/site-lang-server";
+import { rich } from "@/components/ui/Rich";
 
-export default function ReportPage() {
-  const { t } = useI18n();
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getSiteT();
+  return { title: t("report.eyebrow") };
+}
+
+export default async function ReportPage() {
+  const { t } = await getSiteT();
   return (
     <>
       <PageHeader eyebrowKey="report.eyebrow" titleKey="report.title" introKey="report.intro" />
@@ -14,17 +19,20 @@ export default function ReportPage() {
         <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-[1fr_1.7fr]">
           <div className="space-y-4">
             <div className="neu p-6">
-              <h2 className="font-display font-bold">Before you report</h2>
+              <h2 className="font-display font-bold">{t("Before you report")}</h2>
               <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-                It may already have been fact-checked. Paste it into the{" "}
-                <Link href="/detector" className="text-brand-to hover:underline">
-                  detector
-                </Link>{" "}
-                or search the{" "}
-                <Link href="/blog" className="text-brand-to hover:underline">
-                  archive
-                </Link>{" "}
-                first.
+                {rich(t("It may already have been fact-checked. Paste it into the <detector>detector</detector> or search the <archive>archive</archive> first."), {
+                  detector: (s) => (
+                    <Link href="/detector" className="text-brand-to hover:underline">
+                      {s}
+                    </Link>
+                  ),
+                  archive: (s) => (
+                    <Link href="/blog" className="text-brand-to hover:underline">
+                      {s}
+                    </Link>
+                  ),
+                })}
               </p>
             </div>
             <div className="neu p-6">
@@ -36,11 +44,13 @@ export default function ReportPage() {
               </ol>
             </div>
             <div className="neu-inset p-6 text-sm text-ink-muted">
-              {t("report.general")}{" "}
-              <Link href="/contact" className="text-brand-to hover:underline">
-                contact form
-              </Link>
-              .
+              {rich(t("report.general"), {
+                link: (s) => (
+                  <Link href="/contact" className="text-brand-to hover:underline">
+                    {s}
+                  </Link>
+                ),
+              })}
             </div>
           </div>
           <ReportForm />

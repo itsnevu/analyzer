@@ -1,6 +1,8 @@
 /**
- * UI copy. The interface is English-only; fact-check articles keep the
- * language they were written in.
+ * The public site's English UI copy. Indonesian lives in ./site-i18n under the
+ * same keys (see ./site-lang); fact-check articles keep the language they were
+ * written in. The lists below hold keys into DICT, rendered with t(key), so the
+ * translation test covers every item.
  */
 
 /* ---- Scalar UI strings, looked up with t("key") ------------------------ */
@@ -80,7 +82,7 @@ export const DICT: Record<string, string> = {
   "report.step1": "You get a report number right away.",
   "report.step2": "The admin checks it against published fact-checks.",
   "report.step3": "Confirmed hoaxes are added to the archive, so the detector recognizes them next time.",
-  "report.general": "For general questions, use the",
+  "report.general": "For general questions, use the <link>contact form</link>.",
   "contact.eyebrow": "Contact Us",
   "contact.title": "Let's talk.",
   "contact.intro": "Questions about the research, collaboration, or the system? Send a message, we'll follow up by email.",
@@ -154,51 +156,99 @@ export const DICT: Record<string, string> = {
   "art.similar.body": "Paste it into the detector and see whether it matches a known hoax.",
   "art.similar.cta": "Check a similar message",
   "art.onPage": "On this page",
+
+  /* Header menu (NAV) */
+  "nav.home": "Home",
+  "nav.detector": "Detector",
+  "nav.blog": "Blog",
+  "nav.stats": "Stats",
+  "nav.disclaimer": "Disclaimer",
+  "nav.report": "Report",
+  "nav.contact": "Contact",
+  "nav.about": "About",
+
+  /* How it works (HOW) */
+  "how.1.kicker": "Input",
+  "how.1.title": "Paste the text",
+  "how.1.body": "Copy the article, news item, or forwarded message you doubt into the analysis box. Long text supported.",
+  "how.2.kicker": "Preprocess",
+  "how.2.title": "Detect language",
+  "how.2.body": "The system recognizes Indonesian or English, then runs filtering, stopword removal, and stemming.",
+  "how.3.kicker": "Analyze",
+  "how.3.title": "The model scores it",
+  "how.3.body": "A classifier trained on thousands of fact-checks scores the hoax probability, and the archive supplies the fact-checks that match your text.",
+  "how.4.kicker": "Result",
+  "how.4.title": "Verdict & references",
+  "how.4.body": "Get a verdict, confidence level, explanation, and reference links to verify on your own.",
+
+  /* FAQ */
+  "faq.1.q": "Can the result serve as legal evidence?",
+  "faq.1.a": "No. The system's result is only a reference-based prediction and cannot serve as evidence in court. Always verify with official sources.",
+  "faq.2.q": "Which languages are supported?",
+  "faq.2.a": "Currently Indonesian and English. The language is detected automatically from the text you enter.",
+  "faq.3.q": "What kind of input can be analyzed?",
+  "faq.3.a": "Text input: articles, news, or forwarded messages. For image/video content, include a text description.",
+  "faq.4.q": "What if I think the result is wrong?",
+  "faq.4.a": "Report it via the Report a Hoax page. The system keeps improving based on user reports and team verification.",
+  "faq.5.q": "How does the detector decide?",
+  "faq.5.a": "It first matches your text against the fact-check archive; a claim that was already fact-checked gets that verdict and the fact-check is shown. Otherwise a classifier trained on thousands of published fact-checks scores the wording. Results are predictions, so always open the references.",
+  "faq.6.q": "Is the text I paste stored?",
+  "faq.6.a": "Yes. Every check is saved on our server with its result, your IP address, network and device details, for research on how the tool is used and to improve the detector. Research is published only as statistics or anonymized data; see the Privacy page. Please don't paste private information. Your last five checks are also remembered in this browser, and you can clear them at any time.",
+  "faq.7.q": "Where do the fact-checks come from?",
+  "faq.7.a": "The archive collects published fact-checks from TurnBackHoax (MAFINDO), Kominfo, the COVID-19 task force, Tempo, Kompas, CekFakta.com, Hoax-Slayer and others. Every entry links to the original article.",
+
+  /* Tips */
+  "tips.1.title": "Suspect bombastic headlines",
+  "tips.1.body": "Headlines in ALL CAPS, stacked exclamation marks, or words like 'VIRAL/MUST SHARE' often signal clickbait or a hoax.",
+  "tips.2.title": "Check the original source",
+  "tips.2.body": "Trace who published it. Credible outlets list names, dates, and sources you can verify.",
+  "tips.3.title": "Mind the date",
+  "tips.3.body": "Old news is often recycled as if new. Make sure the context and timing are still relevant.",
+  "tips.4.title": "Verify images & video",
+  "tips.4.body": "An image may be taken from a different event. Use reverse image search to check its origin.",
+  "tips.5.title": "Beware extreme emotion",
+  "tips.5.body": "Content that provokes anger or extreme fear is built to be shared fast without a second thought.",
+  "tips.6.title": "Cross-check several sources",
+  "tips.6.body": "If only one unknown site reports it, it is most likely not credible.",
+
+  /* Disclaimer points */
+  "disclaimer.1": "This system is still under development.",
+  "disclaimer.2": "The system only accepts text input: articles / news / information. For image / file / video content, please include a text description of it.",
+  "disclaimer.3": "The system gives a hoax prediction based on analysis against references found in its database.",
+  "disclaimer.4": "The system provides reference articles relevant to the user's input.",
+  "disclaimer.5": "The system's result is only a prediction and cannot serve as evidence in court. Any loss caused by the system is not the developer's responsibility.",
+  "disclaimer.6": "If a result is considered incorrect, users can report it via the complaint feature. The system keeps improving based on user reports and verification by the authorized team.",
+  "disclaimer.7": "For better results, use input from original articles / news from the internet or forwarded messages on social media.",
+  "disclaimer.8": "Every use of the site is recorded for research, including the submitted text, the result, the IP address, network and device (see the Privacy page). Do not submit personal or confidential information.",
 };
 
-/* ---- Structured / list content ----------------------------------------- */
-export const NAV: { href: string; label: string }[] = [
-  { href: "/", label: "Home" },
-  { href: "/detector", label: "Detector" },
-  { href: "/blog", label: "Blog" },
-  { href: "/stats", label: "Stats" },
-  { href: "/report", label: "Report" },
-  { href: "/about", label: "About" },
+/* ---- Structured / list content: every text is a DICT key, render with t() --- */
+
+/** Header menu. `menuOnly` items are left out of the desktop bar (it has to fit at 1024px) but listed in the mobile menu and the footer. */
+export const NAV: { href: string; label: string; menuOnly?: boolean }[] = [
+  { href: "/", label: "nav.home" },
+  { href: "/detector", label: "nav.detector" },
+  { href: "/blog", label: "nav.blog" },
+  { href: "/stats", label: "nav.stats", menuOnly: true },
+  { href: "/disclaimer", label: "nav.disclaimer" },
+  { href: "/report", label: "nav.report" },
+  { href: "/contact", label: "nav.contact" },
+  { href: "/about", label: "nav.about" },
 ];
 
-export const HOW: { step: string; kicker: string; title: string; body: string }[] = [
-  { step: "01", kicker: "Input", title: "Paste the text", body: "Copy the article, news item, or forwarded message you doubt into the analysis box. Long text supported." },
-  { step: "02", kicker: "Preprocess", title: "Detect language", body: "The system recognizes Indonesian or English, then runs filtering, stopword removal, and stemming." },
-  { step: "03", kicker: "Analyze", title: "The model scores it", body: "A classifier trained on thousands of fact-checks scores the hoax probability, and the archive supplies the fact-checks that match your text." },
-  { step: "04", kicker: "Result", title: "Verdict & references", body: "Get a verdict, confidence level, explanation, and reference links to verify on your own." },
-];
+export const HOW: { step: string; kicker: string; title: string; body: string }[] = ["01", "02", "03", "04"].map((step, i) => ({
+  step,
+  kicker: `how.${i + 1}.kicker`,
+  title: `how.${i + 1}.title`,
+  body: `how.${i + 1}.body`,
+}));
 
-export const FAQ: { q: string; a: string }[] = [
-  { q: "Can the result serve as legal evidence?", a: "No. The system's result is only a reference-based prediction and cannot serve as evidence in court. Always verify with official sources." },
-  { q: "Which languages are supported?", a: "Currently Indonesian and English. The language is detected automatically from the text you enter." },
-  { q: "What kind of input can be analyzed?", a: "Text input: articles, news, or forwarded messages. For image/video content, include a text description." },
-  { q: "What if I think the result is wrong?", a: "Report it via the Report a Hoax page. The system keeps improving based on user reports and team verification." },
-  { q: "How does the detector decide?", a: "It first matches your text against the fact-check archive; a claim that was already fact-checked gets that verdict and the fact-check is shown. Otherwise a classifier trained on thousands of published fact-checks scores the wording. Results are predictions, so always open the references." },
-  { q: "Is the text I paste stored?", a: "Yes. Every check is saved on our server with its result, your IP address, network and device details, for research on how the tool is used and to improve the detector. Research is published only as statistics or anonymized data; see the Privacy page. Please don't paste private information. Your last five checks are also remembered in this browser, and you can clear them at any time." },
-  { q: "Where do the fact-checks come from?", a: "The archive collects published fact-checks from TurnBackHoax (MAFINDO), Kominfo, the COVID-19 task force, Tempo, Kompas, CekFakta.com, Hoax-Slayer and others. Every entry links to the original article." },
-];
+export const FAQ: { q: string; a: string }[] = [1, 2, 3, 4, 5, 6, 7].map((n) => ({ q: `faq.${n}.q`, a: `faq.${n}.a` }));
 
-export const TIPS: { icon: string; title: string; body: string }[] = [
-  { icon: "title", title: "Suspect bombastic headlines", body: "Headlines in ALL CAPS, stacked exclamation marks, or words like 'VIRAL/MUST SHARE' often signal clickbait or a hoax." },
-  { icon: "source", title: "Check the original source", body: "Trace who published it. Credible outlets list names, dates, and sources you can verify." },
-  { icon: "date", title: "Mind the date", body: "Old news is often recycled as if new. Make sure the context and timing are still relevant." },
-  { icon: "image", title: "Verify images & video", body: "An image may be taken from a different event. Use reverse image search to check its origin." },
-  { icon: "bias", title: "Beware extreme emotion", body: "Content that provokes anger or extreme fear is built to be shared fast without a second thought." },
-  { icon: "cross", title: "Cross-check several sources", body: "If only one unknown site reports it, it is most likely not credible." },
-];
+export const TIPS: { icon: string; title: string; body: string }[] = ["title", "source", "date", "image", "bias", "cross"].map((icon, i) => ({
+  icon,
+  title: `tips.${i + 1}.title`,
+  body: `tips.${i + 1}.body`,
+}));
 
-export const DISCLAIMER_POINTS: string[] = [
-  "This system is still under development.",
-  "The system only accepts text input: articles / news / information. For image / file / video content, please include a text description of it.",
-  "The system gives a hoax prediction based on analysis against references found in its database.",
-  "The system provides reference articles relevant to the user's input.",
-  "The system's result is only a prediction and cannot serve as evidence in court. Any loss caused by the system is not the developer's responsibility.",
-  "If a result is considered incorrect, users can report it via the complaint feature. The system keeps improving based on user reports and verification by the authorized team.",
-  "For better results, use input from original articles / news from the internet or forwarded messages on social media.",
-  "Every use of the site is recorded for research, including the submitted text, the result, the IP address, network and device (see the Privacy page). Do not submit personal or confidential information.",
-];
+export const DISCLAIMER_POINTS: string[] = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `disclaimer.${n}`);

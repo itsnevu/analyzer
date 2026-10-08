@@ -1,26 +1,31 @@
+import type { Metadata } from "next";
 import { ExtractTool } from "@/components/admin/ExtractTool";
+import { getAdminT } from "@/lib/admin-lang-server";
+import { AdminPageHeader } from "@/components/admin/AdminPage";
 import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Extract from a page" };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getAdminT();
+  return { title: t("Extract from a page") };
+}
 
 type Params = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
-/** `?text=` prefills the box (the "needs attention" queue and the reports inbox link here); nothing runs until Process is pressed. */
+/** `?text=` prefills the box (the "needs attention" queue and the reports inbox link here); nothing runs until the button is pressed. */
 export default async function ExtractPage({ searchParams }: { searchParams: Promise<Params> }) {
   await requireAdmin();
+  const { t } = await getAdminT();
   const initialText = one((await searchParams).text).slice(0, 20_000);
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight sm:text-[1.75rem]">Extract from a page</h1>
-        <p className="mt-1 max-w-3xl text-sm text-ink-muted">
-          Paste a fact-check link, a page&apos;s HTML or the text of a forwarded message. The tool fills in the article fields (title, verdict
-          from the title tag, date, narration, explanation, references) for you to check, shows fact-checks already in the archive about the
-          same claim, and saves the result as a hidden draft or a published article.
-        </p>
-      </div>
+      <AdminPageHeader
+        className="mb-0"
+        title={t("Extract from a page")}
+        description={t("Paste a fact-check link or a forwarded message. The form below is filled in for you to check, then save it as an article.")}
+      />
       <ExtractTool initialText={initialText} />
     </div>
   );

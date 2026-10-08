@@ -1,13 +1,13 @@
 import type { DatabaseSync } from "node:sqlite";
-import { ARTICLES as SEED, type Article, type ArticleListItem } from "./data";
+import type { Article, ArticleListItem } from "./data";
 import { getDb, hasFts } from "./db";
 import { csvCell } from "./csv";
 export { slugify } from "./slug";
 export type { ArticleListItem } from "./data";
 
 /**
- * SQLite-backed article store (see ./db). An empty table is seeded with the
- * built-in ARTICLES examples; the real archive comes from `npm run import:legacy`. Server-only — never import this into a client
+ * SQLite-backed article store (see ./db). It starts empty; the archive comes from
+ * `npm run import:legacy` (syyhoaxanalyzer.com). Server-only — never import this into a client
  * component; the public site reaches it through server components.
  *
  * The archive holds thousands of rows, so nothing here loads the whole table:
@@ -39,8 +39,6 @@ const SELECT_SQL = `SELECT ${COLUMN_LIST}, published, archiveUrl FROM articles`;
 const CARD_COLUMNS =
   "a.slug, a.title, a.lang, a.category, a.verdict, a.date, a.summaryId, a.summaryEn, a.image, a.sourceSite, a.published, " +
   "a.createdAt, a.updatedAt, (a.explanation != '' OR a.narration != '') AS hasText";
-
-const globalForSeed = globalThis as unknown as { __hoaxSeeded?: boolean };
 
 type Row = Record<string, unknown>;
 
@@ -108,24 +106,7 @@ function values(a: Article): (string | number | null)[] {
 }
 
 function db(): DatabaseSync {
-  const conn = getDb();
-  if (globalForSeed.__hoaxSeeded) return conn;
-
-  const { n } = conn.prepare("SELECT COUNT(*) AS n FROM articles").get() as { n: number };
-  if (n === 0) {
-    const insert = conn.prepare(INSERT_SQL);
-    conn.exec("BEGIN");
-    try {
-      // Reverse so "id DESC" tie-breaking keeps the original list order.
-      for (const a of [...SEED].reverse()) insert.run(...values(a));
-      conn.exec("COMMIT");
-    } catch (err) {
-      conn.exec("ROLLBACK");
-      throw err;
-    }
-  }
-  globalForSeed.__hoaxSeeded = true;
-  return conn;
+  return getDb();
 }
 
 function toArticle(row: Row): Article {

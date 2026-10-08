@@ -51,7 +51,7 @@ export function ArticleCard({ article }: { article: ArticleListItem }) {
   return (
     <Link
       href={`/blog/${article.slug}`}
-      className="neu group flex flex-col overflow-hidden transition-transform duration-300 hover:-translate-y-1"
+      className="neu group flex flex-col overflow-hidden transition-transform duration-300 hover:-translate-y-1 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
     >
       {/* Cover */}
       <div className="relative aspect-[16/9] overflow-hidden">
@@ -61,7 +61,7 @@ export function ArticleCard({ article }: { article: ArticleListItem }) {
             src={article.image}
             alt=""
             loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
           />
         ) : (
           <CoverPlaceholder verdict={article.verdict} label={article.sourceSite ? sourceName(article.sourceSite) : undefined} />

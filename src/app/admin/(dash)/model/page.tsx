@@ -1,6 +1,7 @@
 import { ModelPanel } from "@/components/admin/ModelPanel";
-import { baselineInfo, modelStatus } from "@/lib/baseline";
+import { baselineInfo, modelStatus, retrainSchedule } from "@/lib/baseline";
 import { clsx } from "@/lib/clsx";
+import { getDb } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Model" };
@@ -26,6 +27,7 @@ const ENGINES: { key: "external" | "baseline" | "heuristic"; name: string; what:
 export default function ModelPage() {
   const status = modelStatus();
   const info = baselineInfo();
+  const schedule = retrainSchedule(getDb());
   const state = (key: (typeof ENGINES)[number]["key"]) =>
     key === "external" ? (status.external.configured ? "configured" : "not configured") : key === "baseline" ? (status.baseline ? "trained" : "no model file") : "always available";
 
@@ -56,7 +58,7 @@ export default function ModelPage() {
         </ol>
       </div>
 
-      <ModelPanel initialStatus={status} initialInfo={info} />
+      <ModelPanel initialStatus={status} initialInfo={info} initialSchedule={schedule} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { logAdmin } from "@/lib/admin-log";
 import { isAdmin } from "@/lib/admin-articles";
-import { baselineInfo, modelStatus, trainBaseline, type BaselineMetrics } from "@/lib/baseline";
+import { baselineInfo, modelStatus, retrainSchedule, trainBaseline, type BaselineMetrics } from "@/lib/baseline";
 import { getDb } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     }
     const metrics = await globalForTrain.__hoaxTraining;
     logAdmin(req, "model.train", `${metrics.docs} docs`, `accuracy ${metrics.accuracy}, macro-F1 ${metrics.macroF1}, ${metrics.trainMs} ms`);
-    return NextResponse.json({ ok: true, metrics, status: modelStatus(), baseline: baselineInfo() });
+    return NextResponse.json({ ok: true, metrics, status: modelStatus(), baseline: baselineInfo(), schedule: retrainSchedule(getDb()) });
   } catch (err) {
     console.error("[model] training failed:", err);
     return NextResponse.json({ error: err instanceof Error ? err.message : "Training failed." }, { status: 500 });

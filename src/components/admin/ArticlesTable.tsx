@@ -9,6 +9,7 @@ import { clsx } from "@/lib/clsx";
 import { LANGUAGE_NAME, formatCount, formatDate, sourceName } from "@/lib/sources";
 import { VERDICT_META } from "@/lib/verdict";
 import { DataGrid, type GridColumn, type GridPaging } from "@/components/admin/DataGrid";
+import { useToast } from "@/components/admin/Toast";
 
 type BulkAction = "publish" | "hide" | "delete" | "verdict";
 
@@ -54,7 +55,7 @@ export function ArticlesTable({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [bulkVerdict, setBulkVerdict] = useState<Verdict>("hoax");
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const toast = useToast();
 
   // A selection belongs to the page of rows it was made on; a new page starts empty.
   const slugs = articles.map((a) => a.slug);
@@ -70,9 +71,10 @@ export function ArticlesTable({
     try {
       const res = await fetch(`/api/admin/articles/${slug}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
+      toast({ tone: "success", text: `Deleted “${title}”.` });
       router.refresh();
     } catch {
-      alert("Failed to delete.");
+      toast({ tone: "error", text: "Failed to delete the article." });
     } finally {
       setBusy(null);
     }
@@ -92,7 +94,6 @@ export function ArticlesTable({
             : `Publish ${n} article${n === 1 ? "" : "s"}?`;
     if (!confirm(what)) return;
     setBusy("bulk");
-    setMessage(null);
     try {
       const res = await fetch("/api/admin/articles/bulk", {
         method: "POST",
@@ -102,11 +103,11 @@ export function ArticlesTable({
       const data = (await res.json().catch(() => ({}))) as { changed?: number; error?: string };
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       const verb = action === "delete" ? "Deleted" : action === "hide" ? "Hid" : action === "publish" ? "Published" : `Set the verdict of`;
-      setMessage({ ok: true, text: `${verb} ${data.changed ?? 0} article${data.changed === 1 ? "" : "s"}.` });
+      toast({ tone: "success", text: `${verb} ${data.changed ?? 0} article${data.changed === 1 ? "" : "s"}.` });
       setSelected(new Set());
       router.refresh();
     } catch (err) {
-      setMessage({ ok: false, text: err instanceof Error ? err.message : "The action failed." });
+      toast({ tone: "error", text: err instanceof Error && err.message ? err.message : "The action failed." });
     } finally {
       setBusy(null);
     }
@@ -285,11 +286,6 @@ export function ArticlesTable({
         </>
       ) : (
         <span className="text-ink-faint">Select rows for bulk actions</span>
-      )}
-      {message && (
-        <span role="status" className={clsx("ml-2", message.ok ? "text-verdict-valid" : "text-verdict-hoax")}>
-          {message.text}
-        </span>
       )}
     </div>
   );

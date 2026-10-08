@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Section } from "@/components/ui/Section";
 
 export interface StatItem {
   value: number;
@@ -35,8 +36,8 @@ function useCountUp(target: number, run: boolean, duration = 1400) {
 function Stat({ value, suffix, label, sub, run }: StatItem & { run: boolean }) {
   const n = useCountUp(value, run);
   return (
-    <div className="neu p-6">
-      <div className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
+    <div className="bg-surface-raised p-5 sm:p-7">
+      <div className="font-display text-3xl font-bold tracking-tight tabular-nums sm:text-5xl">
         <span className="gradient-text">
           {n.toLocaleString("en-US")}
           {suffix}
@@ -61,12 +62,12 @@ export function Stats({ items }: { items: StatItem[] }) {
   }, []);
 
   return (
-    <section className="container-page py-12">
-      <div ref={ref} className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <Section tight>
+      <div ref={ref} className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-hairline bg-hairline shadow-neu lg:grid-cols-4">
         {items.map((s) => (
           <Stat key={s.label} {...s} run={run} />
         ))}
       </div>
-    </section>
+    </Section>
   );
 }

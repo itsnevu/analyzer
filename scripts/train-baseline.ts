@@ -15,7 +15,7 @@
 
 import fs from "node:fs";
 import { getDb } from "../src/lib/db.ts";
-import { baselineModelPath, CLASSES, TEXT_VARIANTS, trainBaseline, type BaselineMetrics, type TextVariant } from "../src/lib/baseline.ts";
+import { ARCHIVE_LANGS, baselineModelPath, CLASSES, TEXT_VARIANTS, trainBaseline, type BaselineMetrics, type TextVariant } from "../src/lib/baseline.ts";
 
 const args = process.argv.slice(2);
 const DRY = args.includes("--dry");
@@ -49,6 +49,16 @@ function printMetrics(m: BaselineMetrics): void {
   console.log(`\n  confusion (rows = actual, columns = predicted)`);
   console.log(`  ${"".padEnd(12)} ${CLASSES.map((c) => cell(c, 11)).join(" ")}`);
   m.confusion.forEach((row, i) => console.log(`  ${CLASSES[i].padEnd(12)} ${row.map((v) => cell(n(v), 11)).join(" ")}`));
+  if (m.perLanguage) {
+    console.log(`
+  per language (holdout rows per class in brackets)`);
+    console.log(`  ${"language".padEnd(12)} ${cell("holdout", 8)} ${cell("accuracy", 9)} ${cell("macro-F1", 9)} ${CLASSES.map((c) => cell(`${c} F1`, 17)).join(" ")}`);
+    for (const lang of ARCHIVE_LANGS) {
+      const l = m.perLanguage[lang];
+      const f1 = CLASSES.map((c) => cell(`${pct(l.perClass[c].f1)} (${n(l.perClass[c].support)})`, 17)).join(" ");
+      console.log(`  ${lang.padEnd(12)} ${cell(n(l.holdout), 8)} ${cell(pct(l.accuracy), 9)} ${cell(pct(l.macroF1), 9)} ${f1}`);
+    }
+  }
 }
 
 const db = getDb();

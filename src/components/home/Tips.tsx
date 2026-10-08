@@ -1,6 +1,6 @@
 "use client";
 
-import { SectionHeading } from "@/components/ui/Neu";
+import { Section } from "@/components/ui/Section";
 import { Reveal } from "@/components/ui/Reveal";
 import { TIPS } from "@/lib/dictionary";
 import { useI18n } from "@/lib/i18n";
@@ -21,13 +21,11 @@ function TipIcon({ name }: { name: string }) {
 export function Tips() {
   const { t } = useI18n();
   return (
-    <section className="container-page py-16">
-      <SectionHeading eyebrow={t("tips.eyebrow")} title={t("tips.title")} intro={t("tips.intro")} />
-
-      <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <Section eyebrow={t("tips.eyebrow")} title={t("tips.title")} intro={t("tips.intro")}>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {TIPS.map((tip, i) => (
           <Reveal key={tip.title} delay={i * 60}>
-            <div className="neu group h-full p-6 transition-transform duration-300 hover:-translate-y-1">
+            <div className="neu group h-full p-6 transition-transform duration-300 hover:-translate-y-1 motion-reduce:transition-none motion-reduce:hover:translate-y-0">
               <span className="grid h-11 w-11 place-items-center rounded-xl bg-surface-sunken text-brand shadow-neu-inset-sm transition-colors group-hover:text-brand-to">
                 <TipIcon name={tip.icon} />
               </span>
@@ -37,6 +35,6 @@ export function Tips() {
           </Reveal>
         ))}
       </div>
-    </section>
+    </Section>
   );
 }

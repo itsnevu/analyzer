@@ -68,11 +68,14 @@ export interface SourceFilter {
   order?: "asc" | "desc";
 }
 
-const SELECT = `SELECT s.*,
-    (SELECT COUNT(*) FROM legacy_dataset d WHERE d.sourceId = s.id AND COALESCE(d.adminLabel, d.label) IS NOT NULL) AS labeled,
-    (SELECT COUNT(*) FROM legacy_dataset d WHERE d.sourceId = s.id AND COALESCE(d.adminLabel, d.label) IS NULL) AS unlabeled,
-    (SELECT COUNT(*) FROM articles a WHERE a.sourceSite = s.site) AS articles
-  FROM legacy_sources s`;
+// Counts are aggregated once per table and joined, rather than counted again for every source row.
+const SELECT = `SELECT s.*, COALESCE(d.labeled, 0) AS labeled, COALESCE(d.unlabeled, 0) AS unlabeled, COALESCE(a.n, 0) AS articles
+  FROM legacy_sources s
+  LEFT JOIN (
+    SELECT sourceId, SUM(COALESCE(adminLabel, label) IS NOT NULL) AS labeled, SUM(COALESCE(adminLabel, label) IS NULL) AS unlabeled
+    FROM legacy_dataset GROUP BY sourceId
+  ) d ON d.sourceId = s.id
+  LEFT JOIN (SELECT sourceSite, COUNT(*) AS n FROM articles GROUP BY sourceSite) a ON a.sourceSite = s.site`;
 
 type Row = Record<string, unknown>;
 

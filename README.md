@@ -80,7 +80,7 @@ tests and a production build on every push and pull request.
 **The classifier.** Multinomial logistic regression over TF-IDF words and word
 pairs of the published fact-checks (the title without its tag plus the claim
 narration), trained with `npm run train:baseline` into `data/models/baseline.json`
-(about 2 MB, under two seconds; also from the admin Model page). On a stratified
+(about 2 MB, under two seconds; also from the admin Model page, and weekly by the production server when the archive changed, see `BASELINE_RETRAIN_DAYS`). On a stratified
 10% holdout it reaches 74% accuracy and 0.60 macro-F1 (hoax F1 0.84, credible
 0.62, misleading 0.35). It learns which claims fact-checkers have debunked or
 confirmed, not whether a statement is true, so topics the archive only ever

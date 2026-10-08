@@ -35,17 +35,19 @@ const pick = (list: readonly string[], n: number) => Array.from({ length: n }, (
 
 beforeAll(() => {
   const db = getDb();
-  const insert = db.prepare("INSERT INTO articles (slug, title, lang, category, verdict, date, narration, explanation, published) VALUES (?, ?, 'id', 'Hoax', ?, '2021-01-01', ?, ?, ?)");
+  const insert = db.prepare("INSERT INTO articles (slug, title, lang, category, verdict, date, narration, explanation, published) VALUES (?, ?, ?, 'Hoax', ?, '2021-01-01', ?, ?, ?)");
   let i = 0;
   for (const verdict of baseline.CLASSES) {
     for (let k = 0; k < PER_CLASS; k++) {
       const words = [...pick(WORDS[verdict], 5), ...pick(SHARED, 3)];
       const title = `${TAG[verdict]} ${words.slice(0, 3).join(" ")}`;
-      insert.run(`doc-${i++}`, title, verdict, words.join(" "), `Faktanya ${verdict} cek fakta`, 1);
+      // Every fourth row is English, so the per-language report has both sides.
+      insert.run(`doc-${i}`, title, i % 4 === 0 ? "en" : "id", verdict, words.join(" "), `Faktanya ${verdict} cek fakta`, 1);
+      i++;
     }
   }
   // Hidden rows are not reviewed and must not be trained on.
-  insert.run("hidden", "[SALAH] kementerian resmi siaran pers", "hoax", "kementerian resmi siaran pers laporan", "", 0);
+  insert.run("hidden", "[SALAH] kementerian resmi siaran pers", "id", "hoax", "kementerian resmi siaran pers laporan", "", 0);
 });
 
 afterEach(() => vi.unstubAllEnvs());
@@ -93,6 +95,20 @@ describe("training and prediction", () => {
     expect(m.textVariant).toBe("claim");
     expect(m.temperature).toBeGreaterThan(0);
     expect(fs.existsSync(MODEL)).toBe(true);
+
+    // The same holdout, split by language.
+    const langs = m.perLanguage!;
+    expect(Object.keys(langs).sort()).toEqual(["en", "id"]);
+    expect(langs.id.holdout + langs.en.holdout).toBe(m.holdout);
+    for (const l of Object.values(langs)) {
+      expect(Object.keys(l.perClass).sort()).toEqual(["hoax", "misleading", "valid"]);
+      expect(Object.values(l.perClass).reduce((a, c) => a + c.support, 0)).toBe(l.holdout);
+      expect(l.accuracy).toBeGreaterThanOrEqual(0);
+      expect(l.accuracy).toBeLessThanOrEqual(1);
+    }
+    // The archive as it was trained on: published rows only.
+    expect(m.archive).toEqual(baseline.archiveSnapshot(getDb()));
+    expect(m.archive?.published).toBe(PER_CLASS * 3);
 
     const file = JSON.parse(fs.readFileSync(MODEL, "utf8")) as { vocab: string[]; weights: number[]; idf: number[] };
     expect(file.weights.length).toBe(file.vocab.length * 3);
@@ -199,5 +215,86 @@ describe("model file and status", () => {
     const r = await runDetection("VIRAL!! SEBARKAN sebelum dihapus, dokter tidak mau kamu tahu rahasia ini!!!");
     expect(r.model).toBe("local-heuristic-stub");
     expect(r.simulated).toBe(true);
+  });
+});
+
+/* ---------------------------------------------------- scheduled retrain */
+
+describe("scheduled retrain", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const db = () => getDb();
+
+  it("reads BASELINE_RETRAIN_DAYS, 7 by default and 0 for off", () => {
+    expect(baseline.retrainIntervalDays()).toBe(7);
+    vi.stubEnv("BASELINE_RETRAIN_DAYS", "0");
+    expect(baseline.retrainIntervalDays()).toBe(0);
+    vi.stubEnv("BASELINE_RETRAIN_DAYS", "3");
+    expect(baseline.retrainIntervalDays()).toBe(3);
+    vi.stubEnv("BASELINE_RETRAIN_DAYS", "soon");
+    expect(baseline.retrainIntervalDays()).toBe(7);
+    vi.stubEnv("BASELINE_RETRAIN_DAYS", "-1");
+    expect(baseline.retrainIntervalDays()).toBe(7);
+  });
+
+  it("does nothing without a model, when off, before it is due, or while the archive is unchanged", () => {
+    expect(fs.existsSync(MODEL)).toBe(false);
+    expect(baseline.scheduledRetrain(db()).reason).toBe("no model");
+    expect(baseline.retrainSchedule(db())).toMatchObject({ days: 7, dueAt: null, archiveChanged: null, nextAt: null });
+
+    const m = baseline.trainBaseline(db());
+    const trained = Date.parse(m.trainedAt);
+    expect(baseline.scheduledRetrain(db(), trained + DAY).reason).toBe("not due");
+    expect(baseline.scheduledRetrain(db(), trained + 8 * DAY).reason).toBe("archive unchanged");
+    const s = baseline.retrainSchedule(db(), trained + DAY);
+    expect(s).toMatchObject({ days: 7, runsHere: false, archiveChanged: false, nextAt: null });
+    expect(s.dueAt).toBe(new Date(trained + 7 * DAY).toISOString());
+
+    vi.stubEnv("BASELINE_RETRAIN_DAYS", "0");
+    expect(baseline.scheduledRetrain(db(), trained + 30 * DAY).reason).toBe("off");
+    expect(baseline.retrainSchedule(db())).toMatchObject({ days: 0, dueAt: null, nextAt: null, archiveChanged: false });
+  });
+
+  it("notices an edited or a newly published article and retrains once it is due", () => {
+    const before = baseline.loadBaseline()!.model;
+    const trained = Date.parse(before.trainedAt);
+    db().prepare("UPDATE articles SET updatedAt = '2099-01-01 00:00:00' WHERE slug = 'doc-0'").run();
+    expect(baseline.archiveChangedSince(before, baseline.archiveSnapshot(db()))).toBe(true);
+    const s = baseline.retrainSchedule(db(), trained + DAY);
+    expect(s.archiveChanged).toBe(true);
+    expect(s.nextAt).toBe(s.dueAt);
+    // Overdue: the next hourly check, i.e. now.
+    expect(baseline.retrainSchedule(db(), trained + 9 * DAY).nextAt).toBe(new Date(trained + 9 * DAY).toISOString());
+    expect(baseline.scheduledRetrain(db(), trained + DAY).reason).toBe("not due");
+
+    const out = baseline.scheduledRetrain(db(), trained + 8 * DAY);
+    expect(out.reason).toBe("retrained");
+    expect(out.metrics?.docs).toBe(before.docs);
+    const after = baseline.loadBaseline()!.model;
+    expect(after.archive?.newestUpdatedAt).toBe("2099-01-01 00:00:00");
+    expect(baseline.archiveChangedSince(after, baseline.archiveSnapshot(db()))).toBe(false);
+
+    // Publishing the hidden row changes the count.
+    db().prepare("UPDATE articles SET published = 1 WHERE slug = 'hidden'").run();
+    expect(baseline.archiveChangedSince(after, baseline.archiveSnapshot(db()))).toBe(true);
+    db().prepare("UPDATE articles SET published = 0 WHERE slug = 'hidden'").run();
+    expect(baseline.archiveChangedSince(after, baseline.archiveSnapshot(db()))).toBe(false);
+  });
+
+  it("still loads a model file written before the per-language report and the archive snapshot", () => {
+    const file = JSON.parse(fs.readFileSync(MODEL, "utf8")) as Record<string, unknown>;
+    delete file.perLanguage;
+    delete file.archive;
+    file.trainedAt = "2099-06-01T00:00:00.000Z";
+    fs.writeFileSync(MODEL, JSON.stringify(file));
+    const later = new Date(Date.now() + 10_000);
+    fs.utimesSync(MODEL, later, later);
+    const m = baseline.loadBaseline()!.model;
+    expect(m.archive).toBeUndefined();
+    expect(baseline.baselineInfo()?.perLanguage).toBeUndefined();
+    expect(baseline.predictBaseline("vaksin chip magnet pelacak")?.verdict).toBe("hoax");
+    // Without a snapshot: same row count and nothing updated after trainedAt means unchanged.
+    expect(baseline.archiveChangedSince(m, baseline.archiveSnapshot(db()))).toBe(false);
+    expect(baseline.archiveChangedSince({ ...m, trainedAt: "2098-01-01T00:00:00.000Z" }, baseline.archiveSnapshot(db()))).toBe(true);
+    expect(baseline.archiveChangedSince({ ...m, docs: m.docs - 1 }, baseline.archiveSnapshot(db()))).toBe(true);
   });
 });

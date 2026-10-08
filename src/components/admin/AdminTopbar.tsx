@@ -5,17 +5,19 @@ import { usePathname } from "next/navigation";
 import { clsx } from "@/lib/clsx";
 import { adminBreadcrumb } from "./admin-nav";
 
-/** Sticky bar above the content: menu toggle, breadcrumb, quick search, link to the site. */
+/** Sticky bar above the content: menu toggle, breadcrumb, quick search, shortcuts help, link to the site. */
 export function AdminTopbar({
   collapsed,
   onToggleSidebar,
   onOpenDrawer,
   onOpenPalette,
+  onOpenShortcuts,
 }: {
   collapsed: boolean;
   onToggleSidebar: () => void;
   onOpenDrawer: () => void;
   onOpenPalette: () => void;
+  onOpenShortcuts: () => void;
 }) {
   const pathname = usePathname();
   const crumbs = adminBreadcrumb(pathname);
@@ -69,6 +71,15 @@ export function AdminTopbar({
         </svg>
         <span className="hidden sm:inline">Search…</span>
         <kbd className="hidden rounded border border-hairline px-1.5 font-mono text-[10px] text-ink-faint sm:inline">Ctrl K</kbd>
+      </button>
+      <button
+        type="button"
+        onClick={onOpenShortcuts}
+        className="neu-btn hidden h-9 w-9 place-items-center font-mono text-sm font-semibold sm:grid"
+        aria-label="Keyboard shortcuts (?)"
+        title="Keyboard shortcuts (?)"
+      >
+        ?
       </button>
       <Link href="/" target="_blank" className="neu-btn hidden h-9 items-center gap-1.5 px-3 text-sm md:flex">
         View site <span aria-hidden>↗</span>

@@ -4,11 +4,18 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Pill } from "@/components/ui/Neu";
+import { ArchiveIcon, ArrowRightIcon, ShieldIcon, TextIcon } from "@/components/ui/Icons";
 import { useI18n } from "@/lib/i18n";
 import { PENDING_TEXT_KEY } from "@/lib/pending";
+import { formatCount } from "@/lib/sources";
 import { clsx } from "@/lib/clsx";
 
-export function Hero() {
+export interface HeroCounts {
+  total: number;
+  sources: number;
+}
+
+export function Hero({ counts }: { counts?: HeroCounts }) {
   const { t } = useI18n();
   const router = useRouter();
   const [text, setText] = useState("");
@@ -30,6 +37,12 @@ export function Hero() {
     go();
   }
 
+  const trust = [
+    counts && counts.total > 0 && { Icon: ArchiveIcon, value: formatCount(counts.total), label: t("hero.trust.archive") },
+    counts && counts.sources > 0 && { Icon: ShieldIcon, value: formatCount(counts.sources), label: t("hero.trust.sources") },
+    { Icon: TextIcon, value: "", label: t("hero.trust.langs") },
+  ].filter((x): x is { Icon: typeof ArchiveIcon; value: string; label: string } => Boolean(x));
+
   return (
     <section className="relative -mt-[84px] overflow-hidden">
       {/* Generated looping background video (Higgsfield · Seedance) */}
@@ -45,36 +58,39 @@ export function Hero() {
         <source src="/hero.mp4?v=2" type="video/mp4" />
       </video>
       {/* Dark overlay so hero text stays legible on top of the video */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface/25 via-surface/55 to-surface" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface/25 via-surface/60 to-surface" />
 
       <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-40" />
       <div className="pointer-events-none absolute -top-40 left-1/2 h-80 w-[42rem] -translate-x-1/2 rounded-full bg-brand-gradient opacity-20 blur-[120px]" />
 
-      <div className="container-page relative pt-32 pb-16 sm:pt-40">
+      <div className="container-page relative pb-10 pt-28 sm:pb-14 sm:pt-36">
         <div className="mx-auto max-w-3xl text-center">
-          <div className="flex justify-center animate-fade-up">
+          <div className="flex justify-center animate-fade-up motion-reduce:animate-none">
             <Pill>
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-brand-from" />
+                <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-brand-from motion-reduce:animate-none" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-from" />
               </span>
               {t("hero.badge")}
             </Pill>
           </div>
 
-          <h1 className="mt-6 font-display text-4xl font-bold leading-[1.05] tracking-tight text-balance animate-fade-up sm:text-6xl">
+          <h1 className="mt-5 font-display text-4xl font-bold leading-[1.04] tracking-tight text-balance animate-fade-up motion-reduce:animate-none sm:text-6xl">
             {t("hero.title.a")} <span className="gradient-text">{t("hero.title.hoax")}</span>,
             <br className="hidden sm:block" /> {t("hero.title.b")}
           </h1>
 
-          <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-ink-muted animate-fade-up">
+          <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-ink-muted animate-fade-up motion-reduce:animate-none sm:text-lg">
             {t("hero.subtitle")}
           </p>
 
           {/* Paste box: the detector, one step earlier */}
-          <form onSubmit={submit} className="neu mx-auto mt-9 max-w-2xl p-2 text-left animate-fade-up">
+          <form
+            onSubmit={submit}
+            className="neu mx-auto mt-8 max-w-2xl p-2 text-left shadow-neu-lg transition-colors focus-within:border-brand/50 animate-fade-up motion-reduce:animate-none"
+          >
             <label className="block">
-              <span className="sr-only">Text to check</span>
+              <span className="sr-only">{t("hero.box.label")}</span>
               <textarea
                 value={text}
                 onChange={(e) => setText(e.target.value)}
@@ -85,26 +101,46 @@ export function Hero() {
                   }
                 }}
                 rows={3}
-                placeholder="Paste the message, headline, or article you're not sure about…"
-                className="w-full resize-none rounded-lg bg-transparent px-4 py-3 text-sm leading-relaxed text-ink outline-none placeholder:text-ink-faint"
+                placeholder={t("hero.box.placeholder")}
+                className="w-full resize-none rounded-lg bg-transparent px-4 py-3 text-base leading-relaxed text-ink outline-none placeholder:text-ink-faint sm:text-sm"
               />
             </label>
             <div className="flex flex-col items-stretch gap-2 border-t border-hairline p-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
               <span className={clsx("px-2 text-xs", text && !ready ? "text-verdict-warn" : "text-ink-faint")}>
-                {text && !ready ? `${15 - text.trim().length} more characters to go` : "At least 15 characters."}
+                {text && !ready ? `${15 - text.trim().length} more characters to go` : t("hero.box.hint")}
               </span>
               <div className="flex gap-2">
-                <Link href="/#how" className="neu-btn px-5 py-2.5 text-center text-sm font-medium">
+                <Link href="/#how" className="neu-btn flex-1 px-5 py-2.5 text-center text-sm font-medium sm:flex-none">
                   {t("hero.cta.secondary")}
                 </Link>
-                <button type="submit" disabled={!ready} className={clsx("btn-primary px-6 py-2.5 text-sm", !ready && "cursor-not-allowed opacity-50 hover:opacity-50")}>
+                <button
+                  type="submit"
+                  disabled={!ready}
+                  className={clsx("btn-primary flex-1 px-6 py-2.5 text-sm sm:flex-none", !ready && "cursor-not-allowed opacity-50 hover:opacity-50")}
+                >
                   {t("hero.cta.primary")}
                 </button>
               </div>
             </div>
           </form>
 
-          <p className="mt-6 text-xs text-ink-faint">{t("hero.disclaimer")}</p>
+          {/* Trust strip: live numbers from the archive */}
+          <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-ink-muted">
+            {trust.map(({ Icon, value, label }) => (
+              <li key={label} className="inline-flex items-center gap-1.5">
+                <Icon className="h-4 w-4 text-brand" />
+                {value && <strong className="font-semibold tabular-nums text-ink">{value}</strong>}
+                {label}
+              </li>
+            ))}
+            <li>
+              <Link href="/stats" className="inline-flex items-center gap-1 text-ink-faint transition-colors hover:text-ink">
+                All the numbers <ArrowRightIcon className="h-3.5 w-3.5" />
+              </Link>
+            </li>
+          </ul>
+
+          <p className="mt-4 text-xs text-ink-faint">{t("hero.disclaimer")}</p>
         </div>
       </div>
     </section>

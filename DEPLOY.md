@@ -92,7 +92,8 @@ npm run train:baseline
 ```
 
 It can also be retrained any time from the admin **Model** page, for example
-after the archive grows.
+after the archive grows. The running server also retrains it by itself once it is
+`BASELINE_RETRAIN_DAYS` old (default 7, `0` turns it off) if the published archive changed since.
 
 ## 5. Keep it running
 

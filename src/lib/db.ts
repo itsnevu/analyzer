@@ -10,7 +10,7 @@ import { DatabaseSync } from "node:sqlite";
 const DB_FILE = process.env.DATABASE_PATH ?? path.join(/* turbopackIgnore: true */ process.cwd(), "data", "hoax.db");
 
 /** Bump when migrate() changes, so a hot-reloaded dev server re-runs it on the open connection. */
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 
 // Reuse one connection across dev hot reloads.
 const globalForDb = globalThis as unknown as {
@@ -149,6 +149,7 @@ function migrate(db: DatabaseSync): void {
   db.exec(`
     DROP INDEX IF EXISTS idx_articles_date;
     CREATE INDEX IF NOT EXISTS idx_articles_public ON articles (published, date DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS idx_articles_source ON articles (sourceSite);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_legacy ON articles (legacyId) WHERE legacyId IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_articles_dataset ON articles (datasetId) WHERE datasetId IS NOT NULL;
   `);

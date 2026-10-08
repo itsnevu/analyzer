@@ -2,7 +2,7 @@ import Link from "next/link";
 import { findSimilarArticles } from "@/lib/articles";
 import { VERDICT_META } from "@/lib/verdict";
 import { formatDate, sourceName } from "@/lib/sources";
-import { SectionHeading } from "@/components/ui/Neu";
+import { Section } from "@/components/ui/Section";
 import { VerdictBadge } from "@/components/article/ArticleCard";
 
 /** A typical forwarded message; the matching fact-check is looked up live in the archive. */
@@ -16,14 +16,12 @@ export async function ExampleResult() {
   const meta = VERDICT_META[match.verdict];
 
   return (
-    <section className="container-page py-16">
-      <SectionHeading
-        eyebrow="See it work"
-        title="A forwarded message, checked in seconds."
-        intro="Most hoaxes that reach your family group have been debunked before. The detector finds the fact-check for you."
-      />
-
-      <div className="mt-10 grid items-stretch gap-4 lg:grid-cols-[1fr_auto_1.1fr]">
+    <Section
+      eyebrow="See it work"
+      title="A forwarded message, checked in seconds."
+      intro="Most hoaxes that reach your family group have been debunked before. The detector finds the fact-check for you."
+    >
+      <div className="grid items-stretch gap-4 lg:grid-cols-[1fr_auto_1.1fr]">
         {/* The message, as it arrives */}
         <div className="neu flex flex-col justify-center p-6">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-faint">Forwarded many times</div>
@@ -38,10 +36,7 @@ export async function ExampleResult() {
 
         {/* What the archive says */}
         <div className="neu overflow-hidden p-0">
-          <div
-            className="flex items-center gap-4 p-6"
-            style={{ background: `linear-gradient(120deg, color-mix(in srgb, ${meta.color} 14%, transparent), transparent)` }}
-          >
+          <div className="verdict-wash flex flex-wrap items-center gap-x-4 gap-y-1 p-6" style={{ "--verdict": meta.color } as React.CSSProperties}>
             <div className="font-display text-3xl font-bold" style={{ color: meta.color }}>
               {meta.labelEn}
             </div>
@@ -69,6 +64,6 @@ export async function ExampleResult() {
           </div>
         </div>
       </div>
-    </section>
+    </Section>
   );
 }

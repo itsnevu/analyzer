@@ -18,9 +18,10 @@ const toInput = (s: SourceAdmin): SourceInput => ({
 });
 
 /**
- * Source sites on the panel grid. Clicking a site opens the old crawler's
- * listing pages for it in a panel above the grid; Edit opens the form there too.
- * Saved edits are kept as patches over the server's rows until the refresh lands.
+ * Source sites on the panel grid. Clicking a site (or its ▸) opens the old
+ * crawler's listing pages for it in a row under it; Edit opens the form there
+ * too. "Add source" opens the form above the grid. Saved edits are kept as
+ * patches over the server's rows until the refresh lands.
  */
 export function SourcesTable({
   sources,
@@ -41,22 +42,23 @@ export function SourcesTable({
   const panelRef = useRef<HTMLDivElement>(null);
 
   const rows = sources.filter((s) => !removed.has(s.id)).map((s) => patches[s.id] ?? s);
-  const openSource = open === null ? null : (rows.find((s) => s.id === open) ?? null);
-  const queue = openSource ? crawlQueue.filter((q) => q.sourceId === openSource.id) : [];
+  // The row open under the grid: its edit form, or its listing pages.
+  const expanded = typeof editing === "number" ? editing : editing === "new" ? null : open;
 
   const reveal = () => requestAnimationFrame(() => panelRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
 
-  function toggleOpen(s: SourceAdmin) {
+  function toggleOpen(id: number) {
+    const wasOpen = expanded === id;
     setEditing(null);
-    setOpen(open === s.id ? null : s.id);
-    reveal();
+    setOpen(wasOpen ? null : id);
   }
 
   function startEdit(s?: SourceAdmin) {
     setDraft(s ? toInput(s) : blank());
     setEditing(s ? s.id : "new");
-    setOpen(s ? s.id : null);
-    reveal();
+    // Closing the form (Save or Cancel) folds the row back up.
+    setOpen(null);
+    if (!s) reveal();
   }
 
   async function put(id: number | "new", input: SourceInput): Promise<boolean> {
@@ -171,12 +173,12 @@ export function SourcesTable({
         <div className="min-w-0 max-w-[260px]">
           <button
             type="button"
-            onClick={() => toggleOpen(s)}
-            aria-expanded={open === s.id && editing !== s.id}
+            onClick={() => toggleOpen(s.id)}
+            aria-expanded={expanded === s.id}
             className="block max-w-full truncate text-left font-medium hover:text-brand"
             title={`${s.url} (show the listing pages)`}
           >
-            {open === s.id && editing !== s.id ? "▾" : "▸"} {sourceName(s.site)}
+            {sourceName(s.site)}
           </button>
           <div className="truncate text-xs text-ink-faint">
             {s.site !== sourceName(s.site) ? `${s.site} · ` : ""}
@@ -288,8 +290,8 @@ export function SourcesTable({
       align: "right",
       render: (s) => (
         <div className="flex justify-end gap-1.5">
-          <button type="button" onClick={() => startEdit(s)} className={pill}>
-            Edit
+          <button type="button" onClick={() => (editing === s.id ? setEditing(null) : startEdit(s))} aria-pressed={editing === s.id} className={pill}>
+            {editing === s.id ? "Close" : "Edit"}
           </button>
           <button type="button" onClick={() => toggleActive(s)} disabled={busy} className={pill}>
             {s.active ? "Deactivate" : "Activate"}
@@ -304,55 +306,65 @@ export function SourcesTable({
     },
   ];
 
-  const editingSource = typeof editing === "number" ? rows.find((s) => s.id === editing) : null;
+  function renderExpanded(s: SourceAdmin) {
+    if (editing === s.id) {
+      return (
+        <section aria-label={`Edit ${sourceName(s.site)}`}>
+          <h2 className="mb-3 text-sm font-semibold">Edit {sourceName(s.site)}</h2>
+          {form}
+        </section>
+      );
+    }
+    const queue = crawlQueue.filter((q) => q.sourceId === s.id);
+    return (
+      <section aria-label={`Listing pages of ${s.site}`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-sm font-semibold">Listing pages the old crawler used for {sourceName(s.site)}</h2>
+          <button type="button" onClick={() => setOpen(null)} className="ml-auto neu-btn px-3 py-1 text-xs">
+            Close ×
+          </button>
+        </div>
+        {queue.length === 0 ? (
+          <p className="mt-2 text-xs text-ink-muted">The old crawler had no listing pages for this site.</p>
+        ) : (
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="text-ink-faint">
+                <tr>
+                  {["URL", "Page", "Last page", "Suffix", "Status"].map((h) => (
+                    <th key={h} className="pb-1 pr-3 font-medium">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {queue.map((q) => (
+                  <tr key={q.id} className="border-t border-hairline">
+                    <td className="max-w-md truncate py-1 pr-3 font-mono" title={q.url}>
+                      {q.url}
+                    </td>
+                    <td className="pr-3 tabular-nums">{q.page}</td>
+                    <td className="pr-3 tabular-nums">{q.lastPage || "—"}</td>
+                    <td className="pr-3 font-mono">{q.suffix || "—"}</td>
+                    <td>{q.status || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div ref={panelRef} className="scroll-mt-20">
-        {editing !== null && (
-          <section className="neu p-5" aria-label={editing === "new" ? "Add a source" : "Edit source"}>
-            <h2 className="mb-3 text-sm font-semibold">{editing === "new" ? "Add a source" : `Edit ${editingSource ? sourceName(editingSource.site) : "source"}`}</h2>
+        {editing === "new" && (
+          <section className="neu p-5" aria-label="Add a source">
+            <h2 className="mb-3 text-sm font-semibold">Add a source</h2>
             {form}
-          </section>
-        )}
-        {editing === null && openSource && (
-          <section className="neu p-5" aria-label={`Listing pages of ${openSource.site}`}>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-sm font-semibold">Listing pages the old crawler used for {sourceName(openSource.site)}</h2>
-              <button type="button" onClick={() => setOpen(null)} className="ml-auto neu-btn px-3 py-1 text-xs">
-                Close ×
-              </button>
-            </div>
-            {queue.length === 0 ? (
-              <p className="mt-2 text-xs text-ink-muted">The old crawler had no listing pages for this site.</p>
-            ) : (
-              <div className="mt-2 overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="text-ink-faint">
-                    <tr>
-                      {["URL", "Page", "Last page", "Suffix", "Status"].map((h) => (
-                        <th key={h} className="pb-1 pr-3 font-medium">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {queue.map((q) => (
-                      <tr key={q.id} className="border-t border-hairline">
-                        <td className="max-w-md truncate py-1 pr-3 font-mono" title={q.url}>
-                          {q.url}
-                        </td>
-                        <td className="pr-3 tabular-nums">{q.page}</td>
-                        <td className="pr-3 tabular-nums">{q.lastPage || "—"}</td>
-                        <td className="pr-3 font-mono">{q.suffix || "—"}</td>
-                        <td>{q.status || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </section>
         )}
       </div>
@@ -363,6 +375,9 @@ export function SourcesTable({
         rows={rows}
         rowKey={(s) => String(s.id)}
         sort={sort}
+        expandedKey={expanded === null ? null : String(expanded)}
+        onToggleExpanded={(key) => toggleOpen(Number(key))}
+        renderExpanded={renderExpanded}
         toolbar={
           <button type="button" onClick={() => startEdit()} className="btn-primary px-3 py-1.5 text-xs">
             + Add source

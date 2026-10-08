@@ -12,6 +12,12 @@ function description(a: { summaryEn: string; summaryId: string; explanation: str
   return text.length > 160 ? `${text.slice(0, 157).trimEnd()}…` : text;
 }
 
+/** Minutes to read the stored text at about 200 words a minute; computed here so the hero can show it without client code. */
+function readingMinutes(a: { narration: string; explanation: string; source: string; reference: string; summaryEn: string; summaryId: string }): number {
+  const words = [a.summaryEn || a.summaryId, a.narration, a.explanation, a.source, a.reference].join(" ").split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 200));
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const article = await getArticleBySlug(slug);
@@ -51,7 +57,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd(article)) }} />
         </>
       )}
-      <ArticleLayout article={article} related={related} />
+      <ArticleLayout article={article} related={related} readingMinutes={readingMinutes(article)} />
     </>
   );
 }

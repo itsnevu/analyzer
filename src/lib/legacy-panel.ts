@@ -10,7 +10,7 @@ import { ensurePanelSchema } from "./panel-schema";
  */
 
 /** Bump when panel-schema.ts changes, so a hot-reloaded dev server re-runs it. */
-const PANEL_SCHEMA = 2;
+const PANEL_SCHEMA = 3;
 const globalForPanel = globalThis as unknown as { __hoaxPanelSchema?: number };
 
 export function panelDb(): DatabaseSync {

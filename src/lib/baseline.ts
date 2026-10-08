@@ -36,6 +36,45 @@
  * within noise. Multinomial naive Bayes (tf-idf counts, alpha 0.1 to 1) was
  * tried too and scored 5 to 8 points lower on the same holdout, so it is not kept.
  *
+ * Other models tried (October 2026), none shipped. Each was scored on the same
+ * claim-only stratified 10% holdout for eight splits (seeds 42, 7, 13, 2024,
+ * then 1, 99, 314, 2718 as a fresh check); the bar for shipping was +0.02
+ * mean macro-F1 without losing more than 0.01 hoax F1. Means over the eight:
+ *
+ *   candidate                                          acc    macro-F1  hoax F1  misl. F1
+ *   word LR, this file                                 0.731  0.582     0.829    0.323
+ *   word LR tuned (L2 3e-5, class weights^0.75, 25 ep) 0.740  0.585     0.836    0.321
+ *   char 3-5-grams within words, LR                    0.713  0.558     0.818    0.292
+ *   words + char n-grams in one LR (blocks 1:1)        0.727  0.579     0.826    0.321
+ *   ensemble word LR 0.7 + char LR 0.3                 0.735  0.584     0.832    0.324
+ *   complement naive Bayes (alpha 0.3)                 0.758  0.491     0.857    0.107
+ *   NB-LR one-vs-rest (log-count ratio features)       0.742  0.588     0.837    0.335
+ *   NB-LR, ratio interpolated with 1 at 0.5            0.748  0.598     0.841    0.348
+ *   ensemble word LR + that NB-LR                      0.740  0.590     0.835    0.337
+ *   word LR + misleading logit offset (inner split)    0.701  0.586     0.803    0.360
+ *
+ * Char n-grams were taken from the same folded tokens with verdict and function
+ * words removed, and from no token containing a verdict word, so they could
+ * not bring the label back. They add nothing the word pairs do not already
+ * carry and dilute them. The grid over L2 (0 to 1e-4), epochs (12, 25), learning
+ * rate (1, 2) and class-weight power (0.5 to 1) is flat: the best cell is 0.006
+ * above these settings on the seeds it was picked on and 0.001 on the fresh
+ * ones. The interpolated NB-LR came closest (+0.016, hoax F1 +0.012), short of
+ * the bar, and would need per-class ratio vectors, intercepts and three
+ * normalisations at run time. The misleading offset buys misleading recall with
+ * hoax F1 (-0.026). Split-to-split spread is about 0.02 macro-F1 on its own, so
+ * smaller gains are not distinguishable from noise. The experiment scripts are
+ * not kept; the numbers above are their output.
+ *
+ * Holdout metrics are also reported per archive language (perLanguage). The
+ * English side is small and 91% hoax, so its misleading and credible figures
+ * rest on a handful of holdout rows.
+ *
+ * Scheduled retraining: src/instrumentation.ts calls scheduledRetrain() every
+ * hour on a production server; once the model is BASELINE_RETRAIN_DAYS old
+ * (default 7, 0 = off) it is retrained if the published count or the newest
+ * updatedAt differs from the snapshot stored in the file (archive).
+ *
  * Mind what the archive is: fact-checks, not a sample of what people read.
  * The model learns which claims fact-checkers debunked or confirmed, so a
  * topic the archive only ever debunked (COVID-19, vaccines, email scams) reads
@@ -174,6 +213,26 @@ export interface ClassMetrics {
   support: number;
 }
 
+/** Holdout figures for the rows of one archive language. */
+export interface LanguageMetrics {
+  /** holdout documents in this language */
+  holdout: number;
+  accuracy: number;
+  macroF1: number;
+  perClass: Record<Verdict, ClassMetrics>;
+}
+
+export type ArchiveLang = "id" | "en";
+export const ARCHIVE_LANGS: readonly ArchiveLang[] = ["id", "en"];
+
+/** What the archive looked like when a model was trained; a retrain is only worth it once this changes. */
+export interface ArchiveSnapshot {
+  /** published articles */
+  published: number;
+  /** newest updatedAt among them, as SQLite stores it ("YYYY-MM-DD HH:MM:SS", UTC); "" for an empty archive */
+  newestUpdatedAt: string;
+}
+
 /** What `trainBaseline` returns and what the model file carries besides its weights. */
 export interface BaselineMetrics {
   version: number;
@@ -194,6 +253,10 @@ export interface BaselineMetrics {
   temperature: number;
   /** wall-clock time of the training run, ms */
   trainMs: number;
+  /** the holdout split by the article's language; absent in files written before it was added */
+  perLanguage?: Record<ArchiveLang, LanguageMetrics>;
+  /** the archive at training time; absent in older files (see archiveChangedSince) */
+  archive?: ArchiveSnapshot;
 }
 
 export interface BaselineModel extends BaselineMetrics {
@@ -280,6 +343,7 @@ export interface TrainOptions {
 interface Doc {
   counts: Map<string, number>;
   label: number;
+  lang: ArchiveLang;
 }
 
 /** Deterministic PRNG (mulberry32), so a training run is reproducible. */
@@ -305,12 +369,13 @@ function shuffle<T>(items: T[], random: () => number): T[] {
 
 interface ArticleRow extends TextRow {
   verdict: string;
+  lang: string;
 }
 
 /** Published archive rows; hidden rows are unreviewed and have no trustworthy verdict. */
 function readRows(db: DatabaseSync): ArticleRow[] {
   return db
-    .prepare("SELECT title, narration, summaryId, summaryEn, explanation, verdict FROM articles WHERE published = 1")
+    .prepare("SELECT title, narration, summaryId, summaryEn, explanation, verdict, lang FROM articles WHERE published = 1")
     .all() as unknown as ArticleRow[];
 }
 
@@ -349,6 +414,23 @@ function evaluate(predicted: number[], actual: number[]): Pick<BaselineMetrics, 
 
 const round = (n: number, places = 4) => Math.round(n * 10 ** places) / 10 ** places;
 
+/** The holdout metrics again, once per archive language. */
+function evaluateByLanguage(predicted: number[], actual: number[], langs: ArchiveLang[]): Record<ArchiveLang, LanguageMetrics> {
+  const out = {} as Record<ArchiveLang, LanguageMetrics>;
+  for (const lang of ARCHIVE_LANGS) {
+    const at = langs.flatMap((l, i) => (l === lang ? [i] : []));
+    const m = evaluate(at.map((i) => predicted[i]), at.map((i) => actual[i]));
+    out[lang] = { holdout: at.length, accuracy: m.accuracy, macroF1: m.macroF1, perClass: m.perClass };
+  }
+  return out;
+}
+
+/** Published article count and newest updatedAt, the two figures a scheduled retrain compares. */
+export function archiveSnapshot(db: DatabaseSync): ArchiveSnapshot {
+  const row = db.prepare("SELECT COUNT(*) AS n, COALESCE(MAX(updatedAt), '') AS u FROM articles WHERE published = 1").get() as { n: number; u: string };
+  return { published: Number(row.n), newestUpdatedAt: String(row.u) };
+}
+
 /** The temperature that minimises the holdout's negative log-likelihood. */
 function calibrate(logitRows: number[][], actual: number[]): number {
   if (!actual.length) return 1;
@@ -384,7 +466,12 @@ export function trainBaseline(db: DatabaseSync, opts: TrainOptions = {}): Baseli
   const rows = readRows(db).filter((r) => CLASSES.includes(r.verdict as Verdict));
   if (rows.length < 2 * K) throw new Error(`Not enough published articles to train on (${rows.length}).`);
   // The holdout is always the claim text, the condition the model runs in, whatever was trained on.
-  const docs: Doc[] = rows.map((r) => ({ counts: countTokens(trainingText(r, "claim")), label: CLASSES.indexOf(r.verdict as Verdict) }));
+  const archive = archiveSnapshot(db);
+  const docs: Doc[] = rows.map((r) => ({
+    counts: countTokens(trainingText(r, "claim")),
+    label: CLASSES.indexOf(r.verdict as Verdict),
+    lang: r.lang === "en" ? "en" : "id",
+  }));
   const { train: trainClaim, holdout } = split(docs, opts.holdoutFraction ?? 0.1, random);
   const train =
     variant === "claim"
@@ -392,7 +479,7 @@ export function trainBaseline(db: DatabaseSync, opts: TrainOptions = {}): Baseli
       : (() => {
           // Re-read the chosen rows with their explanation; the split is by row identity.
           const chosen = new Set(trainClaim);
-          return docs.map((d, i) => (chosen.has(d) ? { counts: countTokens(trainingText(rows[i], variant)), label: d.label } : null)).filter((d): d is Doc => !!d);
+          return docs.map((d, i) => (chosen.has(d) ? { ...d, counts: countTokens(trainingText(rows[i], variant)) } : null)).filter((d): d is Doc => !!d);
         })();
 
   // Vocabulary and idf from the training documents only.
@@ -466,6 +553,8 @@ export function trainBaseline(db: DatabaseSync, opts: TrainOptions = {}): Baseli
   const actual = holdout.map((d) => d.label);
   const predicted = holdoutLogits.map((z) => z.indexOf(Math.max(...z)));
   Object.assign(model, evaluate(predicted, actual));
+  model.perLanguage = evaluateByLanguage(predicted, actual, holdout.map((d) => d.lang));
+  model.archive = archive;
   model.temperature = calibrate(holdoutLogits, actual);
   model.trainMs = Date.now() - started;
 
@@ -481,8 +570,8 @@ export function trainBaseline(db: DatabaseSync, opts: TrainOptions = {}): Baseli
 }
 
 function metricsOf(m: BaselineModel): BaselineMetrics {
-  const { version, model, trainedAt, textVariant, docs, holdout, features, accuracy, macroF1, perClass, confusion, temperature, trainMs } = m;
-  return { version, model, trainedAt, textVariant, docs, holdout, features, accuracy, macroF1, perClass, confusion, temperature, trainMs };
+  const { version, model, trainedAt, textVariant, docs, holdout, features, accuracy, macroF1, perClass, confusion, temperature, trainMs, perLanguage, archive } = m;
+  return { version, model, trainedAt, textVariant, docs, holdout, features, accuracy, macroF1, perClass, confusion, temperature, trainMs, perLanguage, archive };
 }
 
 /* -------------------------------------------------------------- runtime */
@@ -625,4 +714,80 @@ export function modelStatus(): ModelStatus {
 export function baselineInfo(): (BaselineMetrics & { path: string; sizeBytes: number }) | null {
   const loaded = loadBaseline();
   return loaded ? { ...metricsOf(loaded.model), path: loaded.path, sizeBytes: loaded.sizeBytes } : null;
+}
+
+/* ----------------------------------------------------- scheduled retrain */
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** BASELINE_RETRAIN_DAYS: days between scheduled retrains; 7 when unset or unreadable, 0 turns them off. */
+export function retrainIntervalDays(): number {
+  const raw = process.env.BASELINE_RETRAIN_DAYS?.trim();
+  if (!raw) return 7;
+  const days = Number(raw);
+  return Number.isFinite(days) && days >= 0 ? days : 7;
+}
+
+/** SQLite's CURRENT_TIMESTAMP text ("YYYY-MM-DD HH:MM:SS", UTC) as epoch ms; NaN when it is not one. */
+function sqliteTime(s: string): number {
+  return Date.parse(s.includes("T") ? s : `${s.replace(" ", "T")}Z`);
+}
+
+/**
+ * Whether the archive differs from the one the model was trained on: another
+ * published count or another newest updatedAt. A file written before the
+ * snapshot was recorded is compared by its row count (docs + holdout) and by
+ * whether any published row was updated after it was trained.
+ */
+export function archiveChangedSince(m: Pick<BaselineMetrics, "archive" | "docs" | "holdout" | "trainedAt">, now: ArchiveSnapshot): boolean {
+  if (m.archive) return m.archive.published !== now.published || m.archive.newestUpdatedAt !== now.newestUpdatedAt;
+  const newest = sqliteTime(now.newestUpdatedAt);
+  return m.docs + m.holdout !== now.published || (Number.isFinite(newest) && newest > Date.parse(m.trainedAt));
+}
+
+export interface RetrainSchedule {
+  /** BASELINE_RETRAIN_DAYS; 0 = off */
+  days: number;
+  /** the schedule is run by a production server only (src/instrumentation.ts) */
+  runsHere: boolean;
+  /** trainedAt + days; null when off or without a model */
+  dueAt: string | null;
+  /** whether the published archive changed since training; null without a model */
+  archiveChanged: boolean | null;
+  /** when the next scheduled retrain happens: dueAt, or now when it is overdue; null when off, without a model or while the archive is unchanged */
+  nextAt: string | null;
+}
+
+/** What the admin Model page shows about the scheduled retrain. */
+export function retrainSchedule(db: DatabaseSync, now = Date.now()): RetrainSchedule {
+  const days = retrainIntervalDays();
+  const runsHere = process.env.NODE_ENV === "production";
+  const m = loadBaseline()?.model;
+  if (!m) return { days, runsHere, dueAt: null, archiveChanged: null, nextAt: null };
+  const archiveChanged = archiveChangedSince(m, archiveSnapshot(db));
+  if (days === 0) return { days, runsHere, dueAt: null, archiveChanged, nextAt: null };
+  const due = Date.parse(m.trainedAt) + days * DAY_MS;
+  return { days, runsHere, dueAt: new Date(due).toISOString(), archiveChanged, nextAt: archiveChanged ? new Date(Math.max(due, now)).toISOString() : null };
+}
+
+export interface RetrainOutcome {
+  reason: "off" | "no model" | "not due" | "archive unchanged" | "retrained";
+  metrics?: BaselineMetrics;
+}
+
+/**
+ * The scheduled retrain, called hourly by src/instrumentation.ts: once the
+ * model is BASELINE_RETRAIN_DAYS old, it is retrained (same text variant) if
+ * the archive changed since, and left alone otherwise. A missing model is not
+ * created here; the first one comes from `npm run train:baseline` or the admin
+ * page. Throws what trainBaseline throws.
+ */
+export function scheduledRetrain(db: DatabaseSync, now = Date.now()): RetrainOutcome {
+  const days = retrainIntervalDays();
+  if (days === 0) return { reason: "off" };
+  const m = loadBaseline()?.model;
+  if (!m) return { reason: "no model" };
+  if (now < Date.parse(m.trainedAt) + days * DAY_MS) return { reason: "not due" };
+  if (!archiveChangedSince(m, archiveSnapshot(db))) return { reason: "archive unchanged" };
+  return { reason: "retrained", metrics: trainBaseline(db, { variant: m.textVariant }) };
 }

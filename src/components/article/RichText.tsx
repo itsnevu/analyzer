@@ -1,13 +1,13 @@
 import { clsx } from "@/lib/clsx";
 import { outboundLink } from "@/lib/sources";
 
-const URL_RE = /(https?:\/\/[^\s<>"'()]+[^\s<>"'().,;:!?])/g;
+export const URL_RE = /(https?:\/\/[^\s<>"'()]+[^\s<>"'().,;:!?])/g;
 
 /** Renders stored plain text: one paragraph per line, URLs turned into links. */
-export function RichText({ text, className }: { text: string; className?: string }) {
+export function RichText({ text, className, size = "sm" }: { text: string; className?: string; size?: "sm" | "base" }) {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   return (
-    <div className={clsx("space-y-3 text-sm leading-relaxed text-ink", className)}>
+    <div className={clsx("text-ink", size === "base" ? "space-y-4 text-base leading-[1.75]" : "space-y-3 text-sm leading-relaxed", className)}>
       {lines.map((line, i) => {
         // A short line ending in a colon is a sub-heading inside the text ("Kesimpulan:").
         const heading = line.length <= 40 && /:$/.test(line) && !/https?:/.test(line);

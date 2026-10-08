@@ -25,6 +25,7 @@ export function ensurePanelSchema(db: DatabaseSync): void {
       sourceId    INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_legacy_dataset_label ON legacy_dataset (label);
+    CREATE INDEX IF NOT EXISTS idx_legacy_dataset_source ON legacy_dataset (sourceId);
 
     CREATE TABLE IF NOT EXISTS searches (
       id        INTEGER PRIMARY KEY AUTOINCREMENT,

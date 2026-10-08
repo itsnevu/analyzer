@@ -10,9 +10,11 @@ import { isImage, readImageText } from "@/lib/ocr";
 import { ResultCard } from "./ResultCard";
 import { usageMeta } from "@/lib/usage-client";
 import { clsx } from "@/lib/clsx";
+import { ImageIcon, LinkIcon, TextIcon } from "@/components/ui/Icons";
 
 const HISTORY_KEY = "hoax-analyzer:history";
 const MIN_CHARS = 15;
+const MAX_CHARS = 20000;
 
 interface HistoryItem {
   text: string;
@@ -37,6 +39,14 @@ const SAMPLES = [
   },
 ];
 
+type Mode = "text" | "link" | "screenshot";
+
+const MODES: { key: Mode; labelKey: string; Icon: typeof TextIcon }[] = [
+  { key: "text", labelKey: "det.mode.text", Icon: TextIcon },
+  { key: "link", labelKey: "det.mode.link", Icon: LinkIcon },
+  { key: "screenshot", labelKey: "det.mode.screenshot", Icon: ImageIcon },
+];
+
 export function DetectorPanel() {
   const { t } = useI18n();
   const [text, setText] = useState("");
@@ -54,10 +64,13 @@ export function DetectorPanel() {
   const [ocr, setOcr] = useState<{ progress: number; status: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  // Whether the box holds text read from a screenshot, for the mode chips.
+  const [fromShot, setFromShot] = useState(false);
   // How the current text got into the box, for the research log.
   const via = useRef("typed");
   const resultRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const boxRef = useRef<HTMLTextAreaElement>(null);
 
   /* eslint-disable react-hooks/set-state-in-effect -- one-time read of browser-only storage after hydration */
   useEffect(() => {
@@ -88,6 +101,15 @@ export function DetectorPanel() {
   const isLink = /^https?:\/\/\S+$/i.test(text.trim());
   const missing = isLink ? 0 : Math.max(0, MIN_CHARS - text.trim().length);
   const canSubmit = missing === 0 && !loading;
+  const mode: Mode = isLink ? "link" : fromShot && text ? "screenshot" : "text";
+  const short = chars > 0 && missing > 0;
+
+  // What a screen reader hears when a check starts and when its verdict arrives.
+  const announcement = loading
+    ? t("det.analyzing")
+    : result
+      ? `${t("res.announce")}: ${VERDICT_META[result.verdict].labelEn}, ${Math.round(result.hoaxProbability * 100)}% ${t("res.hoaxProbability").toLowerCase()}.`
+      : "";
 
   function saveHistory(txt: string, r: DetectionResult) {
     const item: HistoryItem = {
@@ -127,6 +149,7 @@ export function DetectorPanel() {
       if (found.replace(/\s+/g, "").length < 10) throw new Error("No readable text was found in that image.");
       setText((prev) => (prev.trim() ? `${prev.trim()}\n\n${found}` : found));
       via.current = "screenshot";
+      setFromShot(true);
       setNotice("Text read from your screenshot. Check it for reading mistakes, then press Analyze.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "The screenshot could not be read.");
@@ -161,7 +184,10 @@ export function DetectorPanel() {
       setAnalyzed(input);
       saveHistory(input, data as DetectionResult);
       // On a phone the result renders below the fold; bring it into view.
-      requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+      requestAnimationFrame(() => {
+        const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        resultRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error.");
     } finally {
@@ -169,18 +195,54 @@ export function DetectorPanel() {
     }
   }
 
+  function reset() {
+    setText("");
+    setResult(null);
+    setError(null);
+    setFromShot(false);
+    via.current = "typed";
+    boxRef.current?.focus();
+  }
+
+  const ocrPct = ocr ? Math.round((ocr.status === "recognizing text" ? 0.3 + ocr.progress * 0.7 : ocr.progress * 0.3) * 100) : 0;
+
   return (
     <div className="space-y-6">
+      {/* Spoken status for screen readers: "Analyzing…", then the verdict. */}
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </p>
+
       {/* Input card */}
-      <div className="neu p-5 sm:p-8">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <span className="eyebrow">{t("det.input")}</span>
+      <div className="neu relative p-4 shadow-neu-lg sm:p-7">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2 className="font-display text-lg font-bold tracking-tight">{t("det.tool.title")}</h2>
+            <ul aria-label={t("det.mode.label")} className="flex flex-wrap gap-1.5">
+              {MODES.map(({ key, labelKey, Icon }) => {
+                const active = mode === key;
+                return (
+                  <li
+                    key={key}
+                    className={clsx(
+                      "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                      active ? "border-brand/40 bg-brand/10 text-brand" : "border-hairline text-ink-faint",
+                    )}
+                  >
+                    <Icon className="h-3 w-3" />
+                    {t(labelKey)}
+                    {active && <span className="sr-only"> (detected)</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
           <div className="flex items-center gap-2 text-xs">
             <span className="hidden text-ink-faint sm:inline">{t("det.langDetected")}</span>
             <span
               className={clsx(
                 "rounded-full px-2.5 py-1 font-medium transition-colors",
-                live ? "bg-brand-gradient text-surface" : "shadow-neu-inset-sm text-ink-faint",
+                live ? "bg-brand-gradient text-surface" : "bg-surface-sunken text-ink-faint",
               )}
             >
               {live ? LANG_LABEL[live.lang] : "…"}
@@ -188,25 +250,39 @@ export function DetectorPanel() {
           </div>
         </div>
 
+        {/* Drop zone: the text box plus a visible screenshot strip */}
         <div
-          className={clsx("neu-inset relative p-1 transition-colors", dragging && "ring-2 ring-brand/40")}
+          className={clsx(
+            "relative rounded-xl border-2 border-dashed bg-surface-sunken transition-colors focus-within:border-brand/50",
+            dragging ? "border-brand bg-brand/5" : "border-hairline",
+          )}
           onDragOver={(e) => {
             if (Array.from(e.dataTransfer.items).some((i) => i.type.startsWith("image/"))) {
               e.preventDefault();
               setDragging(true);
             }
           }}
-          onDragLeave={() => setDragging(false)}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+          }}
           onDrop={(e) => {
             setDragging(false);
             if (takeImage(e.dataTransfer.files)) e.preventDefault();
           }}
         >
+          <label htmlFor="detector-input" className="sr-only">
+            {t("det.input")}
+          </label>
           <textarea
+            id="detector-input"
+            ref={boxRef}
             value={text}
             onChange={(e) => {
               setText(e.target.value);
-              if (!e.target.value) via.current = "typed";
+              if (!e.target.value) {
+                via.current = "typed";
+                setFromShot(false);
+              }
             }}
             onPaste={(e) => {
               if (takeImage(e.clipboardData.files)) e.preventDefault();
@@ -220,15 +296,51 @@ export function DetectorPanel() {
             }}
             placeholder={t("det.placeholder")}
             rows={7}
-            maxLength={20000}
-            className="w-full resize-none rounded-xl bg-transparent p-4 text-sm leading-relaxed text-ink outline-none placeholder:text-ink-faint"
+            maxLength={MAX_CHARS}
+            aria-describedby="detector-hint"
+            className="block min-h-[10rem] w-full resize-y rounded-t-xl bg-transparent p-4 text-base leading-relaxed text-ink outline-none placeholder:text-ink-faint sm:text-sm"
           />
+
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-dashed border-hairline px-4 py-3">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-surface-raised text-brand" aria-hidden>
+              <ImageIcon />
+            </span>
+            <span className="min-w-0 flex-1 text-xs leading-snug">
+              <span className="block font-medium text-ink">{t("det.drop.title")}</span>
+              <span className="block text-ink-faint">{t("det.drop.body")}</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={Boolean(ocr)}
+              className="neu-btn inline-flex items-center gap-1.5 bg-surface-raised px-3 py-1.5 text-xs font-medium"
+            >
+              {t("det.drop.choose")}
+            </button>
+          </div>
+
+          {dragging && (
+            <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-xl bg-surface-sunken/90 text-sm font-medium text-brand">
+              <span className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5" />
+                {t("det.drop.active")}
+              </span>
+            </div>
+          )}
+
           {ocr && (
-            <div className="absolute inset-1 grid place-items-center rounded-xl bg-surface-sunken/95 text-center">
-              <div className="w-56">
+            <div className="absolute inset-0 grid place-items-center rounded-xl bg-surface-sunken/95 p-4 text-center">
+              <div className="w-full max-w-[14rem]">
                 <div className="text-sm font-medium text-ink">Reading your screenshot…</div>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-hairline">
-                  <div className="h-full bg-brand transition-all" style={{ width: `${Math.round((ocr.status === "recognizing text" ? 0.3 + ocr.progress * 0.7 : ocr.progress * 0.3) * 100)}%` }} />
+                <div
+                  className="mt-3 h-1.5 overflow-hidden rounded-full bg-hairline"
+                  role="progressbar"
+                  aria-label="Reading your screenshot"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={ocrPct}
+                >
+                  <div className="h-full bg-brand transition-all motion-reduce:transition-none" style={{ width: `${ocrPct}%` }} />
                 </div>
                 <div className="mt-2 text-xs text-ink-faint">The first time downloads about 4 MB of language data.</div>
               </div>
@@ -240,6 +352,8 @@ export function DetectorPanel() {
           type="file"
           accept="image/png,image/jpeg,image/webp,image/gif"
           className="sr-only"
+          tabIndex={-1}
+          aria-hidden
           onChange={(e) => {
             takeImage(e.target.files);
             e.target.value = "";
@@ -247,24 +361,15 @@ export function DetectorPanel() {
         />
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={Boolean(ocr)}
-              className="neu-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-ink"
-            >
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-                <rect x="3" y="5" width="18" height="14" rx="2" />
-                <circle cx="9" cy="11" r="2" />
-                <path d="m21 17-5-5-8 7" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Read a screenshot
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="meta-label pr-0.5">{t("det.samples")}</span>
             {SAMPLES.map((s) => (
               <button
                 key={s.labelKey}
+                type="button"
                 onClick={() => {
                   setText(s.text);
+                  setFromShot(false);
                   via.current = "sample";
                 }}
                 className="neu-btn px-3 py-1.5 text-xs font-medium text-ink-muted"
@@ -273,42 +378,44 @@ export function DetectorPanel() {
               </button>
             ))}
             {text && (
-              <button
-                onClick={() => { setText(""); setResult(null); setError(null); }}
-                className="px-3 py-1.5 text-xs font-medium text-ink-faint hover:text-ink"
-              >
+              <button type="button" onClick={reset} className="px-2 py-1.5 text-xs font-medium text-ink-faint underline-offset-2 hover:text-ink hover:underline">
                 {t("det.clear")}
               </button>
             )}
           </div>
-          <span className={clsx("text-xs", chars > 0 && missing > 0 ? "text-verdict-warn" : "text-ink-faint")}>
-            {chars.toLocaleString("en-US")} {t("det.chars")}
+          <span className={clsx("text-xs tabular-nums", short ? "text-verdict-warn" : "text-ink-faint")}>
+            {chars.toLocaleString("en-US")}
+            <span className="text-ink-faint"> / {MAX_CHARS.toLocaleString("en-US")}</span> {t("det.chars")}
           </span>
         </div>
 
-        <button
-          onClick={() => void analyze()}
-          disabled={!canSubmit}
-          aria-describedby="detector-hint"
-          className={clsx(
-            "btn-primary mt-5 w-full py-4 text-base",
-            !canSubmit && "cursor-not-allowed opacity-50 hover:opacity-50",
-          )}
-        >
-          {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <Spinner /> {t("det.analyzing")}
-            </span>
-          ) : (
-            <span className="flex items-center justify-center gap-2">
-              {t("det.submit")}
-              <kbd className="hidden rounded border border-surface-raised/30 bg-surface-raised/10 px-1.5 py-0.5 text-[10px] font-semibold sm:inline">
-                {mac ? "⌘ ↵" : "Ctrl ↵"}
-              </kbd>
-            </span>
-          )}
-        </button>
-        <p id="detector-hint" className={clsx("mt-2 text-center text-xs", chars > 0 && missing > 0 ? "text-verdict-warn" : "text-ink-faint")}>
+        {/* On a phone the button stays in reach while the box is on screen. */}
+        <div className="sticky bottom-0 z-20 -mx-4 mt-5 bg-gradient-to-t from-surface-raised from-70% to-surface-raised/0 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:static sm:mx-0 sm:bg-none sm:p-0">
+          <button
+            type="button"
+            onClick={() => void analyze()}
+            disabled={!canSubmit}
+            aria-describedby="detector-hint"
+            className={clsx(
+              "btn-primary w-full py-4 text-base",
+              !canSubmit && "cursor-not-allowed opacity-50 hover:opacity-50",
+            )}
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <Spinner /> {t("det.analyzing")}
+              </span>
+            ) : (
+              <span className="flex items-center justify-center gap-2">
+                {t("det.submit")}
+                <kbd className="hidden rounded border border-surface-raised/30 bg-surface-raised/10 px-1.5 py-0.5 text-[10px] font-semibold sm:inline">
+                  {mac ? "⌘ ↵" : "Ctrl ↵"}
+                </kbd>
+              </span>
+            )}
+          </button>
+        </div>
+        <p id="detector-hint" className={clsx("mt-2 text-center text-xs", short ? "text-verdict-warn" : "text-ink-faint")}>
           {isLink
             ? "Link detected: we will read the page and check its text."
             : chars > 0 && missing > 0
@@ -332,81 +439,93 @@ export function DetectorPanel() {
         )}
 
         {error && (
-          <p className="mt-4 rounded-xl border border-verdict-hoax/30 bg-verdict-hoax/10 px-4 py-3 text-sm text-verdict-hoax">
+          <p role="alert" className="mt-4 rounded-xl border border-verdict-hoax/30 bg-verdict-hoax/10 px-4 py-3 text-sm text-verdict-hoax">
             {error}
           </p>
         )}
       </div>
 
-      {/* Loading skeleton */}
-      {loading && !result && <ResultSkeleton />}
-
-      {/* Result */}
-      <div ref={resultRef} className="scroll-mt-24">
-        {result && <ResultCard result={result} text={analyzed} />}
-      </div>
-
-      {/* Recent checks (per-browser history) */}
+      {/* Recent checks (per-browser history), as compact chips */}
       {history.length > 0 && (
-        <div className="neu p-6 sm:p-8">
-          <div className="mb-4 flex items-center justify-between">
-            <span className="eyebrow">{t("det.recent")}</span>
-            <button onClick={clearHistory} className="text-xs text-ink-faint hover:text-ink">
-              {t("det.clearHistory")}
-            </button>
-          </div>
-          <ul className="space-y-2">
-            {history.map((h) => {
-              const meta = VERDICT_META[h.verdict];
-              return (
-                <li key={h.ts}>
-                  <button
-                    onClick={() => { setText(h.text); via.current = "history"; setResult(null); setError(null); }}
-                    className="neu-inset flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors hover:text-ink"
-                  >
-                    <span
-                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-xs font-bold"
-                      style={{ background: `color-mix(in srgb, ${meta.color} 16%, transparent)`, color: meta.color }}
-                    >
-                      {Math.round(h.hoaxProbability * 100)}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-sm text-ink-muted">{h.excerpt}…</span>
-                    <span className="shrink-0 text-xs font-medium" style={{ color: meta.color }}>{meta.labelEn}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("det.recent")}>
+          <span className="meta-label pr-1">{t("det.recent")}</span>
+          {history.map((h) => {
+            const meta = VERDICT_META[h.verdict];
+            return (
+              <button
+                key={h.ts}
+                type="button"
+                title={h.excerpt}
+                onClick={() => {
+                  setText(h.text);
+                  via.current = "history";
+                  setFromShot(false);
+                  setResult(null);
+                  setError(null);
+                }}
+                className="neu-btn inline-flex min-w-0 max-w-full items-center gap-2 bg-surface-raised py-1.5 pl-2 pr-3 text-xs"
+              >
+                <span
+                  className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
+                  style={{ background: `color-mix(in srgb, ${meta.color} 16%, transparent)`, color: meta.color }}
+                >
+                  {Math.round(h.hoaxProbability * 100)}%
+                </span>
+                <span className="sr-only">{meta.labelEn}: </span>
+                <span className="min-w-0 max-w-[13rem] truncate text-ink-muted sm:max-w-[18rem]">{h.excerpt}</span>
+              </button>
+            );
+          })}
+          <button type="button" onClick={clearHistory} className="px-2 py-1.5 text-xs text-ink-faint underline-offset-2 hover:text-ink hover:underline">
+            {t("det.clearHistory")}
+          </button>
         </div>
       )}
+
+      {/* Loading skeleton, then the result */}
+      <div ref={resultRef} className="scroll-mt-28">
+        {loading && !result && <ResultSkeleton />}
+        {result && <ResultCard result={result} text={analyzed} />}
+      </div>
     </div>
   );
 }
 
 function Spinner() {
   return (
-    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+    <svg className="h-4 w-4 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" />
       <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
 
+/** Mirrors the result card's layout, so nothing jumps when the verdict arrives. */
 function ResultSkeleton() {
   return (
-    <div className="neu p-8">
-      <div className="flex items-center gap-5">
-        <div className="h-32 w-32 rounded-full bg-surface-sunken shadow-neu-inset" />
-        <div className="space-y-3">
-          <div className="h-3 w-24 rounded bg-surface-sunken" />
-          <div className="h-8 w-40 rounded bg-surface-sunken" />
-          <div className="h-3 w-32 rounded bg-surface-sunken" />
+    <div className="neu overflow-hidden p-0" aria-hidden>
+      <div className="flex flex-col-reverse items-center gap-6 bg-surface-sunken/50 p-6 sm:flex-row sm:justify-between sm:p-8">
+        <div className="w-full space-y-3 sm:w-auto">
+          <div className="skeleton h-3 w-20" />
+          <div className="skeleton h-10 w-48" />
+          <div className="skeleton h-3 w-32" />
+          <div className="flex gap-2 pt-2">
+            <div className="skeleton h-12 w-24 rounded-xl" />
+            <div className="skeleton h-12 w-24 rounded-xl" />
+            <div className="skeleton h-12 w-28 rounded-xl" />
+          </div>
         </div>
+        <div className="skeleton h-24 w-44 rounded-t-full" />
       </div>
-      <div className="mt-8 space-y-3">
-        <div className="h-3 w-full rounded bg-surface-sunken" />
-        <div className="h-3 w-11/12 rounded bg-surface-sunken" />
-        <div className="h-3 w-4/5 rounded bg-surface-sunken" />
+      <div className="space-y-3 border-t border-hairline p-6 sm:p-8">
+        <div className="skeleton h-3 w-24" />
+        <div className="skeleton h-3 w-full" />
+        <div className="skeleton h-3 w-11/12" />
+        <div className="skeleton h-3 w-4/5" />
+        <div className="grid gap-3 pt-4 sm:grid-cols-2">
+          <div className="skeleton h-20 rounded-xl" />
+          <div className="skeleton h-20 rounded-xl" />
+        </div>
       </div>
     </div>
   );

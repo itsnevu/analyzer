@@ -11,15 +11,17 @@ import { AdminIcon } from "./AdminIcons";
 type Item =
   | { kind: "page"; link: AdminLink; group: string }
   | { kind: "article"; article: ArticleListItem }
-  | { kind: "search"; q: string };
+  | { kind: "search"; q: string }
+  | { kind: "shortcuts" };
 
 const PAGES: Item[] = ADMIN_NAV.flatMap((g) => g.links.map((link) => ({ kind: "page" as const, link, group: g.title })));
+const SHORTCUTS_WORDS = "keyboard shortcuts keys hotkeys help ?";
 
 /**
  * Ctrl+K: jump to any admin page or straight to an article's edit form.
  * Article matches come from the admin list API after a short pause in typing.
  */
-export function CommandPalette({ onClose }: { onClose: () => void }) {
+export function CommandPalette({ onClose, onShowShortcuts }: { onClose: () => void; onShowShortcuts: () => void }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   // Articles found for the query they were fetched with; shown only while that query is still typed.
@@ -57,7 +59,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     const lower = needle.toLowerCase();
     const pages = lower ? PAGES.filter((p) => p.kind === "page" && `${p.link.label} ${p.link.hint} ${p.group}`.toLowerCase().includes(lower)) : PAGES;
     const articles = found.q === needle && needle.length >= 2 ? found.items : [];
-    const list: Item[] = [...pages.slice(0, lower ? 6 : 20), ...articles.map((article) => ({ kind: "article" as const, article }))];
+    const list: Item[] = [...pages.slice(0, lower ? 6 : 20)];
+    if (!lower || SHORTCUTS_WORDS.includes(lower)) list.push({ kind: "shortcuts" });
+    list.push(...articles.map((article) => ({ kind: "article" as const, article })));
     if (needle.length >= 2) list.push({ kind: "search", q: needle });
     return list;
   }, [needle, found]);
@@ -67,6 +71,10 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
   const setActive = setCursor;
 
   function go(item: Item) {
+    if (item.kind === "shortcuts") {
+      onShowShortcuts();
+      return;
+    }
     onClose();
     if (item.kind === "page") router.push(item.link.href);
     else if (item.kind === "article") router.push(`/admin/articles/${item.article.slug}/edit`);
@@ -138,6 +146,17 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
                   <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: m.color }} aria-hidden />
                   <span className="min-w-0 flex-1 truncate">{item.article.title}</span>
                   <span className={clsx("shrink-0 text-xs", selected ? "text-surface-raised/70" : "text-ink-faint")}>{item.article.published ? "edit" : "hidden"}</span>
+                </li>
+              );
+            }
+            if (item.kind === "shortcuts") {
+              return (
+                <li key="k" id={`cmd-${i}`} role="option" aria-selected={selected} className={row} onMouseEnter={() => setActive(i)} onClick={() => go(item)}>
+                  <span className={clsx("grid h-4 w-4 shrink-0 place-items-center font-mono text-xs font-bold", selected ? "text-surface-raised" : "text-ink-faint")} aria-hidden>
+                    ?
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">Keyboard shortcuts</span>
+                  <span className={clsx("truncate text-xs", selected ? "text-surface-raised/70" : "text-ink-faint")}>Help</span>
                 </li>
               );
             }

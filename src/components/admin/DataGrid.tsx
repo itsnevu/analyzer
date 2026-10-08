@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { clsx } from "@/lib/clsx";
 
 /**
  * The panel's data grid, in the spirit of the old control panel's jqGrid
  * tables: a caption bar, a filter row under the headers, zebra rows, optional
- * row selection, and a footer with the pager and "View a–b of N".
+ * row selection, optional row expansion (a full-width row under the open
+ * one), and a footer with the pager and "View a–b of N".
  *
  * State lives in the URL (the pages are server-rendered from searchParams):
  * typing in a filter rewrites the query string after a short pause, sorting and
@@ -62,6 +63,12 @@ export interface DataGridProps<Row> {
   dense?: boolean;
   /** called after the URL changed because of a filter, sort or page-size change */
   onNavigate?: () => void;
+  /** content of the full-width row shown under the expanded row */
+  renderExpanded?: (row: Row) => React.ReactNode;
+  /** key of the expanded row (controlled by the page), or null */
+  expandedKey?: string | null;
+  /** when given, each row gets a leading ▸ toggle that calls this with the row's key */
+  onToggleExpanded?: (key: string) => void;
 }
 
 const DEFAULT_PARAMS = { sort: "sort", order: "order", page: "page", pageSize: "pageSize" };
@@ -84,6 +91,9 @@ export function DataGrid<Row>({
   emptyMessage = "Nothing matches.",
   dense = false,
   onNavigate,
+  renderExpanded,
+  expandedKey = null,
+  onToggleExpanded,
 }: DataGridProps<Row>) {
   const router = useRouter();
   const pathname = usePathname();
@@ -156,6 +166,10 @@ export function DataGrid<Row>({
     return href({ [names.sort]: c.key, [names.order]: order, [names.page]: null });
   };
 
+  const expandable = Boolean(renderExpanded);
+  const toggleColumn = expandable && Boolean(onToggleExpanded);
+  const span = columns.length + (selectable ? 1 : 0) + (toggleColumn ? 1 : 0);
+
   const first = paging ? (paging.total === 0 ? 0 : (paging.page - 1) * paging.pageSize + 1) : 0;
   const last = paging ? Math.min(paging.total, paging.page * paging.pageSize) : 0;
 
@@ -183,6 +197,11 @@ export function DataGrid<Row>({
         <table className="w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-surface-raised">
             <tr className="border-b border-hairline text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
+              {toggleColumn && (
+                <th scope="col" className={clsx(cell, "w-8 pr-0")}>
+                  <span className="sr-only">Expand</span>
+                </th>
+              )}
               {selectable && (
                 <th scope="col" className={clsx(cell, "w-9")}>
                   <input
@@ -214,6 +233,7 @@ export function DataGrid<Row>({
             </tr>
             {filterColumns.length > 0 && (
               <tr className="border-b border-hairline bg-surface-sunken/40">
+                {toggleColumn && <th className={cell} aria-hidden />}
                 {selectable && <th className={cell} aria-hidden />}
                 {columns.map((c) => (
                   <th key={`f-${c.key}`} className={clsx("px-2 py-1.5 font-normal", alignCls(c.align))}>
@@ -255,7 +275,7 @@ export function DataGrid<Row>({
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={columns.length + (selectable ? 1 : 0)} className="px-4 py-10 text-center text-sm text-ink-faint">
+                <td colSpan={span} className="px-4 py-10 text-center text-sm text-ink-faint">
                   {emptyMessage}
                 </td>
               </tr>
@@ -263,19 +283,53 @@ export function DataGrid<Row>({
             {rows.map((row, i) => {
               const key = keys[i];
               const isSelected = selectable && selected?.has(key);
+              const isExpanded = expandable && expandedKey === key;
+              const panelId = `grid-row-${key}-expanded`;
               return (
-                <tr key={key} className={clsx("border-b border-hairline last:border-b-0", i % 2 === 1 && "bg-surface-sunken/35", isSelected && "bg-brand/10")}>
-                  {selectable && (
-                    <td className={cell}>
-                      <input type="checkbox" aria-label="Select row" checked={!!isSelected} onChange={() => toggleOne(key)} className="h-4 w-4 accent-brand" />
-                    </td>
+                <Fragment key={key}>
+                  <tr
+                    className={clsx(
+                      "border-b border-hairline last:border-b-0",
+                      i % 2 === 1 && "bg-surface-sunken/35",
+                      isSelected && "bg-brand/10",
+                      isExpanded && "border-b-0 bg-brand/5",
+                    )}
+                  >
+                    {toggleColumn && (
+                      <td className={clsx(cell, "w-8 pr-0 align-top")}>
+                        <button
+                          type="button"
+                          onClick={() => onToggleExpanded?.(key)}
+                          aria-expanded={isExpanded}
+                          aria-controls={isExpanded ? panelId : undefined}
+                          aria-label={isExpanded ? "Collapse row" : "Expand row"}
+                          className="grid h-6 w-6 place-items-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink"
+                        >
+                          <span aria-hidden className={clsx("text-xs transition-transform", isExpanded && "rotate-90")}>
+                            ▸
+                          </span>
+                        </button>
+                      </td>
+                    )}
+                    {selectable && (
+                      <td className={cell}>
+                        <input type="checkbox" aria-label="Select row" checked={!!isSelected} onChange={() => toggleOne(key)} className="h-4 w-4 accent-brand" />
+                      </td>
+                    )}
+                    {columns.map((c) => (
+                      <td key={c.key} className={clsx(cell, alignCls(c.align), "align-top", c.className)}>
+                        {c.render(row)}
+                      </td>
+                    ))}
+                  </tr>
+                  {isExpanded && renderExpanded && (
+                    <tr id={panelId} className="border-b border-hairline last:border-b-0 bg-brand/5">
+                      <td colSpan={span} className="px-3 pb-4 pt-1">
+                        <div className="rounded-xl border border-hairline bg-surface-raised p-4 sm:p-5">{renderExpanded(row)}</div>
+                      </td>
+                    </tr>
                   )}
-                  {columns.map((c) => (
-                    <td key={c.key} className={clsx(cell, alignCls(c.align), "align-top", c.className)}>
-                      {c.render(row)}
-                    </td>
-                  ))}
-                </tr>
+                </Fragment>
               );
             })}
           </tbody>

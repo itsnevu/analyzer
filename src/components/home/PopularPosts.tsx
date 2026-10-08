@@ -3,6 +3,7 @@ import { VerdictBadge } from "@/components/article/ArticleCard";
 import { popularArticles, type PopularResult } from "@/lib/stats";
 import { formatCount, formatDate, sourceName } from "@/lib/sources";
 import { VERDICT_META } from "@/lib/verdict";
+import { Section } from "@/components/ui/Section";
 
 /**
  * The fact-checks people opened most in the last 30 days, from the research
@@ -36,8 +37,8 @@ export async function PopularPosts({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <section className="container-page pb-16">
-      <div className="neu p-6 sm:p-8">
+    <Section>
+      <div className="neu p-5 sm:p-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <span className="eyebrow">{eyebrow}</span>
@@ -54,7 +55,7 @@ export async function PopularPosts({ compact = false }: { compact?: boolean }) {
         <ol className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {items.map((a, i) => (
             <li key={a.slug}>
-              <Link href={`/blog/${a.slug}`} className="neu-inset group flex h-full flex-col gap-3 rounded-2xl p-4 transition-colors hover:border-ink">
+              <Link href={`/blog/${a.slug}`} className="neu-inset group flex h-full flex-col gap-3 rounded-xl p-4 transition-colors hover:border-ink hover:bg-surface-raised">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-xs font-semibold text-ink-faint">{String(i + 1).padStart(2, "0")}</span>
                   <VerdictBadge verdict={a.verdict} />
@@ -70,6 +71,6 @@ export async function PopularPosts({ compact = false }: { compact?: boolean }) {
           ))}
         </ol>
       </div>
-    </section>
+    </Section>
   );
 }

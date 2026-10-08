@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { BaselineMetrics, BaselinePrediction, ModelStatus } from "@/lib/baseline";
+import type { ArchiveLang, BaselineMetrics, BaselinePrediction, ModelStatus, RetrainSchedule } from "@/lib/baseline";
 import type { PingResult } from "@/lib/detect";
 import { VERDICT_META } from "@/lib/verdict";
 import { clsx } from "@/lib/clsx";
@@ -11,6 +11,10 @@ type Info = (BaselineMetrics & { path: string; sizeBytes: number }) | null;
 type Verdict = keyof typeof VERDICT_META;
 
 const CLASSES: Verdict[] = ["hoax", "misleading", "valid"];
+const LANGS: { key: ArchiveLang; name: string }[] = [
+  { key: "id", name: "Indonesian" },
+  { key: "en", name: "English" },
+];
 const n = (v: number) => v.toLocaleString("en-US");
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 const mb = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.round(bytes / 1024)} KB`);
@@ -39,14 +43,24 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+/** "Next scheduled retrain", in words. */
+function nextRetrain(s: RetrainSchedule): string {
+  if (s.days === 0) return "off (BASELINE_RETRAIN_DAYS=0)";
+  const where = s.runsHere ? "" : " (on the production server only)";
+  if (s.nextAt) return (Date.parse(s.nextAt) <= Date.now() ? "at the next hourly check" : when(s.nextAt)) + where;
+  if (s.dueAt && Date.parse(s.dueAt) > Date.now()) return `${when(s.dueAt)}, if the archive has changed by then${where}`;
+  return `when the archive next changes (checked hourly)${where}`;
+}
+
 function Dot({ verdict }: { verdict: Verdict }) {
   return <span className="inline-block h-2 w-2 rounded-full" style={{ background: VERDICT_META[verdict].color }} aria-hidden />;
 }
 
-export function ModelPanel({ initialStatus, initialInfo }: { initialStatus: ModelStatus; initialInfo: Info }) {
+export function ModelPanel({ initialStatus, initialInfo, initialSchedule }: { initialStatus: ModelStatus; initialInfo: Info; initialSchedule: RetrainSchedule }) {
   const router = useRouter();
   const [status, setStatus] = useState(initialStatus);
   const [info, setInfo] = useState<Info>(initialInfo);
+  const [schedule, setSchedule] = useState(initialSchedule);
 
   const [pinging, setPinging] = useState(false);
   const [ping, setPing] = useState<PingResult | null>(null);
@@ -79,9 +93,10 @@ export function ModelPanel({ initialStatus, initialInfo }: { initialStatus: Mode
     setTrainError(null);
     setTrainedNow(false);
     try {
-      const r = await post<{ status: ModelStatus; baseline: Info }>("/api/admin/model/train");
+      const r = await post<{ status: ModelStatus; baseline: Info; schedule: RetrainSchedule }>("/api/admin/model/train");
       setStatus(r.status);
       setInfo(r.baseline);
+      setSchedule(r.schedule);
       setTrainedNow(true);
       setPrediction(null);
       router.refresh();
@@ -171,6 +186,12 @@ export function ModelPanel({ initialStatus, initialInfo }: { initialStatus: Mode
                 <Row label="Text variant" value={info.textVariant} />
                 <Row label="Temperature" value={info.temperature} />
                 <Row label="Model file" value={mb(info.sizeBytes)} />
+                <Row label="Scheduled retrain" value={schedule.days === 0 ? "off" : `every ${schedule.days === 1 ? "day" : `${schedule.days} days`}`} />
+                <Row label="Next scheduled retrain" value={nextRetrain(schedule)} />
+                <Row
+                  label="Archive changed since training"
+                  value={schedule.archiveChanged == null ? "—" : schedule.archiveChanged ? <span className="text-verdict-warn">yes</span> : "no"}
+                />
               </dl>
               <div className="grid grid-cols-2 gap-3">
                 <div className="neu-inset p-4">
@@ -227,6 +248,45 @@ export function ModelPanel({ initialStatus, initialInfo }: { initialStatus: Mode
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              <div className="overflow-x-auto md:col-span-2">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">Per language (holdout)</h3>
+                {info.perLanguage ? (
+                  <>
+                    <table className="w-full text-left text-xs">
+                      <thead className="text-ink-faint">
+                        <tr>
+                          {["Language", "Holdout", "Accuracy", "Macro-F1", ...CLASSES.map((c) => `${VERDICT_META[c].labelEn} F1`)].map((h) => (
+                            <th key={h} className="pb-1.5 pr-3 font-medium">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {LANGS.map(({ key, name }) => {
+                          const m = info.perLanguage![key];
+                          return (
+                            <tr key={key} className="border-t border-hairline">
+                              <td className="py-1.5 pr-3">{name}</td>
+                              <td className="pr-3 tabular-nums">{n(m.holdout)}</td>
+                              <td className="pr-3 tabular-nums">{m.holdout ? pct(m.accuracy) : "—"}</td>
+                              <td className="pr-3 tabular-nums">{m.holdout ? pct(m.macroF1) : "—"}</td>
+                              {CLASSES.map((c) => (
+                                <td key={c} className="pr-3 tabular-nums" title={`${n(m.perClass[c].support)} holdout rows`}>
+                                  {m.perClass[c].support ? pct(m.perClass[c].f1) : "—"}
+                                  <span className="ml-1 text-ink-faint">({n(m.perClass[c].support)})</span>
+                                </td>
+                              ))}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    <p className="mt-1.5 text-xs text-ink-faint">Holdout rows per class in brackets. The English side is small and mostly hoax, so its other figures rest on few rows.</p>
+                  </>
+                ) : (
+                  <p className="text-xs text-ink-muted">This model file predates the per-language report. Train again to see it.</p>
+                )}
               </div>
             </div>
           ) : (

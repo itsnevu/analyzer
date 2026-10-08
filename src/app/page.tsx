@@ -25,7 +25,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero />
+      <Hero counts={{ total: stats.total, sources: stats.sources }} />
       <SourcesMarquee sources={sources} />
       <Reveal><Stats items={items} /></Reveal>
       <Reveal><RecentPosts articles={recent.items} total={stats.total} /></Reveal>

@@ -258,3 +258,59 @@ body {
   --sidebar-bg: #0f0f0e;
   --sidebar-line: rgba(255, 255, 255, 0.1);
 }
+
+/* ============================================================
+   Public pages: loading skeletons, the verdict gauge's fill, and
+   the tinted verdict hero band. Every motion here stops under
+   prefers-reduced-motion.
+   ============================================================ */
+@layer components {
+  /* A placeholder block that shimmers while a result loads. */
+  .skeleton {
+    @apply rounded-md;
+    background: linear-gradient(
+      90deg,
+      var(--surface-sunken) 0%,
+      color-mix(in srgb, var(--surface-sunken) 55%, var(--surface-raised)) 50%,
+      var(--surface-sunken) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+
+  /* The verdict colour washing in from the left, used behind verdict heroes. */
+  .verdict-wash {
+    background: linear-gradient(
+      120deg,
+      color-mix(in srgb, var(--verdict, var(--brand)) 16%, transparent),
+      color-mix(in srgb, var(--verdict, var(--brand)) 4%, transparent) 55%,
+      transparent
+    );
+  }
+
+  /* Small mono label used for chips and meta rows. */
+  .meta-label {
+    @apply text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-faint;
+    font-family: var(--font-mono), ui-monospace, monospace;
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* The gauge arc grows from empty to its value once (pathLength is 100). */
+@keyframes gauge-fill {
+  from { stroke-dashoffset: 100; }
+}
+.gauge-arc {
+  animation: gauge-fill 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .gauge-arc {
+    animation: none;
+  }
+}

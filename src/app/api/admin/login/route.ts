@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { logAdmin } from "@/lib/admin-log";
 import { authConfigProblem, checkPassword, checkTotp, createSession, SESSION_COOKIE, SESSION_MAX_AGE, totpEnabled } from "@/lib/auth";
-import { clientIp, isBlocked, reset, take, tooMany } from "@/lib/rate-limit";
+import { limitKey, refund, reset, take, tooMany } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
-// Wrong passwords (and wrong two-factor codes) allowed per address, and in total, before login pauses.
+// Attempts allowed per address before login pauses. There is deliberately no site-wide limit: it would let
+// anyone lock the owner out by sending wrong passwords, and a generated password cannot be guessed anyway.
 const PER_IP = { limit: 5, windowMs: 15 * 60_000 };
-const TOTAL = { limit: 50, windowMs: 60 * 60_000 };
 
 export async function POST(req: Request) {
   const problem = authConfigProblem();
@@ -15,12 +15,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Admin login is disabled on this server. ${problem}` }, { status: 503 });
   }
 
-  const ipKey = `login:${clientIp(req)}`;
-  for (const [key, rule] of [[ipKey, PER_IP], ["login:all", TOTAL]] as const) {
-    const blocked = isBlocked(key, rule.limit);
-    if (!blocked.ok) {
-      return tooMany(`Too many wrong passwords. Try again in ${Math.ceil(blocked.retryAfter / 60)} minutes.`, blocked.retryAfter);
-    }
+  const ipKey = `login:${limitKey(req)}`;
+  // Counted before the body is read, so many slow parallel requests cannot all slip past the limit.
+  const allowed = take(ipKey, PER_IP.limit, PER_IP.windowMs);
+  if (!allowed.ok) {
+    return tooMany(`Too many wrong passwords. Try again in ${Math.ceil(allowed.retryAfter / 60)} minutes.`, allowed.retryAfter);
   }
 
   let body: { password?: string; code?: string };
@@ -30,9 +29,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }
 
+  // The attempt was counted above, so a failure only waits.
   const failed = async (error: string) => {
-    take(ipKey, PER_IP.limit, PER_IP.windowMs);
-    take("login:all", TOTAL.limit, TOTAL.windowMs);
     // Slows down guessing without bothering a person who mistyped.
     await new Promise((r) => setTimeout(r, 400));
     return NextResponse.json({ error }, { status: 401 });
@@ -46,6 +44,7 @@ export async function POST(req: Request) {
     const code = typeof body.code === "string" ? body.code.trim() : "";
     // The password was right: ask for the code without counting a failed attempt.
     if (!code) {
+      refund(ipKey);
       return NextResponse.json({ error: "Enter the 6-digit code from your authenticator app.", needsCode: true }, { status: 401 });
     }
     if (!checkTotp(code)) {

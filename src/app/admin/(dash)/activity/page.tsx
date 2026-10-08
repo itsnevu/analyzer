@@ -3,6 +3,7 @@ import { actionLabel, adminLogActions, adminLogFilterFrom, listAdminLog } from "
 import { ActivityTable, ClearActivityButton } from "@/components/admin/ActivityTable";
 import { Pagination } from "@/components/ui/Pagination";
 import { formatCount } from "@/lib/sources";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Activity log" };
@@ -16,6 +17,7 @@ const wib = (iso: string) => {
 };
 
 export default async function ActivityPage({ searchParams }: { searchParams: Promise<Params> }) {
+  await requireAdmin();
   const sp = await searchParams;
   const f = adminLogFilterFrom((k) => one(sp[k]) || undefined);
   const result = listAdminLog({ ...f, pageSize: 100 });

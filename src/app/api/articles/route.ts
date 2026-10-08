@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { listArticles } from "@/lib/articles";
 import type { Verdict } from "@/lib/detect";
-import { clientIp, take, tooMany } from "@/lib/rate-limit";
+import { limitKey, take, tooMany } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ const VERDICTS: Verdict[] = ["valid", "misleading", "hoax"];
 
 // Public, paginated list of published fact-checks: ?q=&lang=&verdict=&source=&year=&page=&pageSize=
 export async function GET(req: Request) {
-  const limited = take(`articles:${clientIp(req)}`, 120, 60_000);
+  const limited = take(`articles:${limitKey(req)}`, 120, 60_000);
   if (!limited.ok) return tooMany("Too many requests. Please slow down.", limited.retryAfter);
   const p = new URL(req.url).searchParams;
   const lang = p.get("lang");

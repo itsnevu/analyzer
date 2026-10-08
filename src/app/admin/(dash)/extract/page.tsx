@@ -1,4 +1,5 @@
 import { ExtractTool } from "@/components/admin/ExtractTool";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Extract from a page" };
@@ -8,6 +9,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 
 /** `?text=` prefills the box (the "needs attention" queue and the reports inbox link here); nothing runs until Process is pressed. */
 export default async function ExtractPage({ searchParams }: { searchParams: Promise<Params> }) {
+  await requireAdmin();
   const initialText = one((await searchParams).text).slice(0, 20_000);
   return (
     <div className="space-y-4">

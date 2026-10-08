@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 import { getArticleBySlug } from "@/lib/articles";
 import { ArticleForm } from "@/components/admin/ArticleForm";
 import { AdminPageHeader } from "@/components/admin/AdminPage";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 
 export default async function EditArticlePage({ params }: { params: Promise<{ slug: string }> }) {
+  await requireAdmin();
   const { slug } = await params;
   const article = await getArticleBySlug(slug, true);
   if (!article) notFound();

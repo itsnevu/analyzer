@@ -99,7 +99,7 @@ describe("two-factor login", () => {
     const now = at(0);
     const ip = "203.0.113.77";
     const post = (body: unknown) =>
-      login(new Request("http://localhost/api/admin/login", { method: "POST", headers: { "x-forwarded-for": ip, "content-type": "application/json" }, body: JSON.stringify(body) }));
+      login(new Request("http://localhost/api/admin/login", { method: "POST", headers: { "cf-connecting-ip": ip, "content-type": "application/json" }, body: JSON.stringify(body) }));
 
     for (let i = 0; i < 6; i++) {
       const res = await post({ password: "a-strong-admin-password" });
@@ -131,7 +131,7 @@ describe("two-factor login", () => {
     vi.stubEnv("AUTH_SECRET", "s".repeat(64));
     vi.stubEnv("ADMIN_TOTP_SECRET", "");
     const res = await login(
-      new Request("http://localhost/api/admin/login", { method: "POST", headers: { "x-forwarded-for": "203.0.113.78" }, body: JSON.stringify({ password: "a-strong-admin-password" }) }),
+      new Request("http://localhost/api/admin/login", { method: "POST", headers: { "cf-connecting-ip": "203.0.113.78" }, body: JSON.stringify({ password: "a-strong-admin-password" }) }),
     );
     expect(res.status).toBe(200);
   });

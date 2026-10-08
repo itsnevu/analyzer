@@ -2,9 +2,10 @@ import { findSimilarArticles } from "./articles";
 import type { ArticleListItem } from "./data";
 import { getDb } from "./db";
 import type { Verdict } from "./detect";
-import { asSingleUrl, extractText, PageError, readPageHtml } from "./fetch-page";
+import { asSingleUrl, extractText, NON_CONTENT_TAGS, PageError, readPageHtml } from "./fetch-page";
+import { canonicalLink, firstElement, metaContent, removeComments, removeElements, stripTags } from "./html-scan";
 import { detectLanguage } from "./language";
-import { applyHtmlTags, isSkippedDomain } from "./settings";
+import { applyHtmlTags, isSkippedDomain, skipListFilter } from "./settings";
 import { slugify } from "./slug";
 import { foldText } from "./similarity";
 
@@ -136,10 +137,7 @@ export function dateFromUrl(url: string): string {
   return m ? iso(+m[1], +m[2], +m[3]) : "";
 }
 
-const metaContent = (html: string, name: string) =>
-  html.match(new RegExp(`<meta[^>]+(?:property|name|itemprop)=["']${name}["'][^>]+content=["']([^"']*)["']`, "i"))?.[1] ??
-  html.match(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name|itemprop)=["']${name}["']`, "i"))?.[1] ??
-  "";
+// metaContent comes from ./html-scan, which reads tags in linear time.
 
 /** The published date a page declares: article:published_time, datePublished (JSON-LD) or a date meta tag. */
 export function dateFromHtml(html: string): string {
@@ -305,7 +303,7 @@ function decodeEntities(s: string): string {
 }
 
 const BLOCK_TAG =
-  /<\/?(p|div|h[1-6]|li|ul|ol|dl|dt|dd|table|thead|tbody|tr|td|th|blockquote|figure|figcaption|section|article|header|footer|aside|nav|pre|address)\b[^>]*>|<hr\b[^>]*>|<br\b[^>]*>/gi;
+  /<\/?(p|div|h[1-6]|li|ul|ol|dl|dt|dd|table|thead|tbody|tr|td|th|blockquote|figure|figcaption|section|article|header|footer|aside|nav|pre|address)\b[^<>]*>|<hr\b[^<>]*>|<br\b[^<>]*>/gi;
 
 /**
  * A page's text, one line per block element, the way a browser shows it.
@@ -314,12 +312,10 @@ const BLOCK_TAG =
  * fact-check page is parsed by.
  */
 export function htmlToLines(html: string): string[] {
-  let body = html
-    .replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<(script|style|noscript|svg|iframe|template|form|nav|header|footer|aside)\b[\s\S]*?<\/\1>/gi, " ");
-  const main = body.match(/<article\b[\s\S]*?<\/article>/i)?.[0] ?? body.match(/<main\b[\s\S]*?<\/main>/i)?.[0];
+  let body = removeElements(removeComments(html), NON_CONTENT_TAGS);
+  const main = firstElement(body, "article") ?? firstElement(body, "main");
   if (main && main.length > 500) body = main;
-  const text = decodeEntities(body.replace(/\s+/g, " ").replace(BLOCK_TAG, "\n").replace(/<[^>]+>/g, " "));
+  const text = decodeEntities(stripTags(body.replace(/\s+/g, " ").replace(BLOCK_TAG, "\n")));
   return text
     .split("\n")
     .map((l) => l.replace(/\s+/g, " ").trim())
@@ -331,7 +327,7 @@ export function parseFactCheck(input: ExtractInput): Parsed {
   const notes: string[] = [];
   const url = input.url?.trim() ?? "";
   const html = input.html ?? "";
-  const originalUrl = url || (html ? metaContent(html, "og:url") || html.match(/<link[^>]+rel=["']canonical["'][^>]+href=["']([^"']+)["']/i)?.[1] || "" : "");
+  const originalUrl = url || (html ? metaContent(html, "og:url") || canonicalLink(html) || "" : "");
   const host = hostOf(originalUrl);
 
   // Lines, with the old panel's inline headings split onto lines of their own.
@@ -459,7 +455,7 @@ export async function extractArticle(raw: string): Promise<ExtractResult> {
     if (isSkippedDomain(host)) throw new ExtractError(`${host} is on the skip list (Settings → Skipped domains), so its pages are not read.`);
     // The whole page is read, not the detector's "readable text", so short heading lines (NARASI:, PENJELASAN:)
     // and the page's own metadata (publish date) survive.
-    const page = await readPageHtml(link);
+    const page = await readPageHtml(link, skipListFilter);
     const plain = page.contentType.includes("text/plain");
     const { title, text } = plain ? { title: "", text: page.html.slice(0, 20_000) } : extractText(page.html);
     const lines = plain ? [] : htmlToLines(page.html);

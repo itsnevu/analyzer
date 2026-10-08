@@ -1,5 +1,6 @@
 import { MonthlyColumns } from "@/components/admin/charts/MonthlyColumns";
 import { BREAKDOWNS, checksByHour, checksByMonth, countBy, recentUsage, retentionDays, usageTotals, type Breakdown, type UsageFilter } from "@/lib/usage";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const metadata = { title: "Research data" };
 
@@ -7,6 +8,7 @@ const n = (v: unknown) => Number(v ?? 0).toLocaleString("en-US");
 const wib = (iso: string) => new Date(iso).toLocaleString("en-GB", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" });
 
 export default async function ResearchPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  await requireAdmin();
   const q = await searchParams;
   const date = (s?: string) => (s && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : undefined);
   const f: UsageFilter = {

@@ -109,8 +109,9 @@ pm2 save
 - **Windows:** `npm install -g pm2-windows-startup` then `pm2-startup install`.
 
 The app listens on `127.0.0.1:3000` only. That is deliberate: the HTTPS proxy
-below is the only way in, so nobody can reach the app directly or fake their
-address to get around the rate limits.
+below is the only way in, so nobody can reach the app directly. The app reads the
+visitor's address from the one header that proxy writes (`TRUSTED_IP_HEADER`,
+Cloudflare's by default), so visitors cannot fake it to get around the rate limits.
 
 ### Health check
 
@@ -180,15 +181,37 @@ A `Caddyfile` with:
 
 ```
 syyhoaxanalyzer.com {
-	reverse_proxy 127.0.0.1:3000
+	reverse_proxy 127.0.0.1:3000 {
+		# Visitors could otherwise send these headers themselves and pick their own address.
+		header_up -CF-Connecting-IP
+		header_up -X-Real-IP
+	}
 }
 ```
 
-Caddy obtains and renews the certificate by itself.
+Caddy obtains and renews the certificate by itself. With Caddy, also put
+`TRUSTED_IP_HEADER=x-forwarded-for` in `.env.local`: Caddy writes the visitor's
+address there, and the rate limits and the research log read that header only.
 
 After either option, check that `https://your-domain/` loads, that the admin
 login works (the session cookie is only sent over HTTPS), and that your browser
 offers to install the app.
+
+### Extra lock on the admin area (recommended)
+
+The admin panel already needs the password (and the 2FA code, if set up), and
+every admin page and API checks the session. For a second, independent lock,
+let only you reach `/admin` at all:
+
+- **Cloudflare Tunnel:** in Cloudflare Zero Trust, add an Access application
+  for `syyhoaxanalyzer.com/admin*` and `syyhoaxanalyzer.com/api/admin*` with a
+  policy that allows only your e-mail address (one-time code by e-mail).
+- **Caddy:** wrap the admin paths in `basic_auth`, or allow only your own
+  address with a `remote_ip` matcher.
+
+After the first start, keep the data folder readable by the site's user only:
+`chmod 700 data` (Linux). It holds the database, its backups and the research
+log with visitors' addresses.
 
 ## 7. Updating
 
@@ -232,5 +255,5 @@ model and reports whether its answer matches the contract.
 | "Admin login is disabled on this server" | Run `npm run setup`, then `pm2 restart hoax-analyzer`. |
 | Signed out right after logging in | The site must be opened over HTTPS; the session cookie is HTTPS-only. |
 | "Read a screenshot" never finishes | Run `npm run prepare:ocr` (needs internet once), then rebuild. |
-| Everyone shares one rate limit | The proxy is not passing the visitor address; use Cloudflare Tunnel or Caddy as above. |
+| Everyone shares one rate limit | The app is not reading the visitor address. Cloudflare Tunnel needs nothing; with Caddy set `TRUSTED_IP_HEADER=x-forwarded-for`. |
 | Port 3000 already in use | Change `-p 3000` in `ecosystem.config.cjs` and in the proxy settings. |

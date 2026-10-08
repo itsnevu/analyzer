@@ -10,7 +10,7 @@ import { clsx } from "@/lib/clsx";
  * /api/admin/system/<action>, shows the outcome and refreshes the server-rendered cards.
  */
 
-export type SystemActionKey = "backup" | "purge-ips" | "rebuild-index" | "optimize";
+export type SystemActionKey = "backup" | "purge-ips" | "rebuild-index" | "optimize" | "revoke-sessions";
 
 export function SystemActionButton({
   action,
@@ -42,6 +42,11 @@ export function SystemActionButton({
       const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
       setResult({ ok: true, text: data.message ?? "Done." });
+      // Signing out everywhere includes this browser.
+      if (action === "revoke-sessions") {
+        router.push("/admin/login");
+        return;
+      }
       router.refresh();
     } catch (err) {
       setResult({ ok: false, text: err instanceof Error ? err.message : "The action failed." });

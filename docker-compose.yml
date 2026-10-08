@@ -11,3 +11,7 @@ services:
     volumes:
       # Database, uploads, trained model and backups. Must be writable by uid 1000.
       - ./data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

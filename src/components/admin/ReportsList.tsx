@@ -350,7 +350,7 @@ export function ReportsList({ reports }: { reports: Report[] }) {
                       </>
                     )}
                     {r.email && (
-                      <a href={`mailto:${r.email}?subject=${encodeURIComponent(`Re: ${reportNumber(r.id)} ${title}`)}`} className="neu-btn px-3 py-1.5 text-xs">
+                      <a href={`mailto:${encodeURIComponent(r.email)}?subject=${encodeURIComponent(`Re: ${reportNumber(r.id)} ${title}`)}`} className="neu-btn px-3 py-1.5 text-xs">
                         Reply by email
                       </a>
                     )}

@@ -297,7 +297,7 @@ export function filesInfo(): FilesInfo {
 
 /* --------------------------------------------------------- maintenance */
 
-export const SYSTEM_ACTIONS = ["backup", "purge-ips", "rebuild-index", "optimize"] as const;
+export const SYSTEM_ACTIONS = ["backup", "purge-ips", "rebuild-index", "optimize", "revoke-sessions"] as const;
 export type SystemAction = (typeof SYSTEM_ACTIONS)[number];
 
 export function isSystemAction(v: unknown): v is SystemAction {

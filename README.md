@@ -15,7 +15,7 @@ To put it on a server, follow **[DEPLOY.md](DEPLOY.md)**.
 
 ```bash
 npm install
-npm run dev          # http://localhost:3000, admin at /admin (dev password: admin123)
+npm run dev          # http://localhost:3000 (this computer only), admin at /admin (dev password: admin123)
 ```
 
 Requires **Node 22.13+**: the database uses the built-in `node:sqlite` module.

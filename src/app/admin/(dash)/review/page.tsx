@@ -2,11 +2,13 @@ import Link from "next/link";
 import { ReviewQueue } from "@/components/admin/ReviewQueue";
 import { listReviewQueue } from "@/lib/review";
 import { formatCount } from "@/lib/sources";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Review queue" };
 
 export default async function ReviewPage() {
+  await requireAdmin();
   const queue = await listReviewQueue(100);
 
   return (

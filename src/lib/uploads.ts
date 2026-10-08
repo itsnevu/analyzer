@@ -18,21 +18,41 @@ const REPORTS_DIR = path.join(ROOT, "reports");
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ACCEPTED = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+const DECODABLE = new Set(["png", "jpeg", "webp", "gif"]);
+// One image decoded at a time, so a burst of large uploads cannot multiply the memory use.
+sharp.concurrency(1);
 const NAME = /^[a-f0-9]{32}\.webp$/;
 
 export class UploadError extends Error {}
+
+/** The first bytes of a PNG, JPEG, GIF or WebP file. */
+export function hasImageSignature(b: Buffer): boolean {
+  if (b.length < 12) return false;
+  const png = b[0] === 0x89 && b.toString("latin1", 1, 4) === "PNG";
+  const jpeg = b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+  const gif = b.toString("latin1", 0, 4) === "GIF8";
+  const webp = b.toString("latin1", 0, 4) === "RIFF" && b.toString("latin1", 8, 12) === "WEBP";
+  return png || jpeg || gif || webp;
+}
 
 async function storeImage(file: File, dir: string, maxWidth: number): Promise<string> {
   if (!ACCEPTED.has(file.type)) throw new UploadError("Upload a PNG, JPEG, WebP or GIF image.");
   if (file.size > MAX_UPLOAD_BYTES) throw new UploadError("The image is larger than 5 MB.");
   let output: Buffer;
   try {
-    output = await sharp(Buffer.from(await file.arrayBuffer()), { limitInputPixels: 40_000_000 })
+    const input = Buffer.from(await file.arrayBuffer());
+    // The browser's label is not proof: the bytes must really be one of these formats, so an SVG, TIFF or HEIF file
+    // named "x.png" never reaches those decoders. The signature is checked before any decoder sees the file.
+    if (!hasImageSignature(input)) throw new UploadError("Upload a PNG, JPEG, WebP or GIF image.");
+    const { format } = await sharp(input).metadata();
+    if (!format || !DECODABLE.has(format)) throw new UploadError("Upload a PNG, JPEG, WebP or GIF image.");
+    output = await sharp(input, { limitInputPixels: 25_000_000 })
       .rotate()
       .resize({ width: maxWidth, height: maxWidth * 2, fit: "inside", withoutEnlargement: true })
       .webp({ quality: 82 })
       .toBuffer();
-  } catch {
+  } catch (err) {
+    if (err instanceof UploadError) throw err;
     throw new UploadError("That file could not be read as an image.");
   }
   fs.mkdirSync(dir, { recursive: true });

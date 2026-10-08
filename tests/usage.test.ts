@@ -12,7 +12,7 @@ const usage = await import("@/lib/usage");
 const { getDb } = await import("@/lib/db");
 
 const req = (ua = "Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile Safari/537.36") =>
-  new Request("http://localhost/api/detect", { headers: { "x-forwarded-for": "36.68.1.1, 10.0.0.1", "user-agent": ua } });
+  new Request("http://localhost/api/detect", { headers: { "cf-connecting-ip": "36.68.1.1", "x-forwarded-for": "10.0.0.1", "user-agent": ua } });
 
 describe("addresses and devices", () => {
   it("orders IPv4 and IPv6 in one keyspace", () => {
@@ -46,19 +46,33 @@ describe("research log", () => {
     expect(getDb().prepare("SELECT role FROM usage_log WHERE id = ?").get(id)).toMatchObject({ role: "teacher" });
   });
 
-  it("clears old IP addresses but keeps the hash", () => {
-    const id = usage.recordUsage(req(), "visit", usage.readClientMeta({}))!;
-    getDb().prepare("UPDATE usage_log SET recordedAt = datetime('now', '-400 days') WHERE id = ?").run(id);
-    expect(usage.purgeExpiredIps(365)).toBeGreaterThanOrEqual(1);
-    const row = getDb().prepare("SELECT ip, ipHash FROM usage_log WHERE id = ?").get(id) as { ip: string | null; ipHash: string };
-    expect(row.ip).toBeNull();
-    expect(row.ipHash).not.toBe("");
+  it("clears old IP addresses and scrambles their hash, keeping rows cleared together groupable", () => {
+    const a = usage.recordUsage(req(), "visit", usage.readClientMeta({}))!;
+    const b = usage.recordUsage(req(), "visit", usage.readClientMeta({}))!;
+    const legacy = usage.recordUsage(req(), "visit", usage.readClientMeta({}))!;
+    getDb().prepare("UPDATE usage_log SET recordedAt = datetime('now', '-400 days') WHERE id IN (?, ?)").run(a, b);
+    // An imported row: recorded today, but the visit itself was years ago.
+    getDb().prepare("UPDATE usage_log SET at = '2019-05-01T10:00:00.000Z' WHERE id = ?").run(legacy);
+    const original = usage.ipHash("36.68.1.1");
+    expect(usage.purgeExpiredIps(365)).toBeGreaterThanOrEqual(3);
+    const rows = getDb().prepare("SELECT ip, ipHash FROM usage_log WHERE id IN (?, ?, ?) ORDER BY id").all(a, b, legacy) as { ip: string | null; ipHash: string }[];
+    for (const r of rows) {
+      expect(r.ip).toBeNull();
+      expect(r.ipHash).not.toBe("");
+      expect(r.ipHash).not.toBe(original);
+    }
+    expect(rows[0].ipHash).toBe(rows[1].ipHash);
   });
 
-  it("exports anonymized CSV without IP addresses", () => {
+  it("exports anonymized CSV without IP addresses, report text, organization or full referrers", () => {
+    usage.recordUsage(req(), "contact", usage.readClientMeta({ organization: "Kantor Berita X", referrer: "https://www.facebook.com/groups/abc?fbclid=secret" }), { text: "Nama saya Budi, 0812-3456" });
     const csv = [...usage.usageCsv({ staff: true }, true)].join("");
     expect(csv).not.toContain("36.68.1.1");
-    expect(csv.split("\n")[0]).not.toMatch(/,ip,/);
+    expect(csv.split("\n")[0]).not.toMatch(/,ip,|,organization,|,reportId,/);
+    expect(csv).not.toContain("Budi");
+    expect(csv).not.toContain("fbclid");
+    expect(csv).toContain("www.facebook.com");
+    expect(csv).not.toContain(usage.ipHash("36.68.1.1"));
     expect([...usage.usageCsv({ staff: true }, false)].join("")).toContain("36.68.1.1");
   });
 });

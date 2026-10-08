@@ -30,7 +30,7 @@ export async function GET() {
   } catch (err) {
     console.error("[health] database check failed:", err);
     return NextResponse.json(
-      { ok: false, ...base, db: { ok: false, error: err instanceof Error ? err.message : String(err) }, fts: false },
+      { ok: false, ...base, db: { ok: false }, fts: false },
       { status: 503, headers },
     );
   }

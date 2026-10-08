@@ -203,7 +203,9 @@ export async function runDetection(rawText: string): Promise<DetectionResult> {
     } catch (err) {
       const reason = err instanceof Error && err.name === "TimeoutError" ? "the model took too long to answer" : err instanceof Error ? err.message : "the model could not be reached";
       console.error("[detect] external model unavailable, using the local engine:", reason);
-      return { ...localDetection(text, lang, langConf), fallbackReason: reason };
+      // The detail stays in the server log; visitors only learn which kind of failure it was.
+      const publicReason = err instanceof Error && err.name === "TimeoutError" ? "it took too long to answer" : "it could not be used";
+      return { ...localDetection(text, lang, langConf), fallbackReason: publicReason };
     }
   }
 

@@ -1,5 +1,6 @@
 import { getDb } from "./db";
 import { clientIp } from "./rate-limit";
+import { csvCell } from "./csv";
 
 /**
  * Activity log of the admin panel (/admin/activity): what was changed, when
@@ -31,6 +32,7 @@ export const ACTION_LABELS: Record<string, string> = {
   "system.purge-ips": "Expired IPs purged",
   "system.rebuild-index": "Search index rebuilt",
   "system.optimize": "Database optimized",
+  "system.revoke-sessions": "Signed out everywhere",
   "activity.clear": "Old activity entries cleared",
 };
 
@@ -144,10 +146,7 @@ export function adminLogActions(): { action: string; count: number }[] {
 /** The filtered log as CSV, oldest first. */
 export function* adminLogCsv(f: AdminLogFilter = {}): Generator<string> {
   const cols = ["id", "at", "action", "label", "target", "detail", "ip"];
-  const cell = (v: unknown) => {
-    const s = v === null || v === undefined ? "" : String(v);
-    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  const cell = csvCell;
   yield "﻿" + cols.join(",") + "\n";
   const { sql, args } = whereSql(f);
   const rows = getDb().prepare(`SELECT id, at, action, target, detail, ip FROM admin_log ${sql} ORDER BY at, id`).iterate(...args) as Iterable<AdminLogEntry>;

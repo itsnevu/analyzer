@@ -1,12 +1,13 @@
 import { cookies } from "next/headers";
-import { verifySession, SESSION_COOKIE } from "@/lib/auth";
+import { SESSION_COOKIE } from "@/lib/auth";
+import { isAdminToken } from "@/lib/session-cutoff";
 import { slugify } from "@/lib/slug";
 import type { Article } from "@/lib/data";
 
 /** Shared by the admin article API routes. Server-only. */
 
 export async function isAdmin(): Promise<boolean> {
-  return verifySession((await cookies()).get(SESSION_COOKIE)?.value);
+  return isAdminToken((await cookies()).get(SESSION_COOKIE)?.value);
 }
 
 /** Turns a request body into an article, or null when the title is missing. */
@@ -30,7 +31,8 @@ export function normalizeArticle(input: Record<string, unknown>): Article | null
     narration: s(input.narration),
     explanation: s(input.explanation),
     reference: s(input.reference),
-    image: s(input.image),
+    // A path on this site ("/articles/x.jpg", "/uploads/…"); outside images are refused by the CSP anyway.
+    image: /^\/(?!\/)[^\s"'<>]*$/.test(s(input.image)) ? s(input.image) : "",
     originalUrl: /^https?:\/\//i.test(s(input.originalUrl)) ? s(input.originalUrl) : undefined,
     sourceSite: siteName(s(input.sourceSite)),
     published: input.published !== false && input.published !== "false" && input.published !== 0,

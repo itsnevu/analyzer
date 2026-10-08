@@ -4,6 +4,7 @@ import { getDb } from "./db";
 import { panelDb } from "./legacy-panel";
 import { slugify } from "./slug";
 import { cleanDatasetRow, type DatasetRow } from "../../scripts/legacy-clean";
+import { csvCell } from "./csv";
 
 /**
  * Browse and curate the legacy detector's dataset (/admin/dataset): filter the
@@ -190,10 +191,7 @@ export function setDatasetLabel(id: number, label: DatasetLabel | null): boolean
 /** The current filter as CSV, one row per dataset entry, in the grid's order. */
 export function* datasetCsv(f: DatasetFilter): Generator<string> {
   const cols = ["id", "label", "adminLabel", "effectiveLabel", "reviewedAt", "title", "publishedOn", "url", "site", "archiveSlug"];
-  const cell = (v: unknown) => {
-    const s = v === null || v === undefined ? "" : String(v);
-    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  const cell = csvCell;
   yield "﻿" + cols.join(",") + "\n";
   const { sql, args } = whereSql(f);
   const rows = panelDb().prepare(`${SELECT} ${sql} ${orderSql(f)}`).iterate(...args) as Iterable<Row>;

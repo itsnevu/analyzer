@@ -8,12 +8,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { networkOf } from "../src/lib/ip-asn.ts";
+import { hasHashSecret, networkOf } from "../src/lib/ip-asn.ts";
 
 try {
-  process.loadEnvFile(".env.local"); // AUTH_SECRET keys the IP hashes, as on the server
+  process.loadEnvFile(".env.local"); // AUTH_SECRET (or IP_HASH_SECRET) keys the IP hashes, as on the server
 } catch {
-  /* development defaults */
+  /* checked below */
+}
+if (!hasHashSecret()) {
+  console.error("No AUTH_SECRET or IP_HASH_SECRET: run `npm run setup` first, so the addresses are hashed with the server's key.");
+  process.exit(1);
 }
 
 const FILE = path.join(process.cwd(), "data", "legacy-panel", "panel", "search-analytic.json");

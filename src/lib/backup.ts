@@ -42,6 +42,11 @@ export async function backupDatabase(db: DatabaseSync, keep = keepCount()): Prom
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace("T", "-").slice(0, 15);
   const file = path.join(/* turbopackIgnore: true */ backupDir(), `hoax-${stamp}.db`);
   await backup(db, file);
+  try {
+    fs.chmodSync(file, 0o600);
+  } catch {
+    /* Windows */
+  }
   const all = dated();
   for (const old of all.slice(0, Math.max(0, all.length - keep))) fs.rmSync(path.join(/* turbopackIgnore: true */ backupDir(), old), { force: true });
   return file;

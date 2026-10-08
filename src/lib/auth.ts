@@ -58,12 +58,17 @@ function sign(payload: string, key: Buffer): string {
 export function createSession(): string {
   const key = signingKey();
   if (!key) throw new Error("Admin login is not configured.");
-  const exp = Date.now() + SESSION_MAX_AGE * 1000;
-  const payload = Buffer.from(JSON.stringify({ exp })).toString("base64url");
+  const iat = Date.now();
+  const exp = iat + SESSION_MAX_AGE * 1000;
+  const payload = Buffer.from(JSON.stringify({ exp, iat })).toString("base64url");
   return `${payload}.${sign(payload, key)}`;
 }
 
-export function verifySession(token: string | undefined | null): boolean {
+/**
+ * True for a correctly signed, unexpired session. `notBefore` (ms) refuses
+ * sessions issued earlier, for "sign out everywhere" (see ./session-cutoff).
+ */
+export function verifySession(token: string | undefined | null, notBefore = 0): boolean {
   const key = signingKey();
   if (!key || !token) return false;
   const [payload, sig] = token.split(".");
@@ -72,8 +77,10 @@ export function verifySession(token: string | undefined | null): boolean {
   if (sig.length !== expected.length) return false;
   try {
     if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return false;
-    const { exp } = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    return typeof exp === "number" && exp > Date.now();
+    const { exp, iat } = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    if (typeof exp !== "number" || exp <= Date.now()) return false;
+    // Tokens from before issue times were recorded count as issued at 0.
+    return notBefore <= 0 || (typeof iat === "number" ? iat : 0) > notBefore;
   } catch {
     return false;
   }

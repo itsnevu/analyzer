@@ -1,15 +1,16 @@
 import { isAdmin } from "@/lib/admin-articles";
-import { clientIp, take } from "@/lib/rate-limit";
+import { limitKey, take } from "@/lib/rate-limit";
 import { attachProfile, readClientMeta, recordUsage } from "@/lib/usage";
+import { readJsonObject } from "@/lib/body-limit";
 
 export const runtime = "nodejs";
 
 /** Visits and self-reported roles for the research log (see /privacy). */
 export async function POST(req: Request) {
-  if (!take(`usage:${clientIp(req)}`, 60, 10 * 60_000).ok) return new Response(null, { status: 204 });
+  if (!take(`usage:${limitKey(req)}`, 60, 10 * 60_000).ok) return new Response(null, { status: 204 });
   let body: Record<string, unknown>;
   try {
-    body = await req.json();
+    body = await readJsonObject(req, 16 * 1024);
   } catch {
     return new Response(null, { status: 400 });
   }

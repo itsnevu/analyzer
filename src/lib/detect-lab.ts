@@ -3,7 +3,7 @@ import { getDb, hasFts } from "./db";
 import { runDetection, type DetectionResult } from "./detect";
 import { asSingleUrl, readPage } from "./fetch-page";
 import { detectLanguage } from "./language";
-import { getStopwords, isSettingLang, isSkippedDomain, type SettingLang } from "./settings";
+import { getStopwords, isSettingLang, isSkippedDomain, skipListFilter, type SettingLang } from "./settings";
 import { idfFrom, isMethod, scorePair, sharedWords, tokenizeWords, type Idf, type Method } from "./similarity";
 
 /**
@@ -198,7 +198,7 @@ export async function runLab(req: LabRequest): Promise<LabResult> {
       throw new LabError("That is not a valid link.");
     }
     if (isSkippedDomain(host)) throw new LabError(`${host} is on the skip list (Settings → Skipped domains), so its pages are not read.`);
-    const page = await readPage(link);
+    const page = await readPage(link, skipListFilter);
     text = page.text;
     source = { url: page.url, title: page.title };
     timings.read = performance.now() - t0;

@@ -5,9 +5,10 @@ import { VERDICT_META } from "@/lib/verdict";
 import { recordSearch } from "@/lib/searches";
 import { readClientMeta, recordUsage, type UsageFields } from "@/lib/usage";
 import { isAdmin } from "@/lib/admin-articles";
-import { clientIp, take, tooMany } from "@/lib/rate-limit";
+import { limitKey, take, tooMany } from "@/lib/rate-limit";
 import { asSingleUrl, PageError, readPage } from "@/lib/fetch-page";
-import { isSkippedDomain } from "@/lib/settings";
+import { isSkippedDomain, skipListFilter } from "@/lib/settings";
+import { BodyTooLarge, readJsonObject } from "@/lib/body-limit";
 
 export const runtime = "nodejs";
 
@@ -39,20 +40,21 @@ function withArchiveVerdict(result: DetectionResult, related: ArticleListItem[])
 }
 
 export async function POST(req: Request) {
-  const ip = clientIp(req);
+  const ip = limitKey(req);
   for (const [key, limit, windowMs] of [[`detect:${ip}`, 20, 60_000], [`detect-day:${ip}`, 400, 24 * 60 * 60_000]] as const) {
     const r = take(key, limit, windowMs);
     if (!r.ok) return tooMany("Too many checks from your network. Please wait a moment and try again.", r.retryAfter);
   }
 
-  let body: { text?: string; meta?: unknown };
+  let body: { text?: unknown; meta?: unknown };
   try {
-    body = await req.json();
-  } catch {
+    body = await readJsonObject(req, 256 * 1024);
+  } catch (err) {
+    if (err instanceof BodyTooLarge) return NextResponse.json({ error: "Text is too long." }, { status: 413 });
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const input = (body.text ?? "").toString();
+  const input = typeof body.text === "string" ? body.text : "";
   const started = Date.now();
   const meta = readClientMeta(body.meta);
   const staff = await isAdmin();
@@ -79,7 +81,7 @@ export async function POST(req: Request) {
     const limited = take(`detect-link:${ip}`, 10, 60_000);
     if (!limited.ok) return tooMany("Too many links in a short time. Please wait a moment.", limited.retryAfter);
     try {
-      const page = await readPage(link);
+      const page = await readPage(link, skipListFilter);
       text = page.text;
       source = { url: page.url, title: page.title };
     } catch (err) {

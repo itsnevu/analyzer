@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { addReport, reportNumber, type NewReport, type ReportType } from "@/lib/reports";
 import { notifyNewReport } from "@/lib/notify";
 import { MAX_UPLOAD_BYTES, saveReportImage, UploadError } from "@/lib/uploads";
-import { clientIp, take, tooMany } from "@/lib/rate-limit";
+import { limitKey, take, tooMany } from "@/lib/rate-limit";
 import { readClientMeta, recordUsage } from "@/lib/usage";
 import { isAdmin } from "@/lib/admin-articles";
+import { BodyTooLarge, readFormLimited, readJsonObject } from "@/lib/body-limit";
 
 export const runtime = "nodejs";
 
@@ -15,7 +16,8 @@ export const runtime = "nodejs";
 
 const TYPES: ReportType[] = ["hoax", "wrong-result", "correction"];
 const PLATFORMS = ["WhatsApp", "Facebook", "Instagram", "TikTok", "X / Twitter", "YouTube", "Telegram", "Website", "Other"];
-const EMAIL = /^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$/;
+// No ?, &, %, quotes, slashes or angle brackets: such an "address" could add recipients or a body to the admin's mailto: reply.
+const EMAIL = /^[^@\s?&%<>"'/\\]{1,64}@[^@\s?&%<>"'/\\]+\.[^@\s?&%<>"'/\\]{2,}$/;
 
 type Fields = Record<string, string>;
 
@@ -28,26 +30,27 @@ function bad(error: string, status = 422) {
 }
 
 export async function POST(req: Request) {
-  const ip = clientIp(req);
+  const ip = limitKey(req);
   for (const [key, limit, windowMs] of [[`report:${ip}`, 5, 10 * 60_000], [`report-day:${ip}`, 30, 24 * 60 * 60_000]] as const) {
     const r = take(key, limit, windowMs);
     if (!r.ok) return tooMany("Too many submissions from your network. Please try again later.", r.retryAfter);
   }
-  if (Number(req.headers.get("content-length") ?? 0) > MAX_UPLOAD_BYTES + 200_000) return bad("The upload is too large.", 413);
+  const maxBody = MAX_UPLOAD_BYTES + 200_000;
 
   let fields: Fields = {};
   let screenshot: File | null = null;
   try {
     if ((req.headers.get("content-type") ?? "").includes("multipart/form-data")) {
-      const form = await req.formData();
+      const form = await readFormLimited(req, maxBody);
       for (const [k, v] of form.entries()) {
         if (typeof v === "string") fields[k] = v;
         else if (k === "screenshot" && v.size > 0) screenshot = v;
       }
     } else {
-      fields = Object.fromEntries(Object.entries((await req.json()) as Record<string, unknown>).map(([k, v]) => [k, String(v ?? "")]));
+      fields = Object.fromEntries(Object.entries(await readJsonObject(req, 64 * 1024)).map(([k, v]) => [k, String(v ?? "")]));
     }
-  } catch {
+  } catch (err) {
+    if (err instanceof BodyTooLarge) return bad("The upload is too large.", 413);
     return bad("Invalid form data.", 400);
   }
 

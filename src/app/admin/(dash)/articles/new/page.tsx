@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { ArticleForm } from "@/components/admin/ArticleForm";
 import { AdminPageHeader } from "@/components/admin/AdminPage";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 
-export default function NewArticlePage() {
+export default async function NewArticlePage() {
+  await requireAdmin();
   return (
     <div>
       <AdminPageHeader

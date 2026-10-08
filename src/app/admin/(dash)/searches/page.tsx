@@ -3,6 +3,7 @@ import { getSearchOverview, listSearches, searchFilterFrom } from "@/lib/searche
 import { SearchesTable } from "@/components/admin/SearchesTable";
 import { AdminPageHeader, StatTile } from "@/components/admin/AdminPage";
 import { formatCount } from "@/lib/sources";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Searches" };
@@ -18,6 +19,7 @@ function wib(createdAt: string, origin: string): string {
 }
 
 export default async function SearchesPage({ searchParams }: { searchParams: Promise<Params> }) {
+  await requireAdmin();
   const sp = await searchParams;
   const f = searchFilterFrom((k) => one(sp[k]) || undefined);
   const result = listSearches(f);

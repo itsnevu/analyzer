@@ -10,7 +10,7 @@ process.env.DATABASE_PATH = path.join(dir, "test.db");
 const log = await import("@/lib/admin-log");
 const { getDb } = await import("@/lib/db");
 
-const req = (ip = "36.68.1.1") => new Request("http://localhost/api/admin/articles", { method: "POST", headers: { "x-forwarded-for": `${ip}, 10.0.0.1` } });
+const req = (ip = "36.68.1.1") => new Request("http://localhost/api/admin/articles", { method: "POST", headers: { "cf-connecting-ip": ip, "x-forwarded-for": "10.0.0.1" } });
 
 describe("writing", () => {
   it("records the action with the caller's address and clips long values", () => {

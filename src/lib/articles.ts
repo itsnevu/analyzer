@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { ARTICLES as SEED, type Article, type ArticleListItem } from "./data";
 import { getDb, hasFts } from "./db";
+import { csvCell } from "./csv";
 export { slugify } from "./slug";
 export type { ArticleListItem } from "./data";
 
@@ -231,7 +232,7 @@ function listQuery(conn: DatabaseSync, filter: ArticleFilter): ListQuery {
 
   let from = "articles a";
   let order = orderSql("date", "desc");
-  const q = filter.q ?? "";
+  const q = (filter.q ?? "").slice(0, 200);
   // "vaksin OR vaccine" asks for either word; plain words must all appear.
   const anyWord = /\bOR\b/.test(q);
   const tokens = tokenize(q, 2).filter((t) => t !== "or").slice(0, 12);
@@ -247,9 +248,12 @@ function listQuery(conn: DatabaseSync, filter: ArticleFilter): ListQuery {
     const expr = anyWord || (tokens.length > 1 && count(all) === 0) ? match(" OR ") : all;
     where.unshift("articles_fts MATCH ?");
     params.unshift(expr);
+  } else if (filter.q?.trim() && hasFts()) {
+    // Only one-letter words: nothing to search for, and a LIKE over every article's text is the slowest query there is.
+    where.push("0");
   } else if (filter.q?.trim()) {
     where.push("(a.title LIKE ? OR a.narration LIKE ? OR a.explanation LIKE ?)");
-    const like = `%${filter.q.trim()}%`;
+    const like = `%${filter.q.trim().slice(0, 200)}%`;
     params.push(like, like, like);
   }
   if (filter.sort) order = orderSql(filter.sort, filter.order);
@@ -308,10 +312,7 @@ export async function listArticles(filter: ArticleFilter = {}): Promise<ArticleP
 export function* articlesCsv(filter: ArticleFilter = {}, siteUrl = ""): Generator<string> {
   const conn = db();
   const cols = ["slug", "title", "lang", "category", "verdict", "date", "sourceSite", "published", "hasText", "originalUrl", "archiveUrl", "createdAt", "updatedAt", "url"];
-  const cell = (v: unknown) => {
-    const s = v === null || v === undefined ? "" : String(v);
-    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  const cell = csvCell;
   yield "\ufeff" + cols.join(",") + "\n";
   const { from, clause, params, order } = listQuery(conn, filter);
   const rows = conn

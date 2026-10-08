@@ -14,10 +14,10 @@ export default async function PrivacyPage() {
       <ul key="w" className="list-disc space-y-1.5 pl-5">
         <li>Every check: the text or link you submit, the result, and when.</li>
         <li>Your IP address, and the network it belongs to (internet provider or organization, and country), looked up in a public registry on our own server.</li>
-        <li>Your browser and device type, language, time zone, screen size, and the website that linked you here.</li>
-        <li>A random ID stored in your browser, so repeat visits can be counted without knowing your name.</li>
+        <li>Your browser&apos;s full identification string (User-Agent), device type, language, time zone, screen size, the website that linked you here and any campaign tags in the link.</li>
+        <li>A random ID stored in your browser and one for each visit, so repeat visits can be counted without knowing your name.</li>
         <li>Your role and organization, only if you choose to tell us.</li>
-        <li>Reports and messages you send, with the same technical details.</li>
+        <li>Reports and messages you send, with your name and e-mail if you give them, an optional screenshot, and the same technical details.</li>
       </ul>,
     ],
     [
@@ -26,12 +26,12 @@ export default async function PrivacyPage() {
     ],
     [
       "Who can see it",
-      "Only the site's administrators. The data stays on the site's own server; it is not sold, and the site uses no advertising or third-party trackers.",
+      "Only the site's administrators. The records are kept on the site's own server; they are not sold, and the site uses no advertising or third-party trackers. When you send a report or a message, the administrators are notified by e-mail and Telegram with your name, e-mail and the start of the message. The site is reached through Cloudflare, which carries the connection.",
     ],
     [
       "How long",
       days
-        ? `IP addresses are deleted ${days} days after they are recorded. The network name, country, device type, checked text and result are kept for research.`
+        ? `IP addresses are deleted ${days} days after your visit, and the code derived from them is then scrambled so it cannot be traced back to the address. The network name, country, device type, checked text and result are kept for research. Reports and messages are kept until they have been dealt with and are then deleted on request.`
         : "Records, including IP addresses, are kept for the duration of the research.",
     ],
     [
@@ -59,7 +59,7 @@ export default async function PrivacyPage() {
             {body}
           </div>
         ))}
-        <p className="text-xs text-ink-faint">Last updated October 1, 2026.</p>
+        <p className="text-xs text-ink-faint">Last updated October 8, 2026.</p>
       </div>
     </section>
   );

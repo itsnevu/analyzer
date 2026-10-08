@@ -1,9 +1,11 @@
+import { createHmac, randomBytes } from "node:crypto";
 import { getDb } from "./db";
 import { ipHash, networkOf } from "./ip-asn";
 
 export { ipHash, networkOf };
 import { clientIp } from "./rate-limit";
 import { parseUserAgent } from "./user-agent";
+import { csvCell } from "./csv";
 
 /**
  * Research log of how the site is used: every visit, check, report and message,
@@ -110,12 +112,32 @@ export function retentionDays(): number {
   return Number.isFinite(n) && n >= 0 ? n : 365;
 }
 
-/** Clears IP addresses recorded more than `days` ago; the network name, country and hash stay. */
+/**
+ * Clears IP addresses older than `days`, counted from the visit itself or from
+ * when it was recorded, whichever is earlier (imported legacy rows were recorded
+ * years after the visit). The network name and country stay. The address hash
+ * is re-keyed with a random key that is discarded, so rows cleared together can
+ * still be counted as one address but can no longer be traced back to it.
+ */
 export function purgeExpiredIps(days = retentionDays()): number {
   if (days === 0) return 0;
-  return Number(
-    getDb().prepare("UPDATE usage_log SET ip = NULL WHERE ip IS NOT NULL AND recordedAt < datetime('now', ?)").run(`-${days} days`).changes,
-  );
+  const db = getDb();
+  const cutoff = `-${days} days`;
+  const rows = db
+    .prepare("SELECT id, ipHash FROM usage_log WHERE ip IS NOT NULL AND (recordedAt < datetime('now', ?) OR datetime(at) < datetime('now', ?))")
+    .all(cutoff, cutoff) as { id: number; ipHash: string }[];
+  if (!rows.length) return 0;
+  const throwaway = randomBytes(32);
+  const update = db.prepare("UPDATE usage_log SET ip = NULL, ipHash = ? WHERE id = ?");
+  db.exec("BEGIN");
+  try {
+    for (const r of rows) update.run(r.ipHash ? createHmac("sha256", throwaway).update(r.ipHash).digest("hex").slice(0, 16) : "", r.id);
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+  return rows.length;
 }
 
 /* ---------------------------------------------------------------- reports */
@@ -165,7 +187,7 @@ export function countBy(column: Breakdown, f: UsageFilter, kind = "check", limit
   const w = where(f, `kind = '${kind}'`);
   return getDb()
     .prepare(`SELECT ${col} AS value, COUNT(*) AS count FROM usage_log ${w.sql} GROUP BY value HAVING value != '' ORDER BY count DESC LIMIT ${limit}`)
-    .all(...w.args) as { value: string; count: number }[];
+    .all(...w.args).map((r) => ({ ...r })) as { value: string; count: number }[];
 }
 
 export function usageTotals(f: UsageFilter) {
@@ -185,7 +207,7 @@ export function checksByMonth(f: UsageFilter) {
   const w = where(f, "kind = 'check'");
   return getDb()
     .prepare(`SELECT substr(at, 1, 7) AS month, COUNT(*) AS count, SUM(input = 'link') AS links FROM usage_log ${w.sql} GROUP BY month ORDER BY month`)
-    .all(...w.args) as { month: string; count: number; links: number }[];
+    .all(...w.args).map((r) => ({ ...r })) as { month: string; count: number; links: number }[];
 }
 
 /** Checks per hour of the day, Western Indonesian Time (UTC+7). */
@@ -206,24 +228,43 @@ export function recentUsage(f: UsageFilter, limit = 50) {
       `SELECT id, at, origin, kind, visitor, ip, asOrg, country, device, os, browser, inApp, via, role, organization,
               substr(text, 1, 140) AS text, verdict, error FROM usage_log ${w.sql} ORDER BY at DESC, id DESC LIMIT ${limit}`,
     )
-    .all(...w.args) as Record<string, string | number | null>[];
+    .all(...w.args).map((r) => ({ ...r })) as Record<string, string | number | null>[];
 }
 
-const PRIVATE_COLUMNS = new Set(["ip", "userAgent"]);
+// Left out of the anonymized export: direct identifiers, free text that can name a person, and the link to a report's contact details.
+const PRIVATE_COLUMNS = new Set(["ip", "userAgent", "organization", "reportId", "legacyId"]);
 
-/** CSV of the log. Anonymized: no IP or raw User-Agent, browser ids replaced by keyed hashes. */
+/** "https://www.facebook.com/groups/x?fbclid=..." becomes "www.facebook.com"; other values pass through. */
+function referrerHost(v: unknown): unknown {
+  if (typeof v !== "string" || !v) return v;
+  try {
+    return new URL(v).host;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * CSV of the log. Anonymized: no IP, raw User-Agent, organization or report
+ * link; referrers cut to their host; the text of reports and contact messages
+ * left out; the address and browser hashes re-keyed with a key made for this
+ * export alone, so rows can still be grouped within the file but not matched
+ * to the database or to another export.
+ */
 export function* usageCsv(f: UsageFilter, anonymized: boolean): Generator<string> {
   const cols = ["id", "recordedAt", ...COLUMNS].filter((c) => !(anonymized && PRIVATE_COLUMNS.has(c)));
-  const cell = (v: unknown) => {
-    const s = v === null || v === undefined ? "" : String(v);
-    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  const cell = csvCell;
+  const exportKey = randomBytes(32);
+  const rekey = (v: unknown) => (v ? createHmac("sha256", exportKey).update(String(v)).digest("hex").slice(0, 16) : "");
   yield "﻿" + cols.join(",") + "\n";
   const w = where(f);
   for (const row of getDb().prepare(`SELECT * FROM usage_log ${w.sql} ORDER BY at, id`).iterate(...w.args) as Iterable<Record<string, unknown>>) {
     if (anonymized) {
-      if (row.visitor) row.visitor = ipHash(`v:${row.visitor}`);
-      if (row.session) row.session = ipHash(`s:${row.session}`);
+      row.visitor = rekey(row.visitor && `v:${row.visitor}`);
+      row.session = rekey(row.session && `s:${row.session}`);
+      row.ipHash = rekey(row.ipHash);
+      row.referrer = referrerHost(row.referrer);
+      if (row.kind === "report" || row.kind === "contact") row.text = "";
     }
     yield cols.map((c) => cell(row[c])).join(",") + "\n";
   }

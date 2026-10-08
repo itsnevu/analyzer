@@ -53,7 +53,7 @@ export default async function AdminLoginPage() {
   const notice = problem
     ? `Admin login is disabled on this server. ${problem} Run \`npm run setup\` on the server, then restart it.`
     : usingDevDefaults()
-      ? "Development mode: the default password is admin123. Set ADMIN_PASSWORD and AUTH_SECRET (npm run setup) before the site goes online."
+      ? "Development mode with the default password from README.md. Set ADMIN_PASSWORD and AUTH_SECRET (npm run setup) before the site goes online."
       : undefined;
   const figures = await loadFigures();
 

@@ -3,6 +3,7 @@ import { SettingsStopwords } from "@/components/admin/SettingsStopwords";
 import { SettingsHtmlTags } from "@/components/admin/SettingsHtmlTags";
 import { SettingsSkipDomains } from "@/components/admin/SettingsSkipDomains";
 import { AdminPageHeader, AdminTab } from "@/components/admin/AdminPage";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Settings" };
@@ -11,6 +12,7 @@ type Params = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<Params> }) {
+  await requireAdmin();
   const sp = await searchParams;
   const f = stopwordFilterFrom((k) => one(sp[k]) || undefined);
   const words = listStopwords(f.lang, f.q, f.page, f.pageSize, { origin: f.origin, sort: f.sort, order: f.order });

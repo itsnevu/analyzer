@@ -194,7 +194,12 @@ export function normalizeDomain(input: string): string {
   } catch {
     /* keep as typed */
   }
-  return s.replace(/^www\./, "").replace(/\/.*$/, "");
+  return s.replace(/\/.*$/, "").replace(/\.+$/, "").replace(/^www\./, "");
+}
+
+/** For the link reader: the refusal message for a skipped host, checked on every redirect hop. */
+export function skipListFilter(host: string): string | null {
+  return isSkippedDomain(host) ? "That site is on the skip list, so its pages are not read. Paste the text instead." : null;
 }
 
 export function listSkipDomains(): SkipDomainRow[] {

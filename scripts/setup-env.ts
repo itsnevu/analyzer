@@ -97,6 +97,12 @@ if (!changes.length) {
   if (totpOff) console.log("Two-factor login was already off (no ADMIN_TOTP_SECRET).");
 } else {
   fs.writeFileSync(FILE, lines.join("\n").replace(/^\n+/, "") + "\n", { mode: 0o600 });
+  // The mode above only applies to a new file; an existing one (e.g. copied from the example) is tightened too.
+  try {
+    fs.chmodSync(FILE, 0o600);
+  } catch {
+    /* Windows: permissions are handled by the user's profile folder */
+  }
   console.log(`Updated ${FILE}:`);
   for (const c of changes) console.log(`  - ${c}`);
   console.log("Restart the server for the new values to take effect. Changing ADMIN_PASSWORD or AUTH_SECRET signs the admin out.");

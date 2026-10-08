@@ -3,6 +3,7 @@ import { adminArticleFilterFrom, getArticleStats, getArticleYears, getSourceCoun
 import { filterQuery } from "@/lib/admin-article-query";
 import { ArticlesTable } from "@/components/admin/ArticlesTable";
 import { AdminPageHeader, AdminTab } from "@/components/admin/AdminPage";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Articles" };
@@ -11,6 +12,7 @@ type Params = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export default async function AdminArticlesPage({ searchParams }: { searchParams: Promise<Params> }) {
+  await requireAdmin();
   const sp = await searchParams;
   const filter = adminArticleFilterFrom((k) => one(sp[k]) || undefined);
   const [result, sources, years, stats] = await Promise.all([listArticles(filter), getSourceCounts("all"), getArticleYears("all"), getArticleStats()]);

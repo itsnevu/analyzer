@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AttentionQueue } from "@/components/admin/AttentionQueue";
 import { ATTENTION_DAYS, attentionDays, attentionTab, listAttention, listDisagreements, listLowConfidence } from "@/lib/attention";
 import { clsx } from "@/lib/clsx";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Needs attention" };
@@ -10,6 +11,7 @@ type Params = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export default async function AttentionPage({ searchParams }: { searchParams: Promise<Params> }) {
+  await requireAdmin();
   const sp = await searchParams;
   const days = attentionDays(one(sp.days));
   const tab = attentionTab(one(sp.tab));

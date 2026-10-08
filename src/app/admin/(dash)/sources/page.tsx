@@ -1,6 +1,7 @@
 import { getCrawlQueue, listSourcesAdmin, sourceFilterFrom } from "@/lib/sources-admin";
 import { SourcesTable } from "@/components/admin/SourcesTable";
 import { AdminPageHeader } from "@/components/admin/AdminPage";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Sources" };
@@ -9,6 +10,7 @@ type Params = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export default async function SourcesPage({ searchParams }: { searchParams: Promise<Params> }) {
+  await requireAdmin();
   const sp = await searchParams;
   const f = sourceFilterFrom((k) => one(sp[k]) || undefined);
   const sources = listSourcesAdmin(f);

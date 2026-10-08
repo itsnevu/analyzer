@@ -1,4 +1,5 @@
 import { panelDb } from "./legacy-panel";
+import { csvCell } from "./csv";
 
 /**
  * Log of text submitted to the detector. Holds the legacy panel's search log
@@ -199,10 +200,7 @@ export function deleteSearch(id: number): boolean {
 /** The filtered log as CSV, oldest first. */
 export function* searchesCsv(f: SearchFilter): Generator<string> {
   const cols = ["id", "createdAt", "origin", "verdict", "query"];
-  const cell = (v: unknown) => {
-    const s = v === null || v === undefined ? "" : String(v);
-    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
+  const cell = csvCell;
   yield "\ufeff" + cols.join(",") + "\n";
   const { sql, args } = searchWhere(f);
   const rows = panelDb().prepare(`SELECT id, createdAt, origin, verdict, query FROM searches ${sql} ORDER BY createdAt, id`).iterate(...args) as Iterable<Record<string, unknown>>;

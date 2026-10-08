@@ -2,6 +2,7 @@ import { DATASET_LABELS, datasetFilterFrom, getDatasetSourceOptions, getDatasetY
 import { getDatasetOverview } from "@/lib/legacy-panel";
 import { DatasetTable } from "@/components/admin/DatasetTable";
 import { AdminPageHeader, AdminTab } from "@/components/admin/AdminPage";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Dataset" };
@@ -10,6 +11,7 @@ type Params = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export default async function DatasetPage({ searchParams }: { searchParams: Promise<Params> }) {
+  await requireAdmin();
   const sp = await searchParams;
   const f = datasetFilterFrom((k) => one(sp[k]) || undefined);
   const result = listDataset(f);

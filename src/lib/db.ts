@@ -29,6 +29,8 @@ export function getDb(): DatabaseSync {
     db.exec("PRAGMA journal_mode = WAL");
     db.exec("PRAGMA synchronous = NORMAL");
     db.exec("PRAGMA busy_timeout = 5000");
+    // Deleted or overwritten values (cleared IP addresses) are zeroed instead of lingering in free pages and backups.
+    db.exec("PRAGMA secure_delete = ON");
   }
   migrate(db);
 

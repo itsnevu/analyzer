@@ -1,4 +1,4 @@
-import { createHash, createHmac } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
@@ -82,10 +82,31 @@ export function lookupNetwork(ip: string | null): Network | null {
   return { asn: row.asn, org: row.org, country: row.country };
 }
 
-/** Keyed hash of an address (AUTH_SECRET), kept after the address itself is cleared. */
+// Outside production without a secret: a random key per process, never stored, so those hashes cannot be reversed.
+const processKey = randomBytes(32).toString("hex");
+
+/** The key for address hashes: IP_HASH_SECRET, else AUTH_SECRET. Refuses to hash with a guessable key in production. */
+function hashSecret(): string {
+  const secret = process.env.IP_HASH_SECRET || process.env.AUTH_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") throw new Error("IP_HASH_SECRET or AUTH_SECRET must be set to record addresses.");
+  return processKey;
+}
+
+/**
+ * Keyed hash of an address, so visits from one address can be counted together.
+ * The whole IPv4 space is small enough to try every address, so while the key
+ * exists the hash is as identifying as the address; purgeExpiredIps re-keys it
+ * with a key that is thrown away.
+ */
 export function ipHash(ip: string): string {
-  const key = createHash("sha256").update(`usage-ip:${process.env.AUTH_SECRET ?? "dev"}`).digest();
+  const key = createHash("sha256").update(`usage-ip:${hashSecret()}`).digest();
   return createHmac("sha256", key).update(ip).digest("hex").slice(0, 16);
+}
+
+/** True when hashes can be made with a lasting key (import scripts must not use a throwaway one). */
+export function hasHashSecret(): boolean {
+  return Boolean(process.env.IP_HASH_SECRET || process.env.AUTH_SECRET);
 }
 
 /** The research log's network columns for an address. */

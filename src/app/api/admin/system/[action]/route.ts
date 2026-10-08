@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdmin } from "@/lib/admin-articles";
 import { logAdmin } from "@/lib/admin-log";
 import { formatBytes, isSystemAction, optimizeDatabase, purgeIpsNow, rebuildSearchIndex, runBackup } from "@/lib/system";
+import { revokeAllSessions } from "@/lib/session-cutoff";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 const globalForSystem = globalThis as unknown as { __hoaxMaintenance?: Promise<unknown> | null };
 
 /**
- * Runs one maintenance action: backup | purge-ips | rebuild-index | optimize.
+ * Runs one maintenance action: backup | purge-ips | rebuild-index | optimize | revoke-sessions.
  * Each is logged in the activity log with its outcome. Admins only.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ action: string }> }) {
@@ -39,6 +40,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ action:
         const r = rebuildSearchIndex();
         logAdmin(req, "system.rebuild-index", `${r.rows} rows`, `${r.ms} ms`);
         return { ok: true, ...r, message: `Search index rebuilt for ${r.rows.toLocaleString("en-US")} articles in ${r.ms} ms.` };
+      }
+      case "revoke-sessions": {
+        // Logged first: the log entry is written while this request still counts as signed in.
+        logAdmin(req, "system.revoke-sessions", "all sessions");
+        revokeAllSessions();
+        return { ok: true, message: "Every session is signed out, including this one. Sign in again." };
       }
       case "optimize": {
         const r = optimizeDatabase();

@@ -4,7 +4,7 @@
   "private": true,
   "description": "Hoax Detection & Analyzer — Next.js redesign (dark neumorphism)",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 127.0.0.1",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

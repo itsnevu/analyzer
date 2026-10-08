@@ -2,6 +2,7 @@ import { SystemActionButton } from "@/components/admin/SystemPanel";
 import { clsx } from "@/lib/clsx";
 import { formatCount, formatDate } from "@/lib/sources";
 import { backupsInfo, configInfo, COUNTED_TABLES, databaseInfo, filesInfo, formatAge, formatBytes, formatDuration, runtimeInfo, VACUUM_MAX_WAL_BYTES } from "@/lib/system";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "System" };
@@ -61,7 +62,8 @@ function Chip({ tone, children }: { tone: "ok" | "warn" | "off"; children: React
 
 const Mono = ({ children }: { children: React.ReactNode }) => <span className="font-mono text-xs">{children}</span>;
 
-export default function SystemPage() {
+export default async function SystemPage() {
+  await requireAdmin();
   const rt = runtimeInfo();
   const db = databaseInfo();
   const backups = backupsInfo();
@@ -214,6 +216,21 @@ export default function SystemPage() {
                 label="Optimize database"
                 busyLabel="Optimizing…"
                 confirmText="Optimize the database now? Writes pause for a few seconds while the file is rewritten."
+              />
+            </li>
+            <li className="flex flex-col gap-2 border-t border-hairline pt-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="max-w-md">
+                <div className="font-medium">Sign out everywhere</div>
+                <p className="mt-0.5 text-xs text-ink-muted">
+                  Ends every admin session on every device, this one included. Use it after signing in on a shared computer or if a
+                  device was lost. Logging out normally only ends the session in that browser.
+                </p>
+              </div>
+              <SystemActionButton
+                action="revoke-sessions"
+                label="Sign out everywhere"
+                busyLabel="Signing out…"
+                confirmText="Sign out every admin session, including this one?"
               />
             </li>
           </ul>

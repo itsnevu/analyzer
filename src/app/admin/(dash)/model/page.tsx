@@ -2,6 +2,7 @@ import { ModelPanel } from "@/components/admin/ModelPanel";
 import { baselineInfo, modelStatus, retrainSchedule } from "@/lib/baseline";
 import { clsx } from "@/lib/clsx";
 import { getDb } from "@/lib/db";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Model" };
@@ -24,7 +25,8 @@ const ENGINES: { key: "external" | "baseline" | "heuristic"; name: string; what:
   },
 ];
 
-export default function ModelPage() {
+export default async function ModelPage() {
+  await requireAdmin();
   const status = modelStatus();
   const info = baselineInfo();
   const schedule = retrainSchedule(getDb());

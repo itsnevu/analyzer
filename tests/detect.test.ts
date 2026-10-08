@@ -52,9 +52,9 @@ describe("runDetection", () => {
   });
 
   it.each([
-    ["an HTTP error", async () => new Response("boom", { status: 500 }), /HTTP 500/],
-    ["an answer out of contract", async () => Response.json({ verdict: "unsure" }), /expected format/],
-    ["a network failure", async () => { throw new TypeError("fetch failed"); }, /fetch failed/],
+    ["an HTTP error", async () => new Response("boom", { status: 500 }), /could not be used/],
+    ["an answer out of contract", async () => Response.json({ verdict: "unsure" }), /could not be used/],
+    ["a network failure", async () => { throw new TypeError("fetch failed"); }, /could not be used/],
   ])("falls back to demo mode on %s", async (_name, impl, reason) => {
     vi.stubEnv("MODEL_API_URL", "http://model.test/detect");
     vi.stubGlobal("fetch", vi.fn(impl));

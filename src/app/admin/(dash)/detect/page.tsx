@@ -1,5 +1,6 @@
 import { DetectLab } from "@/components/admin/DetectLab";
 import { countStopwords } from "@/lib/settings";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Detection lab" };
@@ -9,6 +10,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 
 /** `?text=` prefills the box (the "needs attention" queue and the reports inbox link here); nothing runs until Process is pressed. */
 export default async function DetectLabPage({ searchParams }: { searchParams: Promise<Params> }) {
+  await requireAdmin();
   const initialText = one((await searchParams).text).slice(0, 20_000);
   const stopwords = countStopwords();
   const modelConfigured = Boolean(process.env.MODEL_API_URL);

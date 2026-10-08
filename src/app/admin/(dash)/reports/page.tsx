@@ -3,6 +3,7 @@ import { getReportCounts, listReports, REPORT_STATUSES, REPORT_TYPES, type Repor
 import { ReportsList } from "@/components/admin/ReportsList";
 import { formatCount } from "@/lib/sources";
 import { clsx } from "@/lib/clsx";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Reports" };
@@ -17,6 +18,7 @@ const KINDS: { key: "" | ReportKind; label: string }[] = [
 ];
 
 export default async function AdminReportsPage({ searchParams }: { searchParams: Promise<Params> }) {
+  await requireAdmin();
   const sp = await searchParams;
   const kind = one(sp.kind) === "report" || one(sp.kind) === "contact" ? (one(sp.kind) as ReportKind) : undefined;
   const type = one(sp.type) in REPORT_TYPES ? (one(sp.type) as ReportType) : undefined;

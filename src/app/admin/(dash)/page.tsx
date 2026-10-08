@@ -14,6 +14,7 @@ import { SourceBars } from "@/components/admin/charts/SourceBars";
 import { StackedColumns } from "@/components/admin/charts/StackedColumns";
 import { AdminPageHeader, StatTile } from "@/components/admin/AdminPage";
 import { DashboardWeek } from "@/components/admin/DashboardWeek";
+import { requireAdmin } from "@/lib/require-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,7 @@ function Card({ title, subtitle, className = "", children }: { title: string; su
 }
 
 export default async function AdminDashboard() {
+  await requireAdmin();
   const [stats, recent, reports] = await Promise.all([getArticleStats(), listArticles({ visibility: "all", pageSize: 6 }), getAllReports()]);
   const unread = reports.filter((r) => !r.readAt).length;
   const tiles: { label: string; value: number; href: string; tone?: "valid" | "warn" | "hoax" | "brand"; note?: string }[] = [

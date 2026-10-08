@@ -205,7 +205,7 @@ export async function popularArticles(days = 30, limit = 5): Promise<PopularResu
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
   const rows = getDb()
     .prepare(
-      `SELECT a.slug, a.title, a.lang, a.category, a.verdict, a.date, a.summaryId, a.summaryEn, a.image, a.sourceSite, COUNT(*) AS visits
+      `SELECT a.slug, a.title, a.lang, a.category, a.verdict, a.date, a.summaryId, a.summaryEn, a.image, a.sourceSite, COUNT(DISTINCT COALESCE(NULLIF(u.visitor, ''), NULLIF(u.ipHash, ''), u.id)) AS visits
        FROM usage_log u JOIN articles a ON a.slug = substr(u.path, 7)
        WHERE u.kind = 'visit' AND u.staff = 0 AND u.path LIKE '/blog/%' AND u.at >= ? AND a.published = 1
        GROUP BY a.id ORDER BY visits DESC, a.date DESC, a.id DESC LIMIT ?`,

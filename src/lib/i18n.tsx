@@ -44,7 +44,7 @@ export function useI18n() {
   return useContext(Ctx);
 }
 
-/** Inline translated text: <T k="hero.badge" /> */
+/** Inline translated text: <T k="hero.subtitle" /> */
 export function T({ k }: { k: string }) {
   const { t } = useI18n();
   return <>{t(k)}</>;

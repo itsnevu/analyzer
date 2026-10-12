@@ -9,7 +9,6 @@
 export const DICT: Record<string, string> = {
   "nav.cta": "Check a Hoax",
   "common.viewAll": "View all",
-  "hero.badge": "Hoax detection research",
   "hero.title.a": "Give me a",
   "hero.title.hoax": "hoax",
   "hero.title.b": "and I'll give you the analysis.",

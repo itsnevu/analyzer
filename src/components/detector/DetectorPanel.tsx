@@ -323,7 +323,8 @@ export function DetectorPanel() {
             <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-surface-raised text-brand" aria-hidden>
               <ImageIcon />
             </span>
-            <span className="min-w-0 flex-1 text-xs leading-snug">
+            {/* A minimum basis keeps the copy readable: on a narrow phone the button wraps under it instead of squeezing it */}
+            <span className="min-w-0 flex-1 basis-48 text-xs leading-snug">
               <span className="block font-medium text-ink">{t("det.drop.title")}</span>
               <span className="block text-ink-faint">{t("det.drop.body")}</span>
             </span>

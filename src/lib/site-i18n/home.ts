@@ -2,7 +2,6 @@
 // The home page.
 export const home: Record<string, string> = {
   /* ---- Dictionary keys ---- */
-  "hero.badge": "Riset deteksi hoaks",
   "hero.title.a": "Kirim saja",
   "hero.title.hoax": "hoaksnya",
   "hero.title.b": "saya beri analisisnya.",

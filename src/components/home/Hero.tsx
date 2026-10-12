@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Pill } from "@/components/ui/Neu";
+import { HeroBackdrop } from "@/components/home/HeroBackdrop";
 import { ArchiveIcon, ArrowRightIcon, ShieldIcon, TextIcon } from "@/components/ui/Icons";
 import { useI18n } from "@/lib/i18n";
 import { PENDING_TEXT_KEY } from "@/lib/pending";
@@ -45,37 +45,15 @@ export function Hero({ counts }: { counts?: HeroCounts }) {
 
   return (
     <section className="relative -mt-[84px] overflow-hidden">
-      {/* Generated looping background video (Higgsfield · Seedance) */}
-      <video
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.6] motion-reduce:hidden [mask-image:radial-gradient(130%_100%_at_50%_0%,black,transparent_80%)]"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        poster="/hero-poster.jpg?v=2"
-      >
-        <source src="/hero.mp4?v=2" type="video/mp4" />
-      </video>
-      {/* Dark overlay so hero text stays legible on top of the video */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-surface/25 via-surface/60 to-surface" />
+      {/* Drifting clouds plus their veil; follows the theme switch, ignores the cursor */}
+      <HeroBackdrop />
 
       <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-40" />
       <div className="pointer-events-none absolute -top-40 left-1/2 h-80 w-[42rem] -translate-x-1/2 rounded-full bg-brand-gradient opacity-20 blur-[120px]" />
 
       <div className="container-page relative pb-10 pt-28 sm:pb-14 sm:pt-36">
         <div className="mx-auto max-w-3xl text-center">
-          <div className="flex justify-center animate-fade-up motion-reduce:animate-none">
-            <Pill>
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-brand-from motion-reduce:animate-none" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-from" />
-              </span>
-              {t("hero.badge")}
-            </Pill>
-          </div>
-
-          <h1 className="mt-5 font-display text-4xl font-bold leading-[1.04] tracking-tight text-balance animate-fade-up motion-reduce:animate-none sm:text-6xl">
+          <h1 className="font-display text-4xl font-bold leading-[1.04] tracking-tight text-balance animate-fade-up motion-reduce:animate-none sm:text-6xl">
             {t("hero.title.a")} <span className="gradient-text">{t("hero.title.hoax")}</span>,
             <br className="hidden sm:block" /> {t("hero.title.b")}
           </h1>
@@ -109,7 +87,8 @@ export function Hero({ counts }: { counts?: HeroCounts }) {
               <span className={clsx("min-w-0 px-2 text-xs", text && !ready ? "text-verdict-warn" : "text-ink-faint")}>
                 {text && !ready ? t("{n} more characters to go", { n: 15 - text.trim().length }) : t("hero.box.hint")}
               </span>
-              <div className="flex shrink-0 gap-2">
+              {/* Side by side when both fit, stacked on narrow phones */}
+              <div className="flex flex-wrap gap-2 sm:shrink-0 sm:flex-nowrap">
                 <Link href="/#how" className="neu-btn flex-1 whitespace-nowrap px-5 py-2.5 text-center text-sm font-medium sm:flex-none">
                   {t("hero.cta.secondary")}
                 </Link>

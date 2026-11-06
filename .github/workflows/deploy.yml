@@ -1,0 +1,70 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+env:
+  APP_ROOT: /home/syyd9151/syyhoax-app
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+        env:
+          NEXT_OUTPUT: standalone
+
+      - name: Prepare deploy bundle
+        run: |
+          mkdir -p deploy/.next/static
+          # standalone server
+          cp -r .next/standalone/. deploy/
+          # static assets (standalone doesn't include them)
+          cp -r .next/static/. deploy/.next/static/
+          # public folder
+          cp -r public/. deploy/public/
+          # Passenger entry point
+          cp server.js deploy/server.js
+          # package.json so Passenger sees the app
+          cp package.json deploy/package.json
+
+      - name: Upload via rsync
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avz --delete --exclude='.htaccess' --exclude='.well-known' --exclude='data/' --exclude='.env' --exclude='tmp/' --exclude='nodevenv/' --exclude='node_modules/'
+          path: deploy/
+          remote_path: ${{ env.APP_ROOT }}/
+          remote_host: ${{ secrets.SSH_HOST }}
+          remote_port: ${{ secrets.SSH_PORT }}
+          remote_user: ${{ secrets.SSH_USER }}
+          remote_key: ${{ secrets.SSH_KEY }}
+
+      - name: Rebuild sharp on server and restart Passenger
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          port: ${{ secrets.SSH_PORT }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd ${{ env.APP_ROOT }}
+            # Use the Node env Passenger created (CloudLinux puts it here)
+            source nodevenv/bin/activate 2>/dev/null || true
+            npm rebuild sharp 2>/dev/null || true
+            mkdir -p tmp
+            touch tmp/restart.txt

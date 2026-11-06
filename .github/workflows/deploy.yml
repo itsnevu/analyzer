@@ -52,7 +52,7 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           scp -P ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy.tar.gz
 
-      - name: Extract, install deps and restart Passenger
+      - name: Extract and restart Passenger
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -64,7 +64,5 @@ jobs:
             cd ${{ env.APP_ROOT }}
             tar -xzf ~/deploy.tar.gz --overwrite --exclude='.env' --exclude='data/*' --exclude='tmp/*'
             rm -f ~/deploy.tar.gz
-            source /home/syyd9151/nodevenv/syyhoax-app/22/bin/activate
-            npm install --omit=dev --no-audit --no-fund --maxsockets=1
             mkdir -p tmp
             touch tmp/restart.txt

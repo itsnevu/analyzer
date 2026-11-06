@@ -19,9 +19,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       <head>
         {/* No stylesheet is loaded here, so the two colour schemes are declared inline. */}
         <style>{`
-          :root { --bg: #faf9f6; --ink: #191817; --muted: #57534e; --btn: #191817; --btn-ink: #ffffff; color-scheme: light dark; }
-          @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #171716; --ink: #f3f1ea; --muted: #b4afa6; --btn: #f3f1ea; --btn-ink: #171716; } }
-          :root[data-theme="dark"] { --bg: #171716; --ink: #f3f1ea; --muted: #b4afa6; --btn: #f3f1ea; --btn-ink: #171716; }
+          :root { --bg: #0e0e10; --ink: #ebe9e4; --muted: #a8a49c; --btn: #ebe9e4; --btn-ink: #0e0e10; color-scheme: dark; }
           body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--ink); font-family: system-ui, sans-serif; text-align: center; padding: 24px; }
           p { color: var(--muted); line-height: 1.6; }
           button { margin-top: 16px; padding: 12px 24px; border-radius: 999px; border: 0; background: var(--btn); color: var(--btn-ink); font-size: 14px; cursor: pointer; }

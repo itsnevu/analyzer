@@ -44,8 +44,7 @@ export function Hero({ counts }: { counts?: HeroCounts }) {
   ].filter((x): x is { Icon: typeof ArchiveIcon; value: string; label: string } => Boolean(x));
 
   return (
-    <section className="relative -mt-[84px] overflow-hidden">
-      {/* Drifting clouds plus their veil; follows the theme switch, ignores the cursor */}
+    <section className="hero-dark relative -mt-[84px] overflow-hidden bg-[#050505]">
       <HeroBackdrop />
 
       <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-40" />

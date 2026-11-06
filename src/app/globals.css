@@ -3,35 +3,34 @@
 @tailwind utilities;
 
 /* ============================================================
-   Editorial design tokens
+   Editorial design tokens — dark-only
    Every colour is an RGB triplet (so Tailwind can add an alpha,
    e.g. bg-verdict-hoax/10) plus the composed colour for inline
-   styles. The light set is the default; the dark set applies
-   when the system asks for it and nothing is stored, or when the
-   visitor chose it (data-theme on <html>, see ThemeToggle).
+   styles. The entire site uses a dark palette.
    ============================================================ */
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  --surface-rgb: 250 249 246;
-  --surface-raised-rgb: 255 255 255;
-  --surface-sunken-rgb: 242 241 236;
-  --ink-rgb: 25 24 23;
-  --ink-muted-rgb: 87 83 78;
-  --ink-faint-rgb: 143 139 132;
-  --brand-rgb: 15 118 110;
-  --brand-from-rgb: 15 118 110;
-  --brand-to-rgb: 17 94 89;
-  --valid-rgb: 21 128 61;
-  --warn-rgb: 180 83 9;
-  --hoax-rgb: 185 28 28;
+  --surface-rgb: 14 14 16;
+  --page-surface-rgb: 14 14 16;
+  --surface-raised-rgb: 28 28 32;
+  --surface-sunken-rgb: 8 8 10;
+  --ink-rgb: 235 233 228;
+  --ink-muted-rgb: 168 164 156;
+  --ink-faint-rgb: 122 118 111;
+  --brand-rgb: 47 191 176;
+  --brand-from-rgb: 47 191 176;
+  --brand-to-rgb: 94 234 212;
+  --valid-rgb: 74 222 128;
+  --warn-rgb: 251 191 36;
+  --hoax-rgb: 248 113 113;
 
   --surface: rgb(var(--surface-rgb));
   --surface-raised: rgb(var(--surface-raised-rgb));
   --surface-sunken: rgb(var(--surface-sunken-rgb));
 
-  --shadow-dark: #e6e4de;
-  --shadow-light: #ffffff;
+  --shadow-dark: #0a0a0c;
+  --shadow-light: #1e1e22;
 
   --ink: rgb(var(--ink-rgb));
   --ink-muted: rgb(var(--ink-muted-rgb));
@@ -44,102 +43,33 @@
   --valid: rgb(var(--valid-rgb));
   --warn: rgb(var(--warn-rgb));
   --hoax: rgb(var(--hoax-rgb));
-  /* Glyph on a solid verdict-coloured disc (VerdictBadge). */
-  --verdict-ink: #0f1115;
+  --verdict-ink: #ebe9e4;
 
-  --hairline: rgba(25, 24, 23, 0.12);
+  --hairline: rgba(235, 233, 228, 0.12);
 
-  /* Depth: card shadows, the floating navbar, the dotted hero grid. */
-  --shadow-1: rgba(25, 24, 23, 0.05);
-  --shadow-2: rgba(25, 24, 23, 0.04);
-  --shadow-3: rgba(25, 24, 23, 0.09);
-  --nav-shadow: rgba(25, 24, 23, 0.38);
-  --dot: rgba(15, 23, 42, 0.06);
+  --shadow-1: rgba(0, 0, 0, 0.35);
+  --shadow-2: rgba(0, 0, 0, 0.3);
+  --shadow-3: rgba(0, 0, 0, 0.55);
+  --nav-shadow: rgba(0, 0, 0, 0.6);
+  --dot: rgba(255, 255, 255, 0.06);
 
-  --scrollbar-thumb: #c2c9d6;
-  --scrollbar-thumb-hover: #aeb6c6;
+  --scrollbar-thumb: #3a3a42;
+  --scrollbar-thumb-hover: #4a4a54;
 
-  /* The forwarded-message bubble on the home page, in chat-app colours. */
-  --bubble: #e7ffdb;
-  --bubble-ink: #111b21;
-  /* "Unlabeled" bars in the admin charts. */
-  --chart-neutral: #cfcbc3;
+  --bubble: #1a3a2a;
+  --bubble-ink: #e8eaf0;
+  --chart-neutral: #3a3a42;
 
   --font-body: var(--font-geist-sans), system-ui, sans-serif;
   --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
 }
 
-/* Dark: charcoal surfaces, warm light ink, verdict colours a step brighter so they keep their contrast. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-
-    --surface-rgb: 23 23 22;
-    --surface-raised-rgb: 33 33 32;
-    --surface-sunken-rgb: 15 15 14;
-    --ink-rgb: 235 233 228;
-    --ink-muted-rgb: 168 164 156;
-    --ink-faint-rgb: 122 118 111;
-    --brand-rgb: 47 191 176;
-    --brand-from-rgb: 47 191 176;
-    --brand-to-rgb: 94 234 212;
-    --valid-rgb: 74 222 128;
-    --warn-rgb: 251 191 36;
-    --hoax-rgb: 248 113 113;
-
-    --shadow-dark: #2e2e2c;
-    --shadow-light: #262624;
-    --verdict-ink: #0f1115;
-    --hairline: rgba(235, 233, 228, 0.14);
-
-    --shadow-1: rgba(0, 0, 0, 0.35);
-    --shadow-2: rgba(0, 0, 0, 0.3);
-    --shadow-3: rgba(0, 0, 0, 0.55);
-    --nav-shadow: rgba(0, 0, 0, 0.7);
-    --dot: rgba(255, 255, 255, 0.07);
-
-    --scrollbar-thumb: #3a3a38;
-    --scrollbar-thumb-hover: #4a4a47;
-
-    --bubble: #005c4b;
-    --bubble-ink: #e9edef;
-    --chart-neutral: #4a4844;
-  }
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-
-  --surface-rgb: 23 23 22;
-  --surface-raised-rgb: 33 33 32;
-  --surface-sunken-rgb: 15 15 14;
-  --ink-rgb: 235 233 228;
-  --ink-muted-rgb: 168 164 156;
-  --ink-faint-rgb: 122 118 111;
-  --brand-rgb: 47 191 176;
-  --brand-from-rgb: 47 191 176;
-  --brand-to-rgb: 94 234 212;
-  --valid-rgb: 74 222 128;
-  --warn-rgb: 251 191 36;
-  --hoax-rgb: 248 113 113;
-
-  --shadow-dark: #2e2e2c;
-  --shadow-light: #262624;
-  --verdict-ink: #0f1115;
-  --hairline: rgba(235, 233, 228, 0.14);
-
-  --shadow-1: rgba(0, 0, 0, 0.35);
-  --shadow-2: rgba(0, 0, 0, 0.3);
-  --shadow-3: rgba(0, 0, 0, 0.55);
-  --nav-shadow: rgba(0, 0, 0, 0.7);
-  --dot: rgba(255, 255, 255, 0.07);
-
-  --scrollbar-thumb: #3a3a38;
-  --scrollbar-thumb-hover: #4a4a47;
-
-  --bubble: #005c4b;
-  --bubble-ink: #e9edef;
-  --chart-neutral: #4a4844;
+/* The hero section uses an even darker surface for the starfield backdrop.
+   --page-surface-rgb stays at the site default so the veil fades into the page. */
+.hero-dark {
+  --surface-rgb: 5 5 5;
+  --surface-raised-rgb: 22 22 24;
+  --surface-sunken-rgb: 2 2 3;
 }
 
 * {
@@ -247,16 +177,6 @@ body {
   --sidebar-line: rgba(255, 255, 255, 0.08);
   --sidebar-hover: rgba(255, 255, 255, 0.07);
   --sidebar-active: rgba(255, 255, 255, 0.12);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --sidebar-bg: #0f0f0e;
-    --sidebar-line: rgba(255, 255, 255, 0.1);
-  }
-}
-:root[data-theme="dark"] {
-  --sidebar-bg: #0f0f0e;
-  --sidebar-line: rgba(255, 255, 255, 0.1);
 }
 
 /* ============================================================

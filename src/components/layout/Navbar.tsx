@@ -7,7 +7,7 @@ import { NAV } from "@/lib/dictionary";
 import { useI18n } from "@/lib/i18n";
 import { LangSwitch } from "@/components/ui/LangSwitch";
 import { Logo } from "@/components/ui/Logo";
-import { ThemeToggle } from "@/components/ui/ThemeToggle";
+
 import { clsx } from "@/lib/clsx";
 import { SearchAutocomplete as SearchForm, SearchIcon } from "./SearchAutocomplete";
 
@@ -59,7 +59,6 @@ export function Navbar() {
               <SearchIcon className="h-4 w-4" />
             </Link>
             <LangSwitch className="hidden lg:flex" />
-            <ThemeToggle className="hidden lg:grid" />
             <button
               aria-label={t("Toggle menu")}
               aria-expanded={open}
@@ -99,10 +98,6 @@ export function Navbar() {
             <div className="mt-1 flex items-center justify-between border-t border-hairline px-4 pt-3 text-sm font-medium text-ink-muted">
               <span>{t("Language")}</span>
               <LangSwitch />
-            </div>
-            <div className="flex items-center justify-between px-4 pt-2 pb-1 text-sm font-medium text-ink-muted">
-              <span>{t("Appearance")}</span>
-              <ThemeToggle />
             </div>
           </div>
         )}

@@ -37,12 +37,6 @@ const jsonLd = (description: string) => ({
   offers: { "@type": "Offer", price: "0", priceCurrency: "IDR" },
 });
 
-/**
- * Applies the stored theme before the first paint, so a dark-mode visitor never
- * sees a light flash. Runs in <head>, synchronously, before any content is painted;
- * ThemeToggle keeps the attribute current afterwards.
- */
-const themeScript = `(function(){try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t)}catch(e){}})()`;
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t, lang } = await getSiteT();
@@ -77,11 +71,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export const viewport: Viewport = {
-  // Must match --surface in globals.css and BAR_COLOR in ThemeToggle.
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#faf9f6" },
-    { media: "(prefers-color-scheme: dark)", color: "#171716" },
-  ],
+  themeColor: "#0e0e10",
 };
 
 export default async function RootLayout({
@@ -92,11 +82,8 @@ export default async function RootLayout({
   // English unless the visitor picked ID in the header switch.
   const { t, lang } = await getSiteT();
   return (
-    // suppressHydrationWarning: the inline script sets data-theme before React hydrates.
-    <html lang={lang} className={`${GeistSans.variable} ${fraunces.variable} ${jetbrains.variable}`} suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
+    <html lang={lang} className={`${GeistSans.variable} ${fraunces.variable} ${jetbrains.variable}`}>
+      <head />
       <body>
         <script
           type="application/ld+json"

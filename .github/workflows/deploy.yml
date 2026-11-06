@@ -32,16 +32,12 @@ jobs:
       - name: Prepare deploy bundle
         run: |
           mkdir -p deploy/.next/static
-          # standalone server
           cp -r .next/standalone/. deploy/
-          # static assets (standalone doesn't include them)
           cp -r .next/static/. deploy/.next/static/
-          # public folder
           cp -r public/. deploy/public/
-          # Passenger entry point
           cp server.js deploy/server.js
-          # package.json so Passenger sees the app
           cp package.json deploy/package.json
+          cp package-lock.json deploy/package-lock.json
 
       - name: Upload via rsync
         uses: burnett01/rsync-deployments@7.0.1
@@ -54,7 +50,7 @@ jobs:
           remote_user: ${{ secrets.SSH_USER }}
           remote_key: ${{ secrets.SSH_KEY }}
 
-      - name: Rebuild sharp on server and restart Passenger
+      - name: Install production deps and restart Passenger
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -62,9 +58,8 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
+            source /home/syyd9151/nodevenv/syyhoax-app/22/bin/activate
             cd ${{ env.APP_ROOT }}
-            # Use the Node env Passenger created (CloudLinux puts it here)
-            source nodevenv/bin/activate 2>/dev/null || true
-            npm rebuild sharp 2>/dev/null || true
+            npm ci --omit=dev
             mkdir -p tmp
             touch tmp/restart.txt

@@ -21,9 +21,9 @@
   --brand-rgb: 47 191 176;
   --brand-from-rgb: 47 191 176;
   --brand-to-rgb: 94 234 212;
-  --valid-rgb: 74 222 128;
-  --warn-rgb: 251 191 36;
-  --hoax-rgb: 248 113 113;
+  --valid-rgb: 69 182 173;
+  --warn-rgb: 228 161 73;
+  --hoax-rgb: 206 75 119;
 
   --surface: rgb(var(--surface-rgb));
   --surface-raised: rgb(var(--surface-raised-rgb));

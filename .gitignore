@@ -32,3 +32,6 @@ yarn-error.log*
 
 # in-browser OCR files, copied/downloaded by `npm run prepare:ocr`
 /public/ocr/
+
+# Local web research cache
+/.firecrawl/

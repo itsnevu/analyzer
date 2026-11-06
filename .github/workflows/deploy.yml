@@ -65,6 +65,6 @@ jobs:
             tar -xzf ~/deploy.tar.gz --overwrite --exclude='.env' --exclude='data/*' --exclude='tmp/*'
             rm -f ~/deploy.tar.gz
             source /home/syyd9151/nodevenv/syyhoax-app/22/bin/activate
-            npm ci --omit=dev
+            npm install --omit=dev --no-audit --no-fund --maxsockets=1
             mkdir -p tmp
             touch tmp/restart.txt

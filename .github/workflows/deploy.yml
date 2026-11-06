@@ -60,7 +60,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            set -eu
+            set -e
             cd ${{ env.APP_ROOT }}
             tar -xzf ~/deploy.tar.gz --overwrite --exclude='.env' --exclude='data/*' --exclude='tmp/*'
             rm -f ~/deploy.tar.gz

@@ -33,8 +33,11 @@ jobs:
         run: |
           mkdir -p deploy/.next/static
           cp -r .next/standalone/. deploy/
+          # Rename Next's own server.js so our Passenger entry point doesn't clash
+          mv deploy/server.js deploy/next-server.js
           cp -r .next/static/. deploy/.next/static/
           cp -r public/. deploy/public/
+          # Passenger entry point
           cp server.js deploy/server.js
           cp package.json deploy/package.json
           cp package-lock.json deploy/package-lock.json

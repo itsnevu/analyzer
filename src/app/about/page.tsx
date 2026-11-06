@@ -54,7 +54,7 @@ export default async function AboutPage() {
 
   return (
     <>
-      <PageHeader eyebrowKey="about.eyebrow" titleKey="about.title.a" highlightKey="about.title.b" introKey="about.intro" image="/pages/about.jpg?v=2" />
+      <PageHeader eyebrowKey="about.eyebrow" titleKey="about.title.a" highlightKey="about.title.b" introKey="about.intro" image="/pages/network-transparent.webp" imageTransparent />
       <section className="container-page pb-8">
         <div className="mx-auto max-w-4xl space-y-6">
           <div className="grid gap-4 sm:grid-cols-3">

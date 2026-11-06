@@ -9,12 +9,14 @@ export function PageHeader({
   highlightKey,
   introKey,
   image,
+  imageTransparent = false,
 }: {
   eyebrowKey: string;
   titleKey: string;
   highlightKey?: string;
   introKey?: string;
   image?: string;
+  imageTransparent?: boolean;
 }) {
   const { t } = useI18n();
   return (
@@ -37,9 +39,9 @@ export function PageHeader({
           </div>
           {/* Decorative only; hidden on phones so the page's content starts above the fold. */}
           {image && (
-            <div className="neu relative hidden aspect-[16/10] overflow-hidden p-0 md:block">
+            <div className={`${imageTransparent ? "" : "neu "}relative hidden aspect-[16/10] overflow-hidden p-0 md:block`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={image} alt="" className={`absolute inset-0 h-full w-full ${imageTransparent ? "object-contain" : "object-cover"}`} />
             </div>
           )}
         </div>

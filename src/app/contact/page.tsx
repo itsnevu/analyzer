@@ -18,9 +18,9 @@ export default async function ContactPage() {
       <section className="container-page pb-8">
         <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-[1fr_1.4fr]">
           <div className="space-y-4">
-            <div className="neu hidden overflow-hidden p-0 md:block">
+            <div className="hidden md:block">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/pages/connect.jpg?v=2" alt="" className="aspect-[16/10] w-full object-cover" />
+              <img src="/pages/chat-envelope-transparent.webp" alt="" width={1536} height={1024} className="aspect-[16/10] w-full object-contain" />
             </div>
             <div className="neu p-6">
               <div className="eyebrow">{t("contact.emailLabel")}</div>

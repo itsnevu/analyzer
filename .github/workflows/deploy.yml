@@ -39,18 +39,17 @@ jobs:
           cp package.json deploy/package.json
           cp package-lock.json deploy/package-lock.json
 
-      - name: Upload via rsync
-        uses: burnett01/rsync-deployments@7.0.1
-        with:
-          switches: -avz --delete --exclude='.htaccess' --exclude='.well-known' --exclude='data/' --exclude='.env' --exclude='tmp/' --exclude='nodevenv/' --exclude='node_modules/'
-          path: deploy/
-          remote_path: ${{ env.APP_ROOT }}/
-          remote_host: ${{ secrets.SSH_HOST }}
-          remote_port: ${{ secrets.SSH_PORT }}
-          remote_user: ${{ secrets.SSH_USER }}
-          remote_key: ${{ secrets.SSH_KEY }}
+      - name: Create tarball
+        run: tar -czf deploy.tar.gz -C deploy .
 
-      - name: Install production deps and restart Passenger
+      - name: Upload via scp
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          scp -P ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy.tar.gz
+
+      - name: Extract, install deps and restart Passenger
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -58,8 +57,10 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            source /home/syyd9151/nodevenv/syyhoax-app/22/bin/activate
             cd ${{ env.APP_ROOT }}
+            tar -xzf ~/deploy.tar.gz --overwrite --exclude='.env' --exclude='data/*' --exclude='tmp/*'
+            rm -f ~/deploy.tar.gz
+            source /home/syyd9151/nodevenv/syyhoax-app/22/bin/activate
             npm ci --omit=dev
             mkdir -p tmp
             touch tmp/restart.txt

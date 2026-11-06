@@ -44,13 +44,13 @@ export function Hero({ counts }: { counts?: HeroCounts }) {
   ].filter((x): x is { Icon: typeof ArchiveIcon; value: string; label: string } => Boolean(x));
 
   return (
-    <section className="hero-dark relative -mt-[84px] overflow-hidden bg-[#050505]">
+    <section className="hero-dark relative -mt-[84px] flex min-h-[100svh] items-center overflow-hidden bg-[#050505]">
       <HeroBackdrop />
 
       <div className="pointer-events-none absolute inset-0 bg-dot-grid opacity-40" />
       <div className="pointer-events-none absolute -top-40 left-1/2 h-80 w-[42rem] -translate-x-1/2 rounded-full bg-brand-gradient opacity-20 blur-[120px]" />
 
-      <div className="container-page relative pb-10 pt-28 sm:pb-14 sm:pt-36">
+      <div className="container-page relative pb-16 pt-28 sm:pb-20 sm:pt-32">
         <div className="mx-auto max-w-3xl text-center">
           <h1 className="font-display text-4xl font-bold leading-[1.04] tracking-tight text-balance animate-fade-up motion-reduce:animate-none sm:text-6xl">
             {t("hero.title.a")} <span className="gradient-text">{t("hero.title.hoax")}</span>,

@@ -102,7 +102,7 @@ function buildStars() {
   for (let i = 0; i < 2600; i++) {
     const theta = Math.acos(2 * Math.random() - 1);
     const phi = Math.random() * Math.PI * 2;
-    let x = Math.sin(theta) * Math.cos(phi);
+    const x = Math.sin(theta) * Math.cos(phi);
     let y = Math.sin(theta) * Math.sin(phi);
     const z = Math.cos(theta);
     y = Math.abs(y) * 0.9 + 0.02 - (Math.random() < 0.3 ? Math.random() * 0.5 : 0);

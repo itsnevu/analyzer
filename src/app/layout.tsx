@@ -1,13 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { GeistSans } from "geist/font/sans";
-import { Fraunces, JetBrains_Mono } from "next/font/google";
+import { Hedvig_Letters_Serif, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const fraunces = Fraunces({
+const hedvig = Hedvig_Letters_Serif({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
-  variable: "--font-fraunces",
+  weight: "400",
+  variable: "--font-hedvig",
+  display: "swap",
+});
+
+const instrument = Instrument_Sans({
+  subsets: ["latin"],
+  variable: "--font-instrument",
   display: "swap",
 });
 
@@ -82,7 +86,7 @@ export default async function RootLayout({
   // English unless the visitor picked ID in the header switch.
   const { t, lang } = await getSiteT();
   return (
-    <html lang={lang} className={`${GeistSans.variable} ${fraunces.variable} ${jetbrains.variable}`}>
+    <html lang={lang} className={`${instrument.variable} ${hedvig.variable} ${jetbrains.variable}`}>
       <head />
       <body>
         <script

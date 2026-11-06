@@ -60,8 +60,8 @@
   --bubble-ink: #e8eaf0;
   --chart-neutral: #3a3a42;
 
-  --font-body: var(--font-geist-sans), system-ui, sans-serif;
-  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+  --font-body: var(--font-instrument), system-ui, sans-serif;
+  --font-display: var(--font-hedvig), Georgia, "Times New Roman", serif;
 }
 
 /* The hero section uses an even darker surface for the starfield backdrop.
@@ -91,6 +91,12 @@ body {
 ::selection {
   background: color-mix(in srgb, var(--brand-from) 45%, transparent);
   color: var(--ink);
+}
+
+@layer base {
+  h1, h2, h3 {
+    font-family: var(--font-display);
+  }
 }
 
 /* Custom scrollbar */
@@ -139,6 +145,7 @@ body {
   .eyebrow {
     @apply inline-flex items-center text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted;
     font-family: var(--font-mono), ui-monospace, monospace;
+    display: none;
   }
 
   .gradient-text {
@@ -151,7 +158,7 @@ body {
   }
 
   .container-page {
-    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+    @apply mx-auto w-full px-4 sm:px-6 lg:w-[92%];
   }
 }
 

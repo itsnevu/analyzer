@@ -72,7 +72,7 @@ export function VerdictGauge({
         />
       </svg>
       <div className="absolute inset-x-0 bottom-0 text-center leading-none">
-        <div className={clsx("font-display font-bold tabular-nums tracking-tight", figure)} style={{ color }}>
+        <div className={clsx("font-display font-bold tabular-nums tracking-tight", figure)} style={{ color: "var(--brand)" }}>
           {pct}
           <span className="text-[0.55em]">%</span>
         </div>

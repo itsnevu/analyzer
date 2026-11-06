@@ -75,6 +75,11 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
             <h2 id="result-verdict" className="mt-1 break-words font-display text-4xl font-bold leading-none tracking-tight sm:text-5xl lg:text-6xl" style={{ color: m.color }}>
               {verdictLabel}
             </h2>
+            <div className="mt-3 flex justify-center gap-1.5 sm:justify-start" aria-hidden>
+              {["#45b6ad", "#ce4b77", "#e4a149", "#8b8b3c"].map((c) => (
+                <span key={c} className="h-1.5 w-8 rounded-full" style={{ backgroundColor: c }} />
+              ))}
+            </div>
             {category && <p className="mt-2 text-sm text-ink-muted">{category}</p>}
             <dl className="mt-5 flex flex-wrap justify-center gap-2 sm:justify-start">
               <Stat label={t("res.confidence")} value={`${confidence}%`} />

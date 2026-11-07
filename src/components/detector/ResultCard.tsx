@@ -76,7 +76,7 @@ export function ResultCard({ result, text }: { result: DetectionResult; text: st
               {verdictLabel}
             </h2>
             <div className="mt-3 flex justify-center gap-1.5 sm:justify-start" aria-hidden>
-              {["#45b6ad", "#ce4b77", "#e4a149", "#8b8b3c"].map((c) => (
+              {["#888888", "#ce4b77", "#e4a149", "#8b8b3c"].map((c) => (
                 <span key={c} className="h-1.5 w-8 rounded-full" style={{ backgroundColor: c }} />
               ))}
             </div>

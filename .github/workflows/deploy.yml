@@ -50,7 +50,9 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          scp -P ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy.tar.gz
+          # This hosting account does not provide the SFTP subsystem used by modern scp.
+          # Force the legacy SCP protocol over SSH instead.
+          scp -O -P ${{ secrets.SSH_PORT }} -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key deploy.tar.gz ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/deploy.tar.gz
 
       - name: Extract and restart Passenger
         uses: appleboy/ssh-action@v1

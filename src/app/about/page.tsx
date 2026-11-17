@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { rich } from "@/components/ui/Rich";
-import { getArticleStats, getArticleYears, getSourceCounts } from "@/lib/articles";
 import { getDatasetOverview } from "@/lib/legacy-panel";
 import { CLASS_META, DATASET_CLASSES } from "@/lib/dataset-classes";
-import { formatCount, sourceName } from "@/lib/sources";
+import { formatCount } from "@/lib/sources";
 import { tk } from "@/lib/site-lang";
 import { getSiteT } from "@/lib/site-lang-server";
 
@@ -42,15 +41,9 @@ function datasetOverview() {
 }
 
 export default async function AboutPage() {
-  const [stats, sources, years, { t, lang }] = await Promise.all([getArticleStats(), getSourceCounts(), getArticleYears(), getSiteT()]);
+  const { t, lang } = await getSiteT();
   const count = (n: number) => formatCount(n, lang);
   const dataset = datasetOverview();
-  const span = years.length ? `${years[years.length - 1]}–${years[0]}` : "";
-  const verdicts = [
-    { label: t("Hoax"), value: stats.hoax, color: "var(--hoax)" },
-    { label: t("Misleading"), value: stats.misleading, color: "var(--warn)" },
-    { label: t("Credible"), value: stats.valid, color: "var(--valid)" },
-  ];
 
   return (
     <>
@@ -64,47 +57,6 @@ export default async function AboutPage() {
                 <p className="mt-2 text-sm leading-relaxed text-ink-muted">{t(a.body)}</p>
               </div>
             ))}
-          </div>
-
-          {/* The archive */}
-          <div className="neu p-6 sm:p-8">
-            <div className="eyebrow">{t("The archive")}</div>
-            <h2 className="mt-3 font-display text-2xl font-bold">
-              {span ? t("{n} fact-checks, {years}", { n: count(stats.total), years: span }) : t("{n} fact-checks", { n: count(stats.total) })}
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">
-              {t("Collected from {sources} fact-checking sources: {id} in Indonesian and {en} in English. Every entry keeps its verdict and a link to the original article.", {
-                sources: count(stats.sources),
-                id: count(stats.indonesian),
-                en: count(stats.english),
-              })}
-            </p>
-
-            <div className="mt-6 flex h-3 overflow-hidden rounded-full" role="img" aria-label={verdicts.map((v) => `${v.label} ${count(v.value)}`).join(", ")}>
-              {verdicts.map((v) => (
-                <span key={v.label} style={{ width: `${(100 * v.value) / Math.max(stats.total, 1)}%`, background: v.color }} />
-              ))}
-            </div>
-            <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink-muted">
-              {verdicts.map((v) => (
-                <li key={v.label} className="flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full" style={{ background: v.color }} />
-                  {v.label} <span className="tabular-nums text-ink">{count(v.value)}</span>
-                </li>
-              ))}
-            </ul>
-
-            <h3 className="mt-8 text-sm font-semibold">{t("Sources")}</h3>
-            <ul className="mt-3 grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-              {sources.map((s) => (
-                <li key={s.site} className="flex items-baseline justify-between gap-3 border-b border-hairline pb-2">
-                  <Link href={`/blog?source=${encodeURIComponent(s.site)}`} className="text-ink hover:text-brand-to">
-                    {sourceName(s.site)}
-                  </Link>
-                  <span className="tabular-nums text-ink-faint">{count(s.count)}</span>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* The training data */}

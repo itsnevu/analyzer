@@ -91,7 +91,6 @@ export const home: Record<string, string> = {
   "{n} more characters to go": "Kurang {n} karakter lagi",
   "All the numbers": "Semua angka",
   "All the numbers →": "Semua angka →",
-  "Archive built from these fact-checking sources": "Arsip ini dihimpun dari sumber cek fakta berikut",
   "Search the archive": "Cari di arsip",
   "Search {n} fact-checks… e.g. vaksin, KPU, undian": "Cari di antara {n} cek fakta… mis. vaksin, KPU, undian",
   Search: "Cari",
